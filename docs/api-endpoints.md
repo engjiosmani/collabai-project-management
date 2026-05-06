@@ -1,4 +1,4 @@
-# API endpoints
+_# API endpoints
 
 **Canonical rule:** all product REST endpoints use prefix **`/api/v1`**. Document tooling lives at **`/api/docs/`** and **`/api/schema/`** (no version segment). GitHub Issues must copy paths from this file to avoid drift.
 
@@ -17,6 +17,33 @@ OpenAPI schema: `http://127.0.0.1:8000/api/schema/`
 | Method | `POST` |
 | Path | `/auth/register` |
 | Full URL | `/api/v1/auth/register` |
+
+### Login (JWT)
+
+| Item | Value |
+|------|--------|
+| Story | AUTH-02 |
+| Method | `POST` |
+| Path | `/auth/login` |
+| Full URL | `/api/v1/auth/login` |
+
+### Refresh token (JWT)
+
+| Item | Value |
+|------|--------|
+| Story | AUTH-02 |
+| Method | `POST` |
+| Path | `/auth/refresh` |
+| Full URL | `/api/v1/auth/refresh` |
+
+### Logout (JWT)
+
+| Item | Value |
+|------|--------|
+| Story | AUTH-02 |
+| Method | `POST` |
+| Path | `/auth/logout` |
+| Full URL | `/api/v1/auth/logout` |
 
 **Request body (JSON)**
 
@@ -49,4 +76,4 @@ or
 }
 ```
 
-Password rules combine Django validators plus extra complexity checks (mixed case, digit, special character).
+Password rules combine Django validators plus extra complexity checks (mixed case, digit, special character)._
