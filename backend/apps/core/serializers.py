@@ -3,6 +3,7 @@ import re
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
+from django.contrib.auth import authenticate
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -43,3 +44,26 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
         )
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get('email', '').lower().strip()
+        password = attrs.get('password', '')
+
+        user = authenticate(
+            request=self.context.get('request'),
+            username=email,  # RegisterService sets username=email
+            password=password,
+        )
+
+        if user is None:
+            raise serializers.ValidationError('Invalid email or password.')
+        if not user.is_active:
+            raise serializers.ValidationError('This account has been disabled.')
+
+        attrs['user'] = user
+        return attrs
