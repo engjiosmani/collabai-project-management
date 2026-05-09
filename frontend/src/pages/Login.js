@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import API from "../api/api";
+import { AuthContext } from "../context/AuthContext";
 
-function Register() {
+function Login() {
+    const { login } = useContext(AuthContext);
+
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
         email: "",
         password: "",
-        confirmPassword: "",
     });
 
     const [error, setError] = useState("");
@@ -25,20 +26,15 @@ function Register() {
 
         setError("");
 
-        if (formData.password !== formData.confirmPassword) {
-            setError("Passwords do not match");
-            return;
-        }
+        const result = await login(
+            formData.email,
+            formData.password
+        );
 
-        try {
-            await API.post("/auth/register", {
-                email: formData.email,
-                password: formData.password,
-            });
-
-            navigate("/login");
-        } catch (error) {
-            setError("Registration failed");
+        if (result.success) {
+            navigate("/dashboard");
+        } else {
+            setError(result.message);
         }
     };
 
@@ -46,11 +42,11 @@ function Register() {
         <div style={styles.container}>
             <div style={styles.card}>
                 <h1 style={styles.title}>
-                    Create Account
+                    Welcome Back
                 </h1>
 
                 <p style={styles.subtitle}>
-                    Register to start using CollabAI
+                    Login to your CollabAI account
                 </p>
 
                 <form onSubmit={handleSubmit}>
@@ -72,20 +68,11 @@ function Register() {
                         style={styles.input}
                     />
 
-                    <input
-                        type="password"
-                        name="confirmPassword"
-                        placeholder="Confirm password"
-                        value={formData.confirmPassword}
-                        onChange={handleChange}
-                        style={styles.input}
-                    />
-
                     <button
                         type="submit"
                         style={styles.button}
                     >
-                        Register
+                        Login
                     </button>
                 </form>
 
@@ -96,13 +83,13 @@ function Register() {
                 )}
 
                 <p style={styles.footerText}>
-                    Already have an account?
+                    Don’t have an account?
                     <Link
-                        to="/login"
+                        to="/register"
                         style={styles.link}
                     >
                         {" "}
-                        Login
+                        Register
                     </Link>
                 </p>
             </div>
@@ -163,6 +150,7 @@ const styles = {
         fontSize: "16px",
         fontWeight: "bold",
         cursor: "pointer",
+        transition: "0.3s",
     },
 
     error: {
@@ -184,4 +172,4 @@ const styles = {
     },
 };
 
-export default Register;
+export default Login;
