@@ -148,8 +148,8 @@ class LoginViewTests(TestCase):
         self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_logout_requires_refresh_token_in_body(self):
-            refresh = RefreshToken.for_user(self.user)
-            access = str(refresh.access_token)
+        refresh = RefreshToken.for_user(self.user)
+        access = str(refresh.access_token)
 
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
         response = self.client.post(self.logout_url, {}, format='json')
