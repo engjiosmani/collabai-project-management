@@ -69,6 +69,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'config.middleware.JWTAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -175,6 +176,13 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+API_JWT_ENFORCE_PREFIX = '/api/v1/'
+API_JWT_PUBLIC_PATHS = (
+    '/api/v1/auth/register',
+    '/api/v1/auth/login',
+    '/api/v1/auth/refresh',
+)
+API_JWT_ROLE_REQUIREMENTS = ()
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
