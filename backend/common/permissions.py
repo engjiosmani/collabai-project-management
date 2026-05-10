@@ -1,5 +1,5 @@
-from rest_framework.permissions import BasePermission
-
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+from common.workspace_access import resolve_workspace, user_can_access_workspace
 
 def user_matches_any_required_role(user, required_roles):
     """True if Django auth user satisfies any identifier in ``required_roles`` (names/slugs or objects).
@@ -41,6 +41,40 @@ class IsOwner(BasePermission):
         owner = getattr(obj, 'user', None)
         return owner is not None and owner == user
 
+class IsWorkspaceTeamMember(BasePermission):
+    """
+    Read/write allowed only when the authenticated user is (or superuser) a TeamMember
+    of the workspace derived from the object (project → workspace chain).
+    """
+    message = 'You do not have access to this resource.'
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated)
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if getattr(user, 'is_superuser', False):
+            return True
+        workspace = resolve_workspace(obj)
+        return user_can_access_workspace(user, workspace)
+class IsWorkspaceMemberCommentAuthorForWrite(BasePermission):
+    """
+    Safe methods: user must be a workspace team member for the comment's task/project.
+    Unsafe methods: must be comment author (and still a workspace member).
+    """
+    message = 'You do not have permission to modify this comment.'
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated)
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if getattr(user, 'is_superuser', False):
+            return True
+        workspace = resolve_workspace(obj)
+        if not user_can_access_workspace(user, workspace):
+            return False
+        if request.method in SAFE_METHODS:
+            return True
+        return obj.author_id == user.id
 
 class HasRole(BasePermission):
     required_role = None
