@@ -1,13 +1,18 @@
+from django.core.cache import cache
 from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
+from rest_framework.response import Response
 
+from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
 from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import TaskFilter
 from .models import Task
 from .serializers import TaskSerializer
+
+CACHE_NAMESPACE = 'tasks'
 
 
 @extend_schema_view(
@@ -46,3 +51,13 @@ class TaskViewSet(viewsets.ModelViewSet):
             Task.objects.filter(project__workspace_id__in=ws_ids)
             .select_related('project', 'project__workspace', 'status', 'priority', 'assigned_to')
         )
+
+    def list(self, request, *args, **kwargs):
+        cache_key = make_list_key(CACHE_NAMESPACE, request.user.pk, request.get_full_path())
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        if response.status_code == 200:
+            cache.set(cache_key, response.data)
+        return response

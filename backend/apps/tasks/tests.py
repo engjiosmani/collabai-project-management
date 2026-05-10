@@ -1,11 +1,16 @@
+from django.core.cache import cache
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.organizations.models import Organization
 from apps.workspaces.models import TeamMember,Workspace
 from apps.projects.models import Project
+from common.cache import make_list_key
 from .models import Task, TaskStatus, TaskPriority, Label, TaskLabel, Attachment
+from .views import CACHE_NAMESPACE
 
 User = get_user_model()
 
@@ -152,3 +157,112 @@ class TaskPermissionsAPITest(APITestCase):
     def test_member_has_object_permission_for_mutations(self):
         self.client.delete(f'/api/v1/tasks/{self.task.pk}/', **_jwt_header(self.user))
         self.assertFalse(Task.objects.filter(pk=self.task.pk).exists())
+
+
+@override_settings(CACHES={'default': {
+    'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    'LOCATION': 'tasks-cache-tests',
+}})
+class TaskListCacheTest(APITestCase):
+    """Verifies that GET /api/v1/tasks/ is cached and invalidated on writes."""
+
+    def setUp(self):
+        cache.clear()
+        self.member = User.objects.create_user(
+            username='taskcache@example.com', email='taskcache@example.com', password='x',
+        )
+        self.other = User.objects.create_user(
+            username='taskother@example.com', email='taskother@example.com', password='x',
+        )
+        self.org = Organization.objects.create(name='Task Cache Org')
+        self.workspace = Workspace.objects.create(name='Task Cache WS', organization=self.org)
+        TeamMember.objects.create(workspace=self.workspace, user=self.member)
+        TeamMember.objects.create(workspace=self.workspace, user=self.other)
+        self.project = Project.objects.create(workspace=self.workspace, name='Cache Project')
+        self.status = TaskStatus.objects.create(name='Open')
+        self.priority = TaskPriority.objects.create(name='P1', level=1)
+        Task.objects.create(
+            project=self.project, title='Seed Cached Task',
+            status=self.status, priority=self.priority,
+        )
+
+    def _list(self, user):
+        return self.client.get('/api/v1/tasks/', **_jwt_header(user))
+
+    def test_second_list_call_serves_from_cache(self):
+        with CaptureQueriesContext(connection) as first_ctx:
+            first = self._list(self.member)
+        self.assertEqual(first.status_code, 200)
+
+        with CaptureQueriesContext(connection) as second_ctx:
+            second = self._list(self.member)
+        self.assertEqual(second.status_code, 200)
+
+        self.assertLess(
+            len(second_ctx.captured_queries),
+            len(first_ctx.captured_queries),
+            'Cached list call should issue strictly fewer DB queries than the first call',
+        )
+
+    def test_create_invalidates_cache(self):
+        self._list(self.member)
+        res = self.client.post(
+            '/api/v1/tasks/',
+            {
+                'project': self.project.pk,
+                'title': 'Brand New Task',
+                'status': self.status.pk,
+                'priority': self.priority.pk,
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+
+        after = self._list(self.member)
+        titles = [t['title'] for t in after.data.get('results', after.data)]
+        self.assertIn('Brand New Task', titles)
+
+    def test_update_invalidates_cache(self):
+        target = Task.objects.create(
+            project=self.project, title='Original Title',
+            status=self.status, priority=self.priority,
+        )
+        self._list(self.member)
+
+        res = self.client.patch(
+            f'/api/v1/tasks/{target.pk}/',
+            {'title': 'Renamed Task'},
+            format='json',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+
+        after = self._list(self.member)
+        titles = [t['title'] for t in after.data.get('results', after.data)]
+        self.assertIn('Renamed Task', titles)
+        self.assertNotIn('Original Title', titles)
+
+    def test_delete_invalidates_cache(self):
+        target = Task.objects.create(
+            project=self.project, title='To Delete',
+            status=self.status, priority=self.priority,
+        )
+        self._list(self.member)
+
+        res = self.client.delete(f'/api/v1/tasks/{target.pk}/', **_jwt_header(self.member))
+        self.assertEqual(res.status_code, 204)
+
+        after = self._list(self.member)
+        titles = [t['title'] for t in after.data.get('results', after.data)]
+        self.assertNotIn('To Delete', titles)
+
+    def test_users_have_distinct_cache_keys(self):
+        self._list(self.member)
+        self._list(self.other)
+
+        member_key = make_list_key(CACHE_NAMESPACE, self.member.pk, '/api/v1/tasks/')
+        other_key = make_list_key(CACHE_NAMESPACE, self.other.pk, '/api/v1/tasks/')
+        self.assertNotEqual(member_key, other_key)
+        self.assertIsNotNone(cache.get(member_key))
+        self.assertIsNotNone(cache.get(other_key))
