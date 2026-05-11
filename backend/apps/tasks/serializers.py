@@ -7,6 +7,10 @@ from .models import Task
 
 
 class TaskSerializer(serializers.ModelSerializer):
+    status_name = serializers.CharField(source='status.name', read_only=True)
+    priority_name = serializers.CharField(source='priority.name', read_only=True)
+    assigned_to_email = serializers.EmailField(source='assigned_to.email', read_only=True)
+
     class Meta:
         model = Task
         fields = (
@@ -15,8 +19,11 @@ class TaskSerializer(serializers.ModelSerializer):
             'title',
             'description',
             'status',
+            'status_name',
             'priority',
+            'priority_name',
             'assigned_to',
+            'assigned_to_email',
             'due_date',
             'created_at',
             'updated_at',

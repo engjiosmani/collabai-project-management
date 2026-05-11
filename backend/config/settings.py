@@ -30,9 +30,51 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
+
+# CORS Configuration: Allow frontend origins
+# In development, CORS_ALLOW_ALL_ORIGINS=True is the safest option to debug.
+# In production, specify exact origins. We support both modes via environment variable.
+CORS_ALLOW_ALL_ORIGINS = DEBUG or os.environ.get('CORS_ALLOW_ALL_ORIGINS', '').lower() == 'true'
+
+# Fallback to explicit origins if CORS_ALLOW_ALL_ORIGINS is False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3001',
+]
+
+# CORS additional headers: allow credentials with credentials=true requests
+CORS_ALLOW_CREDENTIALS = True
+
+# CORS allow all methods for preflight
+CORS_ALLOW_METHODS = [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS',
+    'HEAD',
+]
+
+# Allow common headers in preflight requests
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-request-id',
+]
+
+# Expose response headers to the frontend
+CORS_EXPOSE_HEADERS = [
+    'x-request-id',
 ]
 
 
@@ -65,9 +107,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'config.middleware.RequestLoggingMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

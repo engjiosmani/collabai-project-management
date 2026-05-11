@@ -1,8 +1,26 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { render, screen } from "@testing-library/react";
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+jest.mock(
+  "react-router-dom",
+  () => ({
+    Routes: ({ children }) => <>{children}</>,
+    Route: ({ element }) => <>{element}</>,
+    Navigate: () => null,
+    Link: ({ children, to }) => <a href={to}>{children}</a>,
+    useNavigate: () => jest.fn(),
+  }),
+  { virtual: true }
+);
+
+import App from "./App";
+import { AuthProvider } from "./context/AuthContext";
+
+test("renders the login screen at the login route", () => {
+  render(
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+
+  expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
 });

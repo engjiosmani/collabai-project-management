@@ -44,6 +44,8 @@ def _longest_matching_roles(path: str) -> tuple:
 
 
 class RequestLoggingMiddleware:
+    """Log request details; preserve response headers (do not interfere with CORS)."""
+
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -55,7 +57,14 @@ class RequestLoggingMiddleware:
         duration_ms = (time.monotonic() - start) * 1000
         user = getattr(request, 'user', None)
         user_id = getattr(user, 'id', None) if getattr(user, 'is_authenticated', False) else '-'
-        response['X-Request-ID'] = request_id
+
+        # Safely add X-Request-ID header to response if it supports item assignment
+        if hasattr(response, '__setitem__'):
+            try:
+                response['X-Request-ID'] = request_id
+            except (TypeError, AttributeError):
+                pass  # Response type doesn't support header assignment
+
         logger.info(
             'request_id=%s method=%s endpoint=%s user_id=%s status=%s duration_ms=%.2f ip=%s',
             request_id,
@@ -75,6 +84,10 @@ class JWTAuthenticationMiddleware:
     Public routes (registration, login, refresh) optionally authenticate without rejecting invalid tokens.
     Optional path-prefix RBAC uses ``settings.API_JWT_ROLE_REQUIREMENTS`` with
     :func:`common.permissions.user_matches_any_required_role`.
+
+    CORS Preflight (OPTIONS) requests are ALWAYS allowed without authentication to support browser
+    CORS preflight checks. Returns 204 No Content; django-cors-headers middleware (which runs
+    before this middleware) will add the proper Access-Control-Allow-* headers to this response.
     """
 
     jwt_auth = JWTAuthentication()
@@ -109,14 +122,16 @@ class JWTAuthenticationMiddleware:
         try:
             outcome = self.jwt_auth.authenticate(raw)
         except AuthenticationFailed:
-            return JsonResponse(
+            return self._error_response(
                 {'detail': 'Given token not valid for any token type'},
-                status=401,
+                401,
+                request,
             )
         if outcome is None:
-            return JsonResponse(
+            return self._error_response(
                 {'detail': 'Authentication credentials were not provided.'},
-                status=401,
+                401,
+                request,
             )
         user, token = outcome
         request.user = user
@@ -124,31 +139,41 @@ class JWTAuthenticationMiddleware:
 
         required_roles = _longest_matching_roles(request.path)
         if required_roles and not user_matches_any_required_role(user, required_roles):
-            return JsonResponse(
+            return self._error_response(
                 {'detail': 'You do not have permission to perform this action.'},
-                status=403,
+                403,
+                request,
             )
         return None
+
+    def _error_response(self, data: dict, status: int, request):
+        """Create a JSON error response; include request ID if available."""
+        rid = getattr(request, 'request_id', None) or str(uuid.uuid4())
+        response = JsonResponse(data, status=status)
+        response['X-Request-ID'] = str(rid)
+        return response
 
     def __call__(self, request):
         prefix = getattr(settings, 'API_JWT_ENFORCE_PREFIX', '/api/v1/').rstrip('/') or '/'
         if not (request.path == prefix or request.path.startswith(prefix + '/')):
+            # Not an API request; skip authentication
             return self.get_response(request)
 
-        # CORS preflight: avoid DRF auth on OPTIONS (would 401 before CORS can answer).
+        # CORS Preflight Requests: Always allow OPTIONS without authentication.
+        # Return 204 No Content; django-cors-headers middleware (before this one) will add CORS headers.
         if request.method == 'OPTIONS':
             resp = HttpResponse(status=204)
             rid = getattr(request, 'request_id', None) or str(uuid.uuid4())
             resp['X-Request-ID'] = str(rid)
             return resp
 
+        # Public paths (register, login, refresh) allow unauthenticated or optional auth
         if self._is_public_path(request.path):
             self._apply_jwt_optional(request)
             return self.get_response(request)
 
+        # Protected paths require authentication
         early = self._apply_jwt_required(request)
         if early is not None:
-            rid = getattr(request, 'request_id', None) or str(uuid.uuid4())
-            early['X-Request-ID'] = str(rid)
             return early
         return self.get_response(request)

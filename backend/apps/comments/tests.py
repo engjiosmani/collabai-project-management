@@ -134,9 +134,13 @@ class ActivityLogReadOnlyAPITest(APITestCase):
     def test_list_and_retrieve_read_only(self):
         res = self.client.get('/api/v1/activity-logs/', **_jwt_header(self.member))
         self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['results'][0]['task_title'], self.task.title)
+        self.assertEqual(res.data['results'][0]['user_email'], self.member.email)
 
         res = self.client.get(f'/api/v1/activity-logs/{self.log.pk}/', **_jwt_header(self.member))
         self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['task_title'], self.task.title)
+        self.assertEqual(res.data['user_email'], self.member.email)
 
     def test_post_not_allowed(self):
         res = self.client.post(

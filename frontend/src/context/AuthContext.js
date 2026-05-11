@@ -12,10 +12,14 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const token = localStorage.getItem("access");
+        const email = localStorage.getItem("user_email");
 
         if (token) {
             setAccessToken(token);
-            setUser({ authenticated: true });
+            setUser({
+                email: email || undefined,
+                authenticated: true,
+            });
         }
     }, []);
 
@@ -31,6 +35,7 @@ export const AuthProvider = ({ children }) => {
 
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
+            localStorage.setItem("user_email", email);
 
             setAccessToken(access);
 
@@ -55,6 +60,7 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
+        localStorage.removeItem("user_email");
 
         setAccessToken(null);
         setUser(null);

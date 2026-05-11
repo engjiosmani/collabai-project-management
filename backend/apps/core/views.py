@@ -6,6 +6,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Count
+
+from common.workspace_access import workspaces_queryset_for_user
+from apps.comments.models import ActivityLog
+from apps.comments.serializers import ActivityLogSerializer
+from apps.projects.models import Project
+from apps.tasks.models import Task, TaskStatus
 
 
 @extend_schema(
@@ -99,3 +106,71 @@ class LogoutView(APIView):
             return Response({'detail': 'Invalid or expired refresh token.'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    tags=['Dashboard'],
+    responses={200: OpenApiResponse(description='Aggregated dashboard summary')},
+    description='Aggregated counts and recent activity for the current user (workspace-scoped).',
+)
+class DashboardSummaryView(APIView):
+    """Return aggregated workspace-scoped counts and recent activity.
+
+    Optimized to run a small number of DB queries and return cached-friendly,
+    pre-aggregated metrics for dashboard consumption.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        # Workspaces the user can access (handles superuser)
+        ws_qs = workspaces_queryset_for_user(user)
+
+        # Projects accessible
+        total_projects = Project.objects.filter(workspace__in=ws_qs).count()
+
+        # Tasks accessible
+        tasks_qs = Task.objects.filter(project__workspace__in=ws_qs)
+        total_tasks = tasks_qs.count()
+
+        # Determine "completed" statuses by name hints (case-insensitive).
+        done_status_qs = TaskStatus.objects.filter(name__iregex=r"\b(done|completed|complete|closed|resolved|finished)\b")
+        done_status_ids = list(done_status_qs.values_list('pk', flat=True))
+        if done_status_ids:
+            completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count()
+        else:
+            # Fallback: no status matches — treat completed as 0
+            completed_tasks = 0
+
+        pending_tasks = max(total_tasks - completed_tasks, 0)
+
+        # Recent activity (limit 10) - fetch with select_related to avoid N+1
+        recent_activity_qs = (
+            ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
+            .select_related('task', 'user')
+            .order_by('-created_at')[:10]
+        )
+        recent_activity = ActivityLogSerializer(recent_activity_qs, many=True).data
+
+        # Activity aggregated by action (small aggregation)
+        activity_by_action_qs = (
+            ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
+            .values('action')
+            .annotate(value=Count('id'))
+            .order_by('-value')[:20]
+        )
+        activity_by_action = [
+            {'name': a['action'] or 'UNKNOWN', 'value': a['value']} for a in activity_by_action_qs
+        ]
+
+        payload = {
+            'total_projects': total_projects,
+            'total_tasks': total_tasks,
+            'completed_tasks': completed_tasks,
+            'pending_tasks': pending_tasks,
+            'recent_activity': recent_activity,
+            'activity_by_action': activity_by_action,
+        }
+
+        return Response(payload, status=status.HTTP_200_OK)

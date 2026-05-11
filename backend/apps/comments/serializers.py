@@ -38,12 +38,17 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
+    task_title = serializers.CharField(source='task.title', read_only=True)
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+
     class Meta:
         model = ActivityLog
         fields = (
             'id',
             'task',
+            'task_title',
             'user',
+            'user_email',
             'action',
             'description',
             'created_at',

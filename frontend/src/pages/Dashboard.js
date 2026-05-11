@@ -1,239 +1,235 @@
 import { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+
+import ActionChart from "../components/dashboard/ActionChart";
+import CompletionChart from "../components/dashboard/CompletionChart";
+import ErrorState from "../components/dashboard/ErrorState";
+import RecentActivityList from "../components/dashboard/RecentActivityList";
+import SkeletonCard from "../components/dashboard/SkeletonCard";
+import StatCard from "../components/dashboard/StatCard";
 import { AuthContext } from "../context/AuthContext";
+import { DashboardProvider, useDashboard } from "../context/DashboardContext";
 
-function Dashboard() {
+import "./Dashboard.css";
+
+function DashboardSkeleton() {
+    return (
+        <div className="dashboard-shell">
+            <aside className="dashboard-sidebar">
+                <div>
+                    <div className="dashboard-brand">
+                        <div className="dashboard-brand-mark">C</div>
+                        <div>
+                            <div className="dashboard-skeleton-line dashboard-skeleton-line--title" style={{ width: "120px" }} />
+                            <div className="dashboard-skeleton-line" style={{ width: "170px" }} />
+                        </div>
+                    </div>
+                    <div className="dashboard-nav">
+                        <div className="dashboard-skeleton-line" />
+                        <div className="dashboard-skeleton-line" />
+                        <div className="dashboard-skeleton-line" />
+                    </div>
+                </div>
+                <div className="dashboard-sidebar-footer">
+                    <div className="dashboard-skeleton-line" style={{ width: "140px" }} />
+                    <div className="dashboard-skeleton-line" style={{ width: "180px" }} />
+                </div>
+            </aside>
+
+            <main className="dashboard-main">
+                <div className="dashboard-topbar">
+                    <div>
+                        <div className="dashboard-skeleton-line dashboard-skeleton-line--title" style={{ width: "260px" }} />
+                        <div className="dashboard-skeleton-line" style={{ width: "420px" }} />
+                    </div>
+                    <div className="dashboard-actions">
+                        <div className="dashboard-skeleton-line" style={{ width: "110px", height: "44px" }} />
+                        <div className="dashboard-skeleton-line" style={{ width: "90px", height: "44px" }} />
+                    </div>
+                </div>
+
+                <section className="dashboard-section dashboard-stat-grid">
+                    <SkeletonCard lines={2} />
+                    <SkeletonCard lines={2} />
+                    <SkeletonCard lines={2} />
+                    <SkeletonCard lines={2} />
+                </section>
+
+                <section className="dashboard-grid dashboard-section">
+                    <SkeletonCard lines={5} />
+                    <SkeletonCard lines={5} />
+                </section>
+
+                <section className="dashboard-panel dashboard-panel--wide">
+                    <SkeletonCard lines={6} />
+                </section>
+            </main>
+        </div>
+    );
+}
+
+function DashboardScreen() {
     const { user, logout } = useContext(AuthContext);
-
     const navigate = useNavigate();
+    const { summary, loading, refreshing, error, reload } = useDashboard();
 
     const handleLogout = () => {
         logout();
         navigate("/login");
     };
 
+    const handleRefresh = () => {
+        reload({ silent: true });
+    };
+
+    if (loading && !summary.hasData) {
+        return <DashboardSkeleton />;
+    }
+
+    if (error && !summary.hasData) {
+        return (
+            <div className="dashboard-main" style={{ minHeight: "100vh" }}>
+                <ErrorState message={error} onRetry={handleRefresh} />
+            </div>
+        );
+    }
+
     return (
-        <div style={styles.container}>
-            <div style={styles.sidebar}>
-                <h2 style={styles.logo}>
-                    CollabAI
-                </h2>
+        <div className="dashboard-shell">
+            <aside className="dashboard-sidebar">
+                <div>
+                    <div className="dashboard-brand">
+                        <div className="dashboard-brand-mark">C</div>
+                        <div>
+                            <h1 className="dashboard-brand-title">CollabAI</h1>
+                            <p className="dashboard-brand-subtitle">Project intelligence hub</p>
+                        </div>
+                    </div>
 
-                <div style={styles.menu}>
-                    <p style={styles.menuItem}>
-                        Dashboard
-                    </p>
-
-                    <p style={styles.menuItem}>
-                        Projects
-                    </p>
-
-                    <p style={styles.menuItem}>
-                        Tasks
-                    </p>
-
-                    <p style={styles.menuItem}>
-                        Team
-                    </p>
+                    <nav className="dashboard-nav" aria-label="Dashboard sections">
+                        <button className="dashboard-nav-item dashboard-nav-item--active" type="button">Overview</button>
+                        <button className="dashboard-nav-item" type="button">Projects</button>
+                        <button className="dashboard-nav-item" type="button">Tasks</button>
+                        <button className="dashboard-nav-item" type="button">Activity</button>
+                    </nav>
                 </div>
 
-                <button
-                    onClick={handleLogout}
-                    style={styles.logoutButton}
-                >
-                    Logout
-                </button>
-            </div>
+                <div className="dashboard-sidebar-footer">
+                    <p className="dashboard-sidebar-note">
+                        Connected securely over REST using JWT authentication and the shared CollabAI API client.
+                    </p>
 
-            <div style={styles.main}>
-                <div style={styles.header}>
+                    <button className="dashboard-button dashboard-button--ghost" onClick={handleLogout} type="button">
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            <main className="dashboard-main">
+                <header className="dashboard-topbar">
                     <div>
-                        <h1 style={styles.title}>
-                            Welcome Back 
-                        </h1>
-
-                        <p style={styles.subtitle}>
-                            Manage your projects with AI
+                        <h2 className="dashboard-heading">Welcome back{user?.email ? `, ${user.email}` : ""}</h2>
+                        <p className="dashboard-subheading">
+                            Monitor project health, task completion, and recent activity from a single command center.
                         </p>
                     </div>
 
-                    <div style={styles.userCard}>
-                        <p style={styles.userEmail}>
-                            {user?.email}
-                        </p>
+                    <div className="dashboard-meta">
+                        <span className="dashboard-user-pill">Signed in as {user?.email || "authenticated user"}</span>
+                        <span className="dashboard-status-pill">
+                            {summary.lastUpdated ? `Updated ${new Intl.DateTimeFormat(undefined, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                            }).format(summary.lastUpdated)}` : "Loading latest data"}
+                        </span>
+                        <div className="dashboard-actions">
+                            <button className="dashboard-button dashboard-button--ghost" onClick={handleRefresh} type="button">
+                                {refreshing ? "Refreshing..." : "Refresh"}
+                            </button>
+                            <button className="dashboard-button dashboard-button--primary" onClick={handleLogout} type="button">
+                                Logout
+                            </button>
+                        </div>
                     </div>
-                </div>
+                </header>
 
-                <div style={styles.cards}>
-                    <div style={styles.card}>
-                        <h3 style={styles.cardTitle}>
-                            Active Projects
-                        </h3>
+                {error ? <ErrorState message={error} onRetry={handleRefresh} /> : null}
 
-                        <p style={styles.cardValue}>
-                            12
-                        </p>
+                <section className="dashboard-section dashboard-stat-grid" aria-label="Workspace statistics">
+                    <StatCard
+                        label="Total projects"
+                        value={summary.totalProjects}
+                        hint="All projects visible to your workspace access"
+                        tone="default"
+                    />
+                    <StatCard
+                        label="Total tasks"
+                        value={summary.totalTasks}
+                        hint={`${summary.completionRate}% of tasks are completed`}
+                        tone="info"
+                    />
+                    <StatCard
+                        label="Completed tasks"
+                        value={summary.completedTasks}
+                        hint="Tasks with a completed status label"
+                        tone="success"
+                    />
+                    <StatCard
+                        label="Pending tasks"
+                        value={summary.pendingTasks}
+                        hint="Tasks still in progress"
+                        tone="warning"
+                    />
+                </section>
+
+                <section className="dashboard-grid dashboard-section">
+                    <article className="dashboard-panel">
+                        <div className="dashboard-panel-header">
+                            <div>
+                                <h3 className="dashboard-panel-title">Task completion</h3>
+                                <p className="dashboard-panel-subtitle">Completed versus pending work across all accessible projects.</p>
+                            </div>
+                        </div>
+                        <CompletionChart
+                            completed={summary.completedTasks}
+                            pending={summary.pendingTasks}
+                            total={summary.totalTasks}
+                        />
+                    </article>
+
+                    <article className="dashboard-panel">
+                        <div className="dashboard-panel-header">
+                            <div>
+                                <h3 className="dashboard-panel-title">Activity overview</h3>
+                                <p className="dashboard-panel-subtitle">Latest actions grouped by event type.</p>
+                            </div>
+                        </div>
+                        <ActionChart data={summary.activityByAction} />
+                    </article>
+                </section>
+
+                <section className="dashboard-panel dashboard-panel--wide">
+                    <div className="dashboard-panel-header">
+                        <div>
+                            <h3 className="dashboard-panel-title">Recent activity logs</h3>
+                            <p className="dashboard-panel-subtitle">Showing the latest five events from the activity feed.</p>
+                        </div>
+                        <span className="dashboard-status-pill">{summary.recentActivityCount} total logs</span>
                     </div>
 
-                    <div style={styles.card}>
-                        <h3 style={styles.cardTitle}>
-                            Pending Tasks
-                        </h3>
-
-                        <p style={styles.cardValue}>
-                            28
-                        </p>
-                    </div>
-
-                    <div style={styles.card}>
-                        <h3 style={styles.cardTitle}>
-                            Team Members
-                        </h3>
-
-                        <p style={styles.cardValue}>
-                            8
-                        </p>
-                    </div>
-                </div>
-
-                <div style={styles.activityCard}>
-                    <h2 style={styles.activityTitle}>
-                        Recent Activity
-                    </h2>
-
-                    <p style={styles.activityText}>
-                        No recent activities yet.
-                    </p>
-                </div>
-            </div>
+                    <RecentActivityList items={summary.recentActivity} />
+                </section>
+            </main>
         </div>
     );
 }
 
-const styles = {
-    container: {
-        display: "flex",
-        minHeight: "100vh",
-        backgroundColor: "#f8fafc",
-        fontFamily: "Arial",
-    },
-
-    sidebar: {
-        width: "250px",
-        backgroundColor: "#111827",
-        color: "white",
-        padding: "30px 20px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-    },
-
-    logo: {
-        fontSize: "28px",
-        marginBottom: "40px",
-    },
-
-    menu: {
-        display: "flex",
-        flexDirection: "column",
-        gap: "18px",
-    },
-
-    menuItem: {
-        cursor: "pointer",
-        fontSize: "16px",
-        color: "#d1d5db",
-    },
-
-    logoutButton: {
-        padding: "12px",
-        borderRadius: "10px",
-        border: "none",
-        backgroundColor: "#ef4444",
-        color: "white",
-        cursor: "pointer",
-        fontWeight: "bold",
-    },
-
-    main: {
-        flex: 1,
-        padding: "40px",
-    },
-
-    header: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "40px",
-    },
-
-    title: {
-        fontSize: "34px",
-        color: "#111827",
-        marginBottom: "8px",
-    },
-
-    subtitle: {
-        color: "#6b7280",
-    },
-
-    userCard: {
-        backgroundColor: "white",
-        padding: "15px 20px",
-        borderRadius: "12px",
-        boxShadow:
-            "0 4px 20px rgba(0,0,0,0.06)",
-    },
-
-    userEmail: {
-        margin: 0,
-        color: "#374151",
-        fontWeight: "bold",
-    },
-
-    cards: {
-        display: "grid",
-        gridTemplateColumns:
-            "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: "20px",
-        marginBottom: "40px",
-    },
-
-    card: {
-        backgroundColor: "white",
-        padding: "25px",
-        borderRadius: "16px",
-        boxShadow:
-            "0 4px 20px rgba(0,0,0,0.06)",
-    },
-
-    cardTitle: {
-        color: "#6b7280",
-        marginBottom: "15px",
-    },
-
-    cardValue: {
-        fontSize: "34px",
-        fontWeight: "bold",
-        color: "#111827",
-    },
-
-    activityCard: {
-        backgroundColor: "white",
-        padding: "30px",
-        borderRadius: "16px",
-        boxShadow:
-            "0 4px 20px rgba(0,0,0,0.06)",
-    },
-
-    activityTitle: {
-        marginBottom: "15px",
-        color: "#111827",
-    },
-
-    activityText: {
-        color: "#6b7280",
-    },
-};
+function Dashboard() {
+    return (
+        <DashboardProvider>
+            <DashboardScreen />
+        </DashboardProvider>
+    );
+}
 
 export default Dashboard;

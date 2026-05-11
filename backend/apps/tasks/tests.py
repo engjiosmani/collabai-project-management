@@ -111,6 +111,9 @@ class TaskCRUDAPITest(APITestCase):
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['status_name'], self.status.name)
+        self.assertEqual(res.data['priority_name'], self.priority.name)
+        self.assertEqual(res.data['assigned_to_email'], self.assignee.email)
         tid = res.data['id']
 
         res = self.client.patch(
