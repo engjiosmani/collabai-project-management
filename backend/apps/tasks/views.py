@@ -9,10 +9,27 @@ from common.permissions import IsWorkspaceTeamMember
 from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import TaskFilter
-from .models import Task
-from .serializers import TaskSerializer
+from .models import Task, TaskStatus
+from .serializers import TaskSerializer, TaskStatusSerializer
 
 CACHE_NAMESPACE = 'tasks'
+DEFAULT_TASK_STATUS_NAMES = ('To Do', 'In Progress', 'Done')
+
+
+@extend_schema_view(
+    list=extend_schema(tags=['Task statuses'], summary='List task statuses'),
+    retrieve=extend_schema(tags=['Task statuses'], summary='Retrieve task status'),
+)
+class TaskStatusViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TaskStatusSerializer
+
+    def get_queryset(self):
+        if not TaskStatus.objects.exists():
+            TaskStatus.objects.bulk_create(
+                [TaskStatus(name=name) for name in DEFAULT_TASK_STATUS_NAMES],
+                ignore_conflicts=True,
+            )
+        return TaskStatus.objects.all().order_by('name')
 
 
 @extend_schema_view(

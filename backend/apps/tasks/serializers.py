@@ -3,7 +3,13 @@ from rest_framework import serializers
 from apps.projects.models import Project
 from common.workspace_access import user_can_access_workspace
 
-from .models import Task
+from .models import Task, TaskStatus
+
+
+class TaskStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskStatus
+        fields = ('id', 'name')
 
 
 class TaskSerializer(serializers.ModelSerializer):

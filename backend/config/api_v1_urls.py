@@ -1,6 +1,7 @@
 from django.urls import include, path
 
 from apps.core.views import DashboardSummaryView
+from apps.tasks.views import TaskStatusViewSet
 
 urlpatterns = [
     path('', include('apps.core.urls')),
@@ -16,4 +17,5 @@ urlpatterns = [
     path('ai/', include('apps.ai_assistant.urls')),
     path('audit/', include('apps.audit_logs.urls')),
     path('profiles/', include('apps.user_profiles.urls')),
+    path('task-statuses/', TaskStatusViewSet.as_view({'get': 'list'}), name='task-statuses'),
 ]

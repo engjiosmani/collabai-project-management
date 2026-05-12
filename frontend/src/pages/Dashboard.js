@@ -1,9 +1,10 @@
-import { useContext } from "react";
+import { useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import ActionChart from "../components/dashboard/ActionChart";
 import CompletionChart from "../components/dashboard/CompletionChart";
 import ErrorState from "../components/dashboard/ErrorState";
+import KanbanBoard from "../components/KanbanBoard";
 import RecentActivityList from "../components/dashboard/RecentActivityList";
 import SkeletonCard from "../components/dashboard/SkeletonCard";
 import StatCard from "../components/dashboard/StatCard";
@@ -72,6 +73,7 @@ function DashboardScreen() {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const { summary, loading, refreshing, error, reload } = useDashboard();
+    const kanbanRef = useRef(null);
 
     const handleLogout = () => {
         logout();
@@ -80,6 +82,10 @@ function DashboardScreen() {
 
     const handleRefresh = () => {
         reload({ silent: true });
+    };
+
+    const handleScrollToKanban = () => {
+        kanbanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
     if (loading && !summary.hasData) {
@@ -109,7 +115,7 @@ function DashboardScreen() {
                     <nav className="dashboard-nav" aria-label="Dashboard sections">
                         <button className="dashboard-nav-item dashboard-nav-item--active" type="button">Overview</button>
                         <button className="dashboard-nav-item" type="button">Projects</button>
-                        <button className="dashboard-nav-item" type="button">Tasks</button>
+                        <button className="dashboard-nav-item" onClick={handleScrollToKanban} type="button">Tasks</button>
                         <button className="dashboard-nav-item" type="button">Activity</button>
                     </nav>
                 </div>
@@ -118,7 +124,6 @@ function DashboardScreen() {
                     <p className="dashboard-sidebar-note">
                         Connected securely over REST using JWT authentication and the shared CollabAI API client.
                     </p>
-
                     <button className="dashboard-button dashboard-button--ghost" onClick={handleLogout} type="button">
                         Logout
                     </button>
@@ -156,30 +161,10 @@ function DashboardScreen() {
                 {error ? <ErrorState message={error} onRetry={handleRefresh} /> : null}
 
                 <section className="dashboard-section dashboard-stat-grid" aria-label="Workspace statistics">
-                    <StatCard
-                        label="Total projects"
-                        value={summary.totalProjects}
-                        hint="All projects visible to your workspace access"
-                        tone="default"
-                    />
-                    <StatCard
-                        label="Total tasks"
-                        value={summary.totalTasks}
-                        hint={`${summary.completionRate}% of tasks are completed`}
-                        tone="info"
-                    />
-                    <StatCard
-                        label="Completed tasks"
-                        value={summary.completedTasks}
-                        hint="Tasks with a completed status label"
-                        tone="success"
-                    />
-                    <StatCard
-                        label="Pending tasks"
-                        value={summary.pendingTasks}
-                        hint="Tasks still in progress"
-                        tone="warning"
-                    />
+                    <StatCard label="Total projects" value={summary.totalProjects} hint="All projects visible to your workspace access" tone="default" />
+                    <StatCard label="Total tasks" value={summary.totalTasks} hint={`${summary.completionRate}% of tasks are completed`} tone="info" />
+                    <StatCard label="Completed tasks" value={summary.completedTasks} hint="Tasks with a completed status label" tone="success" />
+                    <StatCard label="Pending tasks" value={summary.pendingTasks} hint="Tasks still in progress" tone="warning" />
                 </section>
 
                 <section className="dashboard-grid dashboard-section">
@@ -190,11 +175,7 @@ function DashboardScreen() {
                                 <p className="dashboard-panel-subtitle">Completed versus pending work across all accessible projects.</p>
                             </div>
                         </div>
-                        <CompletionChart
-                            completed={summary.completedTasks}
-                            pending={summary.pendingTasks}
-                            total={summary.totalTasks}
-                        />
+                        <CompletionChart completed={summary.completedTasks} pending={summary.pendingTasks} total={summary.totalTasks} />
                     </article>
 
                     <article className="dashboard-panel">
@@ -219,6 +200,19 @@ function DashboardScreen() {
 
                     <RecentActivityList items={summary.recentActivity} />
                 </section>
+
+                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide">
+                    <div className="dashboard-panel-header">
+                        <div>
+                            <h3 className="dashboard-panel-title">Kanban task board</h3>
+                            <p className="dashboard-panel-subtitle">
+                                Create tasks, move them between statuses, and update them directly from the API-01 task endpoints.
+                            </p>
+                        </div>
+                    </div>
+
+                    <KanbanBoard />
+                </section>
             </main>
         </div>
     );
@@ -233,3 +227,4 @@ function Dashboard() {
 }
 
 export default Dashboard;
+

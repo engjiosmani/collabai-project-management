@@ -23,7 +23,7 @@ class TaskModelsTest(TestCase):
         self.org = Organization.objects.create(name="Task Org")
         self.workspace = Workspace.objects.create(name="Task Workspace", organization=self.org)
         self.project = Project.objects.create(workspace=self.workspace, name="Task Project")
-        self.status = TaskStatus.objects.create(name="To Do")
+        self.status, _ = TaskStatus.objects.get_or_create(name="To Do")
         self.priority = TaskPriority.objects.create(name="High", level=1)
 
     def test_create_task(self):
@@ -82,7 +82,7 @@ class TaskCRUDAPITest(APITestCase):
         TeamMember.objects.create(workspace=self.workspace, user=self.member)
         TeamMember.objects.create(workspace=self.workspace, user=self.assignee)
         self.project = Project.objects.create(workspace=self.workspace, name='Task API Project')
-        self.status = TaskStatus.objects.create(name='Open')
+        self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         self.task = Task.objects.create(
             project=self.project,
@@ -146,6 +146,21 @@ class TaskCRUDAPITest(APITestCase):
         self.assertEqual(res.status_code, 404)
 
 
+class TaskStatusAPITest(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='status@example.com', email='status@example.com', password='x')
+        TaskStatus.objects.get_or_create(name='Done')
+        TaskStatus.objects.get_or_create(name='In Progress')
+        TaskStatus.objects.get_or_create(name='To Do')
+
+    def test_authenticated_user_can_list_statuses(self):
+        res = self.client.get('/api/v1/task-statuses/', **_jwt_header(self.user))
+        self.assertEqual(res.status_code, 200)
+
+        data = res.data.get('results', res.data)
+        self.assertEqual([item['name'] for item in data], ['Done', 'In Progress', 'To Do'])
+
+
 class TaskPermissionsAPITest(APITestCase):
     """Workspace membership gates task access through queryset + object permission."""
 
@@ -155,7 +170,8 @@ class TaskPermissionsAPITest(APITestCase):
         self.ws = Workspace.objects.create(name='TP WS', organization=self.org)
         TeamMember.objects.create(workspace=self.ws, user=self.user)
         self.project = Project.objects.create(workspace=self.ws, name='TP')
-        self.task = Task.objects.create(project=self.project, title='T')
+        self.status, _ = TaskStatus.objects.get_or_create(name='Open')
+        self.task = Task.objects.create(project=self.project, title='T', status=self.status)
 
     def test_member_has_object_permission_for_mutations(self):
         self.client.delete(f'/api/v1/tasks/{self.task.pk}/', **_jwt_header(self.user))
@@ -182,7 +198,7 @@ class TaskListCacheTest(APITestCase):
         TeamMember.objects.create(workspace=self.workspace, user=self.member)
         TeamMember.objects.create(workspace=self.workspace, user=self.other)
         self.project = Project.objects.create(workspace=self.workspace, name='Cache Project')
-        self.status = TaskStatus.objects.create(name='Open')
+        self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         Task.objects.create(
             project=self.project, title='Seed Cached Task',
