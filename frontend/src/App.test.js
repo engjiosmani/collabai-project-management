@@ -1,4 +1,6 @@
 import { render, screen } from "@testing-library/react";
+import App from "./App";
+import { AuthProvider } from "./context/AuthContext";
 
 jest.mock(
   "react-router-dom",
@@ -11,9 +13,6 @@ jest.mock(
   }),
   { virtual: true }
 );
-
-import App from "./App";
-import { AuthProvider } from "./context/AuthContext";
 
 test("renders the login screen at the login route", () => {
   render(
