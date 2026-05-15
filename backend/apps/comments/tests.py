@@ -24,7 +24,7 @@ class CommentModelsTest(TestCase):
         self.org = Organization.objects.create(name="Comment Org")
         self.workspace = Workspace.objects.create(name="Comment Workspace", organization=self.org)
         self.project = Project.objects.create(workspace=self.workspace, name="Comment Project")
-        self.status = TaskStatus.objects.create(name="In Progress")
+        self.status = TaskStatus.objects.create(name="In Progress Test")
         self.priority = TaskPriority.objects.create(name="Medium", level=2)
         self.task = Task.objects.create(
             project=self.project,
