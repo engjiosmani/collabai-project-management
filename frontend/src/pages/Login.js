@@ -56,6 +56,7 @@ function Login() {
                         placeholder="Enter your email"
                         value={formData.email}
                         onChange={handleChange}
+                        data-cy="login-email"
                         style={styles.input}
                     />
 
@@ -65,11 +66,13 @@ function Login() {
                         placeholder="Enter your password"
                         value={formData.password}
                         onChange={handleChange}
+                        data-cy="login-password"
                         style={styles.input}
                     />
 
                     <button
                         type="submit"
+                        data-cy="login-submit"
                         style={styles.button}
                     >
                         Login
@@ -77,7 +80,7 @@ function Login() {
                 </form>
 
                 {error && (
-                    <p style={styles.error}>
+                    <p data-cy="login-error" style={styles.error}>
                         {error}
                     </p>
                 )}

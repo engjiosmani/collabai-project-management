@@ -20,6 +20,9 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "lint": "eslint \"src/**/*.{js,jsx}\"",
+    "e2e": "cypress open",
+    "e2e:run": "cypress run",
+    "e2e:ci": "cypress run --browser electron",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -42,6 +45,7 @@
   },
   "devDependencies": {
     "eslint": "^8.57.0",
-    "eslint-config-react-app": "^7.0.1"
+    "eslint-config-react-app": "^7.0.1",
+    "cypress": "^13.14.2"
   }
 }

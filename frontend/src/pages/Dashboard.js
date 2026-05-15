@@ -113,18 +113,18 @@ function DashboardScreen() {
                     </div>
 
                     <nav className="dashboard-nav" aria-label="Dashboard sections">
-                        <button className="dashboard-nav-item dashboard-nav-item--active" type="button">Overview</button>
-                        <button className="dashboard-nav-item" type="button">Projects</button>
-                        <button className="dashboard-nav-item" onClick={handleScrollToKanban} type="button">Tasks</button>
-                        <button className="dashboard-nav-item" type="button">Activity</button>
+                        <button className="dashboard-nav-item dashboard-nav-item--active" data-cy="dashboard-nav-overview" type="button">Overview</button>
+                        <button className="dashboard-nav-item" data-cy="dashboard-nav-projects" type="button">Projects</button>
+                        <button className="dashboard-nav-item" data-cy="dashboard-nav-tasks" onClick={handleScrollToKanban} type="button">Tasks</button>
+                        <button className="dashboard-nav-item" data-cy="dashboard-nav-activity" type="button">Activity</button>
                     </nav>
                 </div>
 
                 <div className="dashboard-sidebar-footer">
-                    <p className="dashboard-sidebar-note">
+                    <p className="dashboard-sidebar-note" data-cy="dashboard-sidebar-note">
                         Connected securely over REST using JWT authentication and the shared CollabAI API client.
                     </p>
-                    <button className="dashboard-button dashboard-button--ghost" onClick={handleLogout} type="button">
+                    <button className="dashboard-button dashboard-button--ghost" data-cy="dashboard-logout" onClick={handleLogout} type="button">
                         Logout
                     </button>
                 </div>
@@ -133,14 +133,14 @@ function DashboardScreen() {
             <main className="dashboard-main">
                 <header className="dashboard-topbar">
                     <div>
-                        <h2 className="dashboard-heading">Welcome back{user?.email ? `, ${user.email}` : ""}</h2>
-                        <p className="dashboard-subheading">
+                        <h2 className="dashboard-heading" data-cy="dashboard-heading">Welcome back{user?.email ? `, ${user.email}` : ""}</h2>
+                        <p className="dashboard-subheading" data-cy="dashboard-subheading">
                             Monitor project health, task completion, and recent activity from a single command center.
                         </p>
                     </div>
 
-                    <div className="dashboard-meta">
-                        <span className="dashboard-user-pill">Signed in as {user?.email || "authenticated user"}</span>
+                    <div className="dashboard-meta" data-cy="dashboard-meta">
+                        <span className="dashboard-user-pill" data-cy="dashboard-user-pill">Signed in as {user?.email || "authenticated user"}</span>
                         <span className="dashboard-status-pill">
                             {summary.lastUpdated ? `Updated ${new Intl.DateTimeFormat(undefined, {
                                 dateStyle: "medium",
@@ -148,10 +148,10 @@ function DashboardScreen() {
                             }).format(summary.lastUpdated)}` : "Loading latest data"}
                         </span>
                         <div className="dashboard-actions">
-                            <button className="dashboard-button dashboard-button--ghost" onClick={handleRefresh} type="button">
+                            <button className="dashboard-button dashboard-button--ghost" data-cy="dashboard-refresh" onClick={handleRefresh} type="button">
                                 {refreshing ? "Refreshing..." : "Refresh"}
                             </button>
-                            <button className="dashboard-button dashboard-button--primary" onClick={handleLogout} type="button">
+                            <button className="dashboard-button dashboard-button--primary" data-cy="dashboard-logout-primary" onClick={handleLogout} type="button">
                                 Logout
                             </button>
                         </div>
@@ -160,7 +160,7 @@ function DashboardScreen() {
 
                 {error ? <ErrorState message={error} onRetry={handleRefresh} /> : null}
 
-                <section className="dashboard-section dashboard-stat-grid" aria-label="Workspace statistics">
+                <section className="dashboard-section dashboard-stat-grid" data-cy="dashboard-stats" aria-label="Workspace statistics">
                     <StatCard label="Total projects" value={summary.totalProjects} hint="All projects visible to your workspace access" tone="default" />
                     <StatCard label="Total tasks" value={summary.totalTasks} hint={`${summary.completionRate}% of tasks are completed`} tone="info" />
                     <StatCard label="Completed tasks" value={summary.completedTasks} hint="Tasks with a completed status label" tone="success" />
@@ -189,7 +189,7 @@ function DashboardScreen() {
                     </article>
                 </section>
 
-                <section className="dashboard-panel dashboard-panel--wide">
+                <section className="dashboard-panel dashboard-panel--wide" data-cy="dashboard-recent-activity">
                     <div className="dashboard-panel-header">
                         <div>
                             <h3 className="dashboard-panel-title">Recent activity logs</h3>
@@ -201,7 +201,7 @@ function DashboardScreen() {
                     <RecentActivityList items={summary.recentActivity} />
                 </section>
 
-                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide">
+                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide" data-cy="dashboard-kanban">
                     <div className="dashboard-panel-header">
                         <div>
                             <h3 className="dashboard-panel-title">Kanban task board</h3>

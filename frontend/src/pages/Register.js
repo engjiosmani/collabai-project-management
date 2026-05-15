@@ -2,6 +2,30 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API from "../api/api";
 
+const extractApiErrorMessage = (data, fallback) => {
+    if (!data) {
+        return fallback;
+    }
+
+    if (typeof data === "string") {
+        return data;
+    }
+
+    if (data.detail) {
+        return data.detail;
+    }
+
+    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
+        return data.non_field_errors[0];
+    }
+
+    const fieldMessages = Object.values(data)
+        .flat()
+        .filter(Boolean);
+
+    return fieldMessages[0] || fallback;
+};
+
 function Register() {
     const navigate = useNavigate();
 
@@ -38,7 +62,12 @@ function Register() {
 
             navigate("/login");
         } catch (error) {
-            setError("Registration failed");
+            setError(
+                extractApiErrorMessage(
+                    error.response?.data,
+                    "Registration failed"
+                )
+            );
         }
     };
 
@@ -51,6 +80,10 @@ function Register() {
 
                 <p style={styles.subtitle}>
                     Register to start using CollabAI
+                </p>
+
+                <p style={styles.passwordHint}>
+                    Passwords must be at least 8 characters and should include uppercase, lowercase, a number, a special character, and avoid common passwords.
                 </p>
 
                 <form onSubmit={handleSubmit}>
@@ -140,6 +173,14 @@ const styles = {
         marginBottom: "30px",
         color: "#6b7280",
         fontSize: "15px",
+    },
+
+    passwordHint: {
+        marginTop: "-18px",
+        marginBottom: "18px",
+        color: "#4b5563",
+        fontSize: "13px",
+        lineHeight: 1.5,
     },
 
     input: {

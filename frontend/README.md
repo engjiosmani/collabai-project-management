@@ -39,6 +39,31 @@ Instead, it will copy all the configuration files and the transitive dependencie
 
 You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
 
+## End-to-end tests
+
+This project includes Cypress coverage for the critical workflows:
+
+- login
+- dashboard rendering and data display
+- task creation from the kanban board
+
+### Run locally
+
+Start the frontend, then open Cypress:
+
+```bash
+npm start
+npm run e2e
+```
+
+### Run headless for CI
+
+```bash
+npm run e2e:ci
+```
+
+If your app is served from a different URL, set `CYPRESS_BASE_URL` before running the tests.
+
 ## Learn More
 
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).

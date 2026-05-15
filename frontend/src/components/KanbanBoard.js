@@ -42,6 +42,7 @@ function TaskCard({ task, statuses, onStatusChange, onEdit }) {
     return (
         <div
             className="kb-card"
+            data-cy={`task-card-${task.id}`}
             draggable
             onDragStart={(e) => {
                 e.dataTransfer.setData("taskId", String(task.id));
@@ -154,12 +155,58 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
+    const [projects, setProjects] = useState([]);
+    const [projectsLoading, setProjectsLoading] = useState(true);
 
     const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadProjects = async () => {
+            setProjectsLoading(true);
+
+            try {
+                const res = await API.get("/projects/");
+                const projectList = Array.isArray(res.data) ? res.data : res.data.results ?? [];
+
+                if (cancelled) {
+                    return;
+                }
+
+                setProjects(projectList);
+
+                setForm((current) => {
+                    if (current.project || task?.project) {
+                        return current;
+                    }
+
+                    return {
+                        ...current,
+                        project: projectList[0]?.id ?? "",
+                    };
+                });
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err.response?.data?.detail ?? "Failed to load projects.");
+                }
+            } finally {
+                if (!cancelled) {
+                    setProjectsLoading(false);
+                }
+            }
+        };
+
+        loadProjects();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [task?.project]);
+
     const handleSubmit = async () => {
         if (!form.title.trim()) { setError("Title is required."); return; }
-        if (!form.project) { setError("Project ID is required."); return; }
+        if (!form.project) { setError("Project selection is required."); return; }
         setSaving(true);
         setError(null);
         try {
@@ -189,27 +236,27 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
 
     return (
         <div className="kb-modal-backdrop" onClick={onClose}>
-            <div className="kb-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="kb-modal" data-cy="task-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="kb-modal-header">
                     <h3>{isNew ? "New task" : "Edit task"}</h3>
-                    <button className="kb-modal-close" onClick={onClose} type="button">✕</button>
+                    <button className="kb-modal-close" data-cy="task-modal-close" onClick={onClose} type="button">✕</button>
                 </div>
 
                 {error && <p className="kb-modal-error">{error}</p>}
 
                 <label className="kb-label">
                     Title *
-                    <input className="kb-input" value={form.title} onChange={set("title")} />
+                    <input className="kb-input" data-cy="task-title" value={form.title} onChange={set("title")} />
                 </label>
 
                 <label className="kb-label">
                     Description
-                    <textarea className="kb-input kb-textarea" value={form.description} onChange={set("description")} rows={3} />
+                    <textarea className="kb-input kb-textarea" data-cy="task-description" value={form.description} onChange={set("description")} rows={3} />
                 </label>
 
                 <label className="kb-label">
                     Status
-                    <select className="kb-input" value={form.status} onChange={set("status")}>
+                    <select className="kb-input" data-cy="task-status" value={form.status} onChange={set("status")}>
                         {statuses.map((s) => (
                             <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
@@ -218,17 +265,27 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
 
                 <label className="kb-label">
                     Due date
-                    <input className="kb-input" type="date" value={form.due_date} onChange={set("due_date")} />
+                    <input className="kb-input" data-cy="task-due-date" type="date" value={form.due_date} onChange={set("due_date")} />
                 </label>
 
                 <label className="kb-label">
-                    Project ID *
-                    <input className="kb-input" type="number" value={form.project} onChange={set("project")} placeholder="e.g. 1" />
+                    Project *
+                    <select className="kb-input" data-cy="task-project" value={form.project} onChange={set("project")} disabled={projectsLoading || projects.length === 0}>
+                        <option value="">{projectsLoading ? "Loading projects..." : "Select a project"}</option>
+                        {projects.map((project) => (
+                            <option key={project.id} value={project.id}>
+                                {project.name}
+                            </option>
+                        ))}
+                    </select>
+                    {!projectsLoading && projects.length === 0 ? (
+                        <p className="kb-modal-error">No accessible projects found. Create or join a project first.</p>
+                    ) : null}
                 </label>
 
                 <div className="kb-modal-footer">
-                    <button className="kb-btn kb-btn--ghost" onClick={onClose} type="button">Cancel</button>
-                    <button className="kb-btn kb-btn--primary" onClick={handleSubmit} disabled={saving} type="button">
+                    <button className="kb-btn kb-btn--ghost" data-cy="task-cancel" onClick={onClose} type="button">Cancel</button>
+                    <button className="kb-btn kb-btn--primary" data-cy="task-save" onClick={handleSubmit} disabled={saving} type="button">
                         {saving ? "Saving…" : isNew ? "Create" : "Save"}
                     </button>
                 </div>
@@ -318,7 +375,7 @@ export default function KanbanBoard() {
 
     if (loading) {
         return (
-            <div className="kb-state kb-state--loading">
+            <div className="kb-state kb-state--loading" data-cy="kanban-loading">
                 <div className="kb-spinner" />
                 <span>Loading board…</span>
             </div>
@@ -327,7 +384,7 @@ export default function KanbanBoard() {
 
     if (error) {
         return (
-            <div className="kb-state kb-state--error">
+            <div className="kb-state kb-state--error" data-cy="kanban-error">
                 <p>{error}</p>
                 <button className="kb-btn kb-btn--primary" onClick={fetchAll} type="button">Retry</button>
             </div>
@@ -337,9 +394,10 @@ export default function KanbanBoard() {
     return (
         <div className="kb-root">
             <div className="kb-toolbar">
-                <h2 className="kb-toolbar-title">Kanban Board</h2>
+                <h2 className="kb-toolbar-title" data-cy="kanban-title">Kanban Board</h2>
                 <button
                     className="kb-btn kb-btn--primary"
+                    data-cy="new-task-button"
                     onClick={() => setEditingTask(null)}
                     type="button"
                 >
