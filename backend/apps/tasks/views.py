@@ -6,7 +6,6 @@ from rest_framework.response import Response
 
 from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import TaskFilter
 from .models import Task, TaskStatus
@@ -63,10 +62,24 @@ class TaskViewSet(viewsets.ModelViewSet):
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Task]:
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+
+        workspace_ids = getattr(
+            self.request,
+            "workspace_ids",
+            []
+        )
+
         return (
-            Task.objects.filter(project__workspace_id__in=ws_ids)
-            .select_related('project', 'project__workspace', 'status', 'priority', 'assigned_to')
+            Task.objects.filter(
+                project__workspace_id__in=workspace_ids
+            )
+            .select_related(
+                'project',
+                'project__workspace',
+                'status',
+                'priority',
+                'assigned_to'
+            )
         )
 
     def list(self, request, *args, **kwargs):

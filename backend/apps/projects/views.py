@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
+from common.tenant_viewset import TenantScopedViewSet
 
 from .filters import ProjectFilter
 from .models import Project
@@ -23,12 +23,16 @@ CACHE_NAMESPACE = 'projects'
     partial_update=extend_schema(tags=['Projects'], summary='Partially update project'),
     destroy=extend_schema(tags=['Projects'], summary='Delete project'),
 )
-class ProjectViewSet(viewsets.ModelViewSet):
+class ProjectViewSet(TenantScopedViewSet):
     """
     CRUD for projects scoped to workspaces the current user belongs to.
     Filter by workspace, organization, is_active, and date ranges (see query params).
     Sort with ordering=-created_at,name,...
     """
+    queryset = Project.objects.select_related(
+        'workspace',
+        'workspace__organization'
+    )
 
     serializer_class = ProjectSerializer
     permission_classes = [IsWorkspaceTeamMember]
@@ -37,9 +41,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     ordering_fields = ('created_at', 'updated_at', 'name', 'start_date', 'due_date', 'is_active')
     ordering = ('-created_at',)
 
-    def get_queryset(self) -> QuerySet[Project]:
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
-        return Project.objects.filter(workspace_id__in=ws_ids).select_related('workspace', 'workspace__organization')
+
 
     def list(self, request, *args, **kwargs):
         cache_key = make_list_key(CACHE_NAMESPACE, request.user.pk, request.get_full_path())
