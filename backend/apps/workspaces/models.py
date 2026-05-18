@@ -31,12 +31,24 @@ class Workspace(BaseModel):
 
 
 class Role(BaseModel):
+    ADMIN = "admin"
+    MANAGER = "manager"
+    MEMBER = "member"
+
+    ROLE_CHOICES = [
+        (ADMIN, "Admin"),
+        (MANAGER, "Manager"),
+        (MEMBER, "Member"),
+    ]
     workspace = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
         related_name="roles"
     )
-    name = models.CharField(max_length=100)
+    name = models.CharField(
+        max_length=100,
+        choices=ROLE_CHOICES
+    )
     permissions = models.ManyToManyField(
         Permission,
         related_name="roles",

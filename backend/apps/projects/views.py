@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
 from common.tenant_viewset import TenantScopedViewSet
-
+from common.role_permissions import IsAdmin
 from .filters import ProjectFilter
 from .models import Project
 from .serializers import ProjectSerializer
@@ -52,3 +52,10 @@ class ProjectViewSet(TenantScopedViewSet):
         if response.status_code == 200:
             cache.set(cache_key, response.data)
         return response
+
+    def get_permissions(self):
+
+        if self.action == "destroy":
+            return [IsAdmin()]
+
+        return super().get_permissions()

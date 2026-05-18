@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.organizations.models import Organization
-from apps.workspaces.models import TeamMember,Workspace
+from apps.workspaces.models import (TeamMember,Workspace,Role)
 from apps.projects.models import Project
 from common.cache import make_list_key
 from .models import Task, TaskStatus, TaskPriority, Label, TaskLabel, Attachment
@@ -79,8 +79,27 @@ class TaskCRUDAPITest(APITestCase):
         self.outsider = User.objects.create_user(username='taskout@example.com', email='taskout@example.com', password='x')
         self.org = Organization.objects.create(name='Task API Org')
         self.workspace = Workspace.objects.create(name='Task API WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member)
-        TeamMember.objects.create(workspace=self.workspace, user=self.assignee)
+        self.manager_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MANAGER
+        )
+
+        self.member_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MEMBER
+        )
+
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=self.manager_role
+        )
+
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.assignee,
+            role=self.member_role
+        )
         self.project = Project.objects.create(workspace=self.workspace, name='Task API Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
@@ -168,12 +187,21 @@ class TaskPermissionsAPITest(APITestCase):
         self.user = User.objects.create_user(username='tp@example.com', email='tp@example.com', password='x')
         self.org = Organization.objects.create(name='TP Org')
         self.ws = Workspace.objects.create(name='TP WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.ws, user=self.user)
+        self.manager_role = Role.objects.create(
+            workspace=self.ws,
+            name=Role.MANAGER
+        )
+
+        TeamMember.objects.create(
+            workspace=self.ws,
+            user=self.user,
+            role=self.manager_role
+        )
         self.project = Project.objects.create(workspace=self.ws, name='TP')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.task = Task.objects.create(project=self.project, title='T', status=self.status)
 
-    def test_member_has_object_permission_for_mutations(self):
+    def test_manager_has_object_permission_for_mutations(self):
         self.client.delete(f'/api/v1/tasks/{self.task.pk}/', **_jwt_header(self.user))
         self.assertFalse(Task.objects.filter(pk=self.task.pk).exists())
 
@@ -195,8 +223,27 @@ class TaskListCacheTest(APITestCase):
         )
         self.org = Organization.objects.create(name='Task Cache Org')
         self.workspace = Workspace.objects.create(name='Task Cache WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member)
-        TeamMember.objects.create(workspace=self.workspace, user=self.other)
+        self.manager_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MANAGER
+        )
+
+        self.member_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MEMBER
+        )
+
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=self.manager_role
+        )
+
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.other,
+            role=self.member_role
+        )
         self.project = Project.objects.create(workspace=self.workspace, name='Cache Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)

@@ -5,7 +5,7 @@ from django.test.utils import CaptureQueriesContext, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.workspaces.models import TeamMember
+from apps.workspaces.models import (TeamMember, Role)
 
 from apps.organizations.models import Organization
 from apps.workspaces.models import Workspace
@@ -64,14 +64,75 @@ class ProjectModelsTest(TestCase):
 
 class ProjectCRUDAPITest(APITestCase):
     def setUp(self):
-        self.member = User.objects.create_user(username='mem@example.com', email='mem@example.com',
-                                               password='x')
-        self.outsider = User.objects.create_user(username='out@example.com', email='out@example.com',
-                                                 password='x')
-        self.org = Organization.objects.create(name='API Org')
-        self.workspace = Workspace.objects.create(name='API WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member)
-        self.project = Project.objects.create(workspace=self.workspace, name='Seed Project')
+        # ── 1. Krijo userët ──────────────────────────────────────────────
+        self.admin_user = User.objects.create_user(
+            username='proj_admin@example.com',
+            email='proj_admin@example.com',
+            password='x'
+        )
+        self.member = User.objects.create_user(
+            username='proj_member@example.com',
+            email='proj_member@example.com',
+            password='x'
+        )
+        self.outsider = User.objects.create_user(
+            username='proj_outsider@example.com',
+            email='proj_outsider@example.com',
+            password='x'
+        )
+
+        # ── 2. Krijo org + workspace ─────────────────────────────────────
+        self.org = Organization.objects.create(name='CRUD Org')
+        self.workspace = Workspace.objects.create(
+            name='CRUD WS',
+            organization=self.org
+        )
+
+        # ── 3. Krijo rolet (pas workspace) ──────────────────────────────
+        self.admin_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.ADMIN
+        )
+        self.manager_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MANAGER
+        )
+        self.member_role = Role.objects.create(
+            workspace=self.workspace,
+            name=Role.MEMBER
+        )
+
+        # ── 4. Cakto anëtarët e workspace ───────────────────────────────
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=self.manager_role
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.admin_user,
+            role=self.admin_role
+        )
+
+        # ── 5. Krijo projektin seed ──────────────────────────────────────
+        self.project = Project.objects.create(
+            workspace=self.workspace,
+            name='Seed Project'
+        )
+
+    def test_member_cannot_delete_project(self):
+        response = self.client.delete(
+            f'/api/v1/projects/{self.project.pk}/',
+            **_jwt_header(self.member)
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_can_delete_project(self):
+        response = self.client.delete(
+            f'/api/v1/projects/{self.project.pk}/',
+            **_jwt_header(self.admin_user)
+        )
+        self.assertEqual(response.status_code, 204)
 
     def test_list_requires_authentication(self):
         res = self.client.get('/api/v1/projects/')
@@ -114,7 +175,8 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(patch.status_code, 200)
         self.assertEqual(patch.data['description'], 'updated')
 
-        delete = self.client.delete(f'/api/v1/projects/{pid}/', **_jwt_header(self.member))
+        # Vetëm ADMIN mund të fshijë — member (MANAGER) nuk ka leje
+        delete = self.client.delete(f'/api/v1/projects/{pid}/', **_jwt_header(self.admin_user))
         self.assertEqual(delete.status_code, 204)
 
     def test_duplicate_name_per_workspace_returns_400(self):
@@ -140,11 +202,8 @@ class ProjectCRUDAPITest(APITestCase):
             '/api/v1/projects/',
             **_jwt_header(self.outsider)
         )
-
         self.assertEqual(res.status_code, 200)
-
         results = res.data.get('results', res.data)
-
         self.assertEqual(len(results), 0)
 
 
@@ -152,8 +211,11 @@ class ProjectLoginJWTAuthTest(APITestCase):
     """Ensures real JWT from login works with project endpoints."""
 
     def setUp(self):
-        self.user = User.objects.create_user(username='jwt@example.com', email='jwt@example.com',
-                                             password='SecretPass123!')
+        self.user = User.objects.create_user(
+            username='jwt@example.com',
+            email='jwt@example.com',
+            password='SecretPass123!'
+        )
         self.org = Organization.objects.create(name='JWT Org')
         self.ws = Workspace.objects.create(name='JWT WS', organization=self.org)
         TeamMember.objects.create(workspace=self.ws, user=self.user)
@@ -187,8 +249,13 @@ class ProjectListCacheTest(APITestCase):
         )
         self.org = Organization.objects.create(name='Cache Org')
         self.workspace = Workspace.objects.create(name='Cache WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member)
-        TeamMember.objects.create(workspace=self.workspace, user=self.other)
+
+        # ── RREGULLIM: member=ADMIN për DELETE, other=MEMBER ────────────
+        admin_role = Role.objects.create(workspace=self.workspace, name=Role.ADMIN)
+        member_role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
+        TeamMember.objects.create(workspace=self.workspace, user=self.member, role=admin_role)
+        TeamMember.objects.create(workspace=self.workspace, user=self.other, role=member_role)
+
         Project.objects.create(workspace=self.workspace, name='Seed Cached Project')
 
     def _list(self, user):
@@ -245,7 +312,7 @@ class ProjectListCacheTest(APITestCase):
         self._list(self.member)
 
         res = self.client.delete(f'/api/v1/projects/{target.pk}/', **_jwt_header(self.member))
-        self.assertEqual(res.status_code, 204)
+        self.assertEqual(res.status_code, 204)  # ishte 403 para rregullimit
 
         after = self._list(self.member)
         names = [p['name'] for p in after.data.get('results', after.data)]
