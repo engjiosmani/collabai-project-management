@@ -15,9 +15,15 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(BASE_DIR / '.env')
+except ImportError:
+    pass
 
 
 # Quick-start development settings - unsuitable for production
@@ -152,15 +158,15 @@ if "test" in sys.argv:
         }
     }
 else:
-    # Local development / runserver use Postgres 
+    # Local development / runserver use Postgres
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": "collabai_db",
-            "USER": "postgres",
-            "PASSWORD": "12345678",
-            "HOST": "localhost",
-            "PORT": "5432",
+            "NAME": os.environ.get("DB_NAME", "collabai_db"),
+            "USER": os.environ.get("DB_USER", "postgres"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "admin123"),
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
         }
     }
 
@@ -290,5 +296,33 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'apps.ai_assistant': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
     },
 }
+
+# --- RAG / AI (local dev) ---
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.1-8b-instant')
+RAG_EMBEDDING_MODEL = os.environ.get(
+    'RAG_EMBEDDING_MODEL',
+    'sentence-transformers/all-MiniLM-L6-v2',
+)
+RAG_EMBEDDING_DIMS = int(os.environ.get('RAG_EMBEDDING_DIMS', '384'))
+RAG_VECTOR_INDEX_NAME = os.environ.get('RAG_VECTOR_INDEX_NAME', 'collabai_rag')
+RAG_TOP_K_DEFAULT = int(os.environ.get('RAG_TOP_K_DEFAULT', '5'))
+RAG_AUTO_INDEX = os.environ.get('RAG_AUTO_INDEX', 'true').lower() == 'true'
+# Use in-memory vector search when Redis Stack / RediSearch is unavailable.
+RAG_FORCE_MEMORY_STORE = os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
+
+# --- Celery (optional; eager mode works without a worker) ---
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_ALWAYS_EAGER = os.environ.get(
+    'CELERY_TASK_ALWAYS_EAGER',
+    'true' if DEBUG else 'false',
+).lower() == 'true'
+CELERY_TASK_EAGER_PROPAGATES = True

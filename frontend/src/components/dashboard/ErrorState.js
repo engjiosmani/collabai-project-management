@@ -1,4 +1,4 @@
-function ErrorState({ message, onRetry }) {
+function ErrorState({ message, onRetry, onLogin, isAuthError }) {
     return (
         <section className="dashboard-empty-state dashboard-empty-state--error">
             <div>
@@ -7,12 +7,20 @@ function ErrorState({ message, onRetry }) {
                 <p className="dashboard-empty-text">{message}</p>
             </div>
 
-            <button className="dashboard-button dashboard-button--primary" onClick={onRetry} type="button">
-                Retry
-            </button>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                {onRetry ? (
+                    <button className="dashboard-button dashboard-button--primary" onClick={onRetry} type="button">
+                        Retry
+                    </button>
+                ) : null}
+                {isAuthError && onLogin ? (
+                    <button className="dashboard-button dashboard-button--ghost" onClick={onLogin} type="button">
+                        Sign in again
+                    </button>
+                ) : null}
+            </div>
         </section>
     );
 }
 
 export default ErrorState;
-
