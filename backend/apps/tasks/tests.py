@@ -164,6 +164,31 @@ class TaskCRUDAPITest(APITestCase):
         res = self.client.get(f'/api/v1/tasks/{self.task.pk}/', **_jwt_header(self.outsider))
         self.assertEqual(res.status_code, 404)
 
+    def test_list_supports_pagination_filter_search_ordering(self):
+        Task.objects.create(
+            project=self.project,
+            title='Alpha Task Search',
+            status=self.status,
+            priority=self.priority,
+            assigned_to=self.assignee,
+        )
+        Task.objects.create(
+            project=self.project,
+            title='Zulu Task Search',
+            status=self.status,
+            priority=self.priority,
+            assigned_to=self.assignee,
+        )
+
+        res = self.client.get(
+            f'/api/v1/tasks/?project={self.project.pk}&assigned_to={self.assignee.pk}&search=search&ordering=title&page_size=1',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['title'], 'Alpha Task Search')
+
 
 class TaskStatusAPITest(APITestCase):
     def setUp(self):

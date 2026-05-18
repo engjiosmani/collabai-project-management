@@ -1,7 +1,9 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
 
 from apps.organizations.models import Organization
 from apps.workspaces.models import Workspace
@@ -113,6 +115,23 @@ class CommentCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_list_supports_filter_search_ordering(self):
+        alpha = Comment.objects.create(task=self.task, author=self.author, content='Alpha comment search')
+        zulu = Comment.objects.create(task=self.task, author=self.author, content='Zulu comment search')
+
+        now = timezone.now()
+        Comment.objects.filter(pk=alpha.pk).update(created_at=now - timedelta(minutes=1))
+        Comment.objects.filter(pk=zulu.pk).update(created_at=now)
+
+        res = self.client.get(
+            f'/api/v1/comments/?task={self.task.pk}&search=search&ordering=created_at&page_size=1',
+            **_jwt_header(self.author),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['content'], 'Alpha comment search')
+
 
 class ActivityLogReadOnlyAPITest(APITestCase):
     def setUp(self):
@@ -150,4 +169,17 @@ class ActivityLogReadOnlyAPITest(APITestCase):
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 405)
+
+    def test_activity_log_filter_and_ordering(self):
+        ActivityLog.objects.create(task=self.task, user=self.member, action='ALPHA', description='a')
+        ActivityLog.objects.create(task=self.task, user=self.member, action='ZULU', description='z')
+
+        res = self.client.get(
+            f'/api/v1/activity-logs/?task={self.task.pk}&ordering=action&page_size=1',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['action'], 'ALPHA')
 

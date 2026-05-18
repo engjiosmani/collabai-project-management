@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
 from common.role_permissions import (IsManagerOrAdmin)
+from common.workspace_access import workspaces_queryset_for_user
+
 from .filters import TaskFilter
 from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
@@ -91,15 +93,3 @@ class TaskViewSet(viewsets.ModelViewSet):
         if response.status_code == 200:
             cache.set(cache_key, response.data)
         return response
-
-    def get_permissions(self):
-
-        if self.action in [
-            "create",
-            "update",
-            "partial_update",
-            "destroy"
-        ]:
-            return [IsManagerOrAdmin()]
-
-        return super().get_permissions()

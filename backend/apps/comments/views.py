@@ -31,6 +31,8 @@ class CommentViewSet(viewsets.ModelViewSet):
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Comment]:
+        if getattr(self, 'swagger_fake_view', False):
+            return Comment.objects.none()
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
             Comment.objects.filter(task__project__workspace_id__in=ws_ids)
@@ -55,6 +57,8 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[ActivityLog]:
+        if getattr(self, 'swagger_fake_view', False):
+            return ActivityLog.objects.none()
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
             ActivityLog.objects.filter(task__project__workspace_id__in=ws_ids)

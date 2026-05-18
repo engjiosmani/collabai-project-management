@@ -41,6 +41,16 @@ class IsOwner(BasePermission):
         owner = getattr(obj, 'user', None)
         return owner is not None and owner == user
 
+
+class IsAuthenticatedReadOnly(BasePermission):
+    """Allow authenticated users to read, but reserve unsafe methods for admins."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        if request.method in SAFE_METHODS:
+            return bool(user and user.is_authenticated)
+        return bool(user and user.is_authenticated and getattr(user, 'is_staff', False))
+
 class IsWorkspaceTeamMember(BasePermission):
     """
     Read/write allowed only when the authenticated user is (or superuser) a TeamMember
@@ -75,6 +85,35 @@ class IsWorkspaceMemberCommentAuthorForWrite(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return obj.author_id == user.id
+
+
+class IsWorkspaceInviteAccess(BasePermission):
+    """Invite recipient can view/accept own invite; workspace members manage all invites."""
+
+    message = 'You do not have permission to access this invite.'
+
+    def has_permission(self, request, view):
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+        if getattr(user, 'is_superuser', False):
+            return True
+
+        workspace = resolve_workspace(obj)
+        is_member = user_can_access_workspace(user, workspace)
+        user_email = (getattr(user, 'email', '') or '').strip().lower()
+        invite_email = (getattr(obj, 'email', '') or '').strip().lower()
+        is_recipient = bool(user_email and invite_email and user_email == invite_email)
+
+        if request.method in SAFE_METHODS:
+            return is_member or is_recipient
+
+        if getattr(view, 'action', None) == 'accept':
+            return is_member or is_recipient
+
+        return is_member
 
 class HasRole(BasePermission):
     required_role = None

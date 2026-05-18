@@ -275,3 +275,44 @@ class RBACPermissionTests(TestCase):
         view = type('View', (), {'required_roles': ('admin',)})()
 
         self.assertFalse(HasAnyRole().has_permission(request, view))
+
+
+class OperationsEndpointsTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.admin_user = get_user_model().objects.create_user(
+            username='adminops@example.com',
+            email='adminops@example.com',
+            password='StrongPass123!',
+            is_staff=True,
+        )
+        self.normal_user = get_user_model().objects.create_user(
+            username='memberops@example.com',
+            email='memberops@example.com',
+            password='StrongPass123!',
+        )
+
+    def test_health_is_public(self):
+        response = self.client.get('/api/v1/health/')
+        self.assertIn(response.status_code, (200, 503))
+        self.assertIn('status', response.data)
+
+    def test_metrics_requires_admin(self):
+        response = self.client.get('/api/v1/metrics/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        token = str(RefreshToken.for_user(self.normal_user).access_token)
+        response = self.client.get('/api/v1/metrics/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        admin_token = str(RefreshToken.for_user(self.admin_user).access_token)
+        response = self.client.get('/api/v1/metrics/', HTTP_AUTHORIZATION=f'Bearer {admin_token}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('users', response.data)
+        self.assertIn('workspaces', response.data)
+
+    def test_swagger_and_schema_available(self):
+        schema = self.client.get('/api/schema/')
+        docs = self.client.get('/api/docs/')
+        self.assertEqual(schema.status_code, status.HTTP_200_OK)
+        self.assertEqual(docs.status_code, status.HTTP_200_OK)

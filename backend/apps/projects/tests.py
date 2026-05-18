@@ -197,6 +197,19 @@ class ProjectCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_list_supports_pagination_filter_search_ordering(self):
+        Project.objects.create(workspace=self.workspace, name='Alpha Search', is_active=True)
+        Project.objects.create(workspace=self.workspace, name='Zulu Search', is_active=False)
+
+        res = self.client.get(
+            '/api/v1/projects/?is_active=true&search=search&ordering=name&page_size=1',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['name'], 'Alpha Search')
+
     def test_outsider_does_not_see_foreign_projects_in_list(self):
         res = self.client.get(
             '/api/v1/projects/',

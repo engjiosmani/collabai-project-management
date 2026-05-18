@@ -1,18 +1,24 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from .serializers import RegisterSerializer, LoginSerializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Count
+from django.db import connection
+from django.utils import timezone
 
 from common.workspace_access import workspaces_queryset_for_user
 from apps.comments.models import ActivityLog
+from apps.comments.models import Comment
 from apps.comments.serializers import ActivityLogSerializer
+from apps.notifications.models import Notification
+from apps.organizations.models import Organization
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskStatus
+from apps.workspaces.models import Permission, Role, TeamMember, Workspace, WorkspaceInvite
 
 
 @extend_schema(
@@ -174,3 +180,64 @@ class DashboardSummaryView(APIView):
         }
 
         return Response(payload, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Operations'],
+    responses={200: OpenApiResponse(description='Service health')},
+    description='Public health check for load balancers and uptime monitoring.',
+)
+class HealthView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request, *args, **kwargs):
+        db_ok = True
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+                cursor.fetchone()
+        except Exception:
+            db_ok = False
+
+        return Response(
+            {
+                'status': 'ok' if db_ok else 'degraded',
+                'timestamp': timezone.now().isoformat(),
+                'database': 'ok' if db_ok else 'unavailable',
+            },
+            status=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+
+@extend_schema(
+    tags=['Operations'],
+    responses={200: OpenApiResponse(description='Platform metrics')},
+    description='Admin-only operational metrics for the platform.',
+)
+class MetricsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request, *args, **kwargs):
+        payload = {
+            'users': self._count_users(),
+            'organizations': Organization.objects.count(),
+            'workspaces': Workspace.objects.count(),
+            'roles': Role.objects.count(),
+            'permissions': Permission.objects.count(),
+            'team_members': TeamMember.objects.count(),
+            'workspace_invites': WorkspaceInvite.objects.count(),
+            'projects': Project.objects.count(),
+            'tasks': Task.objects.count(),
+            'comments': Comment.objects.count(),
+            'activity_logs': ActivityLog.objects.count(),
+            'notifications': Notification.objects.count(),
+        }
+        return Response(payload, status=status.HTTP_200_OK)
+
+    def _count_users(self):
+        from django.contrib.auth import get_user_model
+
+        return get_user_model().objects.count()
+
+
