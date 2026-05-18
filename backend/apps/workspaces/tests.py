@@ -76,7 +76,7 @@ class WorkspaceApiTest(APITestCase):
         self.org = Organization.objects.create(name='W Org API')
         self.workspace = Workspace.objects.create(name='W Main', organization=self.org)
         self.permission = Permission.objects.create(code='manage_workspaces', name='Manage Workspaces')
-        self.role = Role.objects.create(workspace=self.workspace, name='Owner')
+        self.role = Role.objects.create(workspace=self.workspace, name=Role.ADMIN)  # 'Owner' → Role.ADMIN
         self.role.permissions.add(self.permission)
         TeamMember.objects.create(workspace=self.workspace, user=self.member, role=self.role)
 
@@ -124,7 +124,8 @@ class WorkspaceApiTest(APITestCase):
 
         role_create = self.client.post(
             '/api/v1/roles/',
-            {'workspace': self.workspace.pk, 'name': 'Contributor', 'permissions': [self.permission.pk]},
+            # ── RREGULLIM: 'Contributor' → Role.MEMBER (choice i vlefshëm) ──
+            {'workspace': self.workspace.pk, 'name': Role.MEMBER, 'permissions': [self.permission.pk]},
             format='json',
             **_jwt_header(self.member),
         )
@@ -143,7 +144,6 @@ class WorkspaceApiTest(APITestCase):
         self.assertEqual(invite_res.status_code, 201, invite_res.data)
         iid = invite_res.data['id']
 
-        # Recipient can retrieve and accept the invite before being a team member.
         retrieve_res = self.client.get(f'/api/v1/invites/{iid}/', **_jwt_header(self.invited))
         self.assertEqual(retrieve_res.status_code, 200)
 
@@ -151,5 +151,3 @@ class WorkspaceApiTest(APITestCase):
         self.assertEqual(accept_res.status_code, 200, accept_res.data)
         self.assertTrue(accept_res.data['invite']['is_accepted'])
         self.assertTrue(TeamMember.objects.filter(workspace=self.workspace, user=self.invited).exists())
-
-
