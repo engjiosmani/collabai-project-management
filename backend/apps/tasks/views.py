@@ -63,6 +63,8 @@ class TaskViewSet(viewsets.ModelViewSet):
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Task]:
+        if getattr(self, 'swagger_fake_view', False):
+            return Task.objects.none()
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
             Task.objects.filter(project__workspace_id__in=ws_ids)

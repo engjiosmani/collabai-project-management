@@ -9,6 +9,8 @@ from apps.workspaces.models import TeamMember, Workspace
 
 def resolve_workspace(obj):
     """Return the Workspace governing access for Project, Task, Comment, or ActivityLog."""
+    if isinstance(obj, Workspace):
+        return obj
     ws = getattr(obj, 'workspace', None)
     if ws is not None:
         return ws

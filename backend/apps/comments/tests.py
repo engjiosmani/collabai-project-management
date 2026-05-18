@@ -113,6 +113,19 @@ class CommentCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_list_supports_filter_search_ordering(self):
+        Comment.objects.create(task=self.task, author=self.author, content='Alpha comment search')
+        Comment.objects.create(task=self.task, author=self.author, content='Zulu comment search')
+
+        res = self.client.get(
+            f'/api/v1/comments/?task={self.task.pk}&search=search&ordering=created_at&page_size=1',
+            **_jwt_header(self.author),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['content'], 'Alpha comment search')
+
 
 class ActivityLogReadOnlyAPITest(APITestCase):
     def setUp(self):
@@ -150,4 +163,17 @@ class ActivityLogReadOnlyAPITest(APITestCase):
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 405)
+
+    def test_activity_log_filter_and_ordering(self):
+        ActivityLog.objects.create(task=self.task, user=self.member, action='ALPHA', description='a')
+        ActivityLog.objects.create(task=self.task, user=self.member, action='ZULU', description='z')
+
+        res = self.client.get(
+            f'/api/v1/activity-logs/?task={self.task.pk}&ordering=action&page_size=1',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['action'], 'ALPHA')
 

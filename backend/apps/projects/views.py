@@ -38,6 +38,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Project]:
+        if getattr(self, 'swagger_fake_view', False):
+            return Project.objects.none()
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return Project.objects.filter(workspace_id__in=ws_ids).select_related('workspace', 'workspace__organization')
 

@@ -135,6 +135,19 @@ class ProjectCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_list_supports_pagination_filter_search_ordering(self):
+        Project.objects.create(workspace=self.workspace, name='Alpha Search', is_active=True)
+        Project.objects.create(workspace=self.workspace, name='Zulu Search', is_active=False)
+
+        res = self.client.get(
+            '/api/v1/projects/?is_active=true&search=search&ordering=name&page_size=1',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('count', res.data)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['name'], 'Alpha Search')
+
 
 class ProjectLoginJWTAuthTest(APITestCase):
     """Ensures real JWT from login works with project endpoints."""
