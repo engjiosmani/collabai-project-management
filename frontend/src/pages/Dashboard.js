@@ -1,5 +1,5 @@
 import { useContext, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import ActionChart from "../components/dashboard/ActionChart";
 import CompletionChart from "../components/dashboard/CompletionChart";
@@ -88,6 +88,21 @@ function DashboardScreen() {
         kanbanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
+    const isAuthError =
+        Boolean(error) &&
+        (String(error).toLowerCase().includes("token") ||
+            String(error).toLowerCase().includes("session"));
+
+    const errorStateProps = {
+        message: error,
+        onRetry: handleRefresh,
+        isAuthError,
+        onLogin: () => {
+            logout();
+            navigate("/login");
+        },
+    };
+
     if (loading && !summary.hasData) {
         return <DashboardSkeleton />;
     }
@@ -95,7 +110,7 @@ function DashboardScreen() {
     if (error && !summary.hasData) {
         return (
             <div className="dashboard-main" style={{ minHeight: "100vh" }}>
-                <ErrorState message={error} onRetry={handleRefresh} />
+                <ErrorState {...errorStateProps} />
             </div>
         );
     }
@@ -117,6 +132,9 @@ function DashboardScreen() {
                         <button className="dashboard-nav-item" data-cy="dashboard-nav-projects" type="button">Projects</button>
                         <button className="dashboard-nav-item" data-cy="dashboard-nav-tasks" onClick={handleScrollToKanban} type="button">Tasks</button>
                         <button className="dashboard-nav-item" data-cy="dashboard-nav-activity" type="button">Activity</button>
+                        <Link className="dashboard-nav-item" data-cy="dashboard-nav-ai" to="/ai" style={{ textDecoration: "none", display: "block" }}>
+                            AI Assistant
+                        </Link>
                     </nav>
                 </div>
 
@@ -158,7 +176,7 @@ function DashboardScreen() {
                     </div>
                 </header>
 
-                {error ? <ErrorState message={error} onRetry={handleRefresh} /> : null}
+                {error ? <ErrorState {...errorStateProps} /> : null}
 
                 <section className="dashboard-section dashboard-stat-grid" data-cy="dashboard-stats" aria-label="Workspace statistics">
                     <StatCard label="Total projects" value={summary.totalProjects} hint="All projects visible to your workspace access" tone="default" />

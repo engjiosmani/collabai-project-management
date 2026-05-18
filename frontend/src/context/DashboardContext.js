@@ -106,7 +106,16 @@ export const DashboardProvider = ({ children }) => {
                     requestError.response?.data?.message ||
                     requestError.message ||
                     "Unable to load dashboard data.";
-                setError(detail);
+
+                const isAuthError =
+                    requestError.response?.status === 401 ||
+                    String(detail).toLowerCase().includes("token");
+
+                setError(
+                    isAuthError
+                        ? "Your session expired. Redirecting to sign in…"
+                        : detail
+                );
             } finally {
                 if (!signal?.aborted) {
                     setLoading(false);

@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import API from "../api/api";
+import API, { clearAuthStorage } from "../api/api";
 
 export const AuthContext = createContext();
 
@@ -31,16 +31,43 @@ export const AuthProvider = ({ children }) => {
     );
 
     useEffect(() => {
-        const token = localStorage.getItem("access");
-        const email = localStorage.getItem("user_email");
+        const syncFromStorage = () => {
+            const token = localStorage.getItem("access");
+            const email = localStorage.getItem("user_email");
 
-        if (token) {
-            setAccessToken(token);
-            setUser({
-                email: email || undefined,
-                authenticated: true,
-            });
-        }
+            if (token) {
+                setAccessToken(token);
+                setUser({
+                    email: email || undefined,
+                    authenticated: true,
+                });
+            } else {
+                setAccessToken(null);
+                setUser(null);
+            }
+        };
+
+        syncFromStorage();
+
+        const onTokenRefreshed = (event) => {
+            const access = event.detail?.access;
+            if (access) {
+                setAccessToken(access);
+            }
+        };
+
+        const onLogout = () => {
+            setAccessToken(null);
+            setUser(null);
+        };
+
+        window.addEventListener("auth:token-refreshed", onTokenRefreshed);
+        window.addEventListener("auth:logout", onLogout);
+
+        return () => {
+            window.removeEventListener("auth:token-refreshed", onTokenRefreshed);
+            window.removeEventListener("auth:logout", onLogout);
+        };
     }, []);
 
     const login = async (email, password) => {
@@ -79,10 +106,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem("access");
-        localStorage.removeItem("refresh");
-        localStorage.removeItem("user_email");
-
+        clearAuthStorage();
         setAccessToken(null);
         setUser(null);
     };
