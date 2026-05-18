@@ -1,4 +1,3 @@
-"""Helpers for workspace-scoped access (multi-tenancy via organization → workspace → project)."""
 
 from __future__ import annotations
 
@@ -8,7 +7,6 @@ from apps.workspaces.models import TeamMember, Workspace
 
 
 def resolve_workspace(obj):
-    """Return the Workspace governing access for Project, Task, Comment, or ActivityLog."""
     ws = getattr(obj, 'workspace', None)
     if ws is not None:
         return ws
@@ -22,8 +20,12 @@ def resolve_workspace(obj):
 
 
 def workspaces_queryset_for_user(user) -> QuerySet[Workspace]:
+    if not user or not user.is_authenticated:
+        return Workspace.objects.none()
+
     if getattr(user, 'is_superuser', False):
         return Workspace.objects.all()
+
     return Workspace.objects.filter(team_members__user=user).distinct()
 
 
