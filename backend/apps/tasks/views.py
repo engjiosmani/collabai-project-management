@@ -51,38 +51,57 @@ class TaskViewSet(viewsets.ModelViewSet):
     serializer_class = TaskSerializer
     permission_classes = [IsWorkspaceTeamMember]
     filterset_class = TaskFilter
-    search_fields = ('title', 'description')
+    search_fields = (
+        'title',
+        'description',
+        'status__name',
+        'priority__name',
+        'assigned_to__username',
+        'assigned_to__email',
+        'project__name',
+        'project__workspace__name',
+        'task_labels__label__name',
+    )
     ordering_fields = (
         'created_at',
         'updated_at',
         'title',
         'due_date',
         'status',
+        'status__name',
         'priority',
+        'priority__name',
         'priority__level',
+        'assigned_to__username',
+        'assigned_to__email',
+        'project__name',
     )
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Task]:
+        if getattr(self, 'swagger_fake_view', False):
+            return Task.objects.none()
 
-        workspace_ids = getattr(
-            self.request,
-            "workspace_ids",
-            []
-        )
+        workspace_ids = getattr(self.request, 'workspace_ids', [])
 
         return (
-            Task.objects.filter(
-                project__workspace_id__in=workspace_ids
-            )
+            Task.objects.filter(project__workspace_id__in=workspace_ids)
             .select_related(
                 'project',
                 'project__workspace',
+                'project__workspace__organization',
                 'status',
                 'priority',
-                'assigned_to'
+                'assigned_to',
             )
+            .prefetch_related('task_labels__label')
         )
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        if self.request.query_params.get('search') or self.request.query_params.get('label'):
+            queryset = queryset.distinct()
+        return queryset
 
     def list(self, request, *args, **kwargs):
         cache_key = make_list_key(CACHE_NAMESPACE, request.user.pk, request.get_full_path())

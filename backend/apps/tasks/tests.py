@@ -165,29 +165,69 @@ class TaskCRUDAPITest(APITestCase):
         self.assertEqual(res.status_code, 404)
 
     def test_list_supports_pagination_filter_search_ordering(self):
+        progress_status, _ = TaskStatus.objects.get_or_create(name='In Progress')
+        high_priority, _ = TaskPriority.objects.get_or_create(name='High', defaults={'level': 2})
+
         Task.objects.create(
             project=self.project,
             title='Alpha Task Search',
-            status=self.status,
-            priority=self.priority,
+            status=progress_status,
+            priority=high_priority,
             assigned_to=self.assignee,
         )
         Task.objects.create(
             project=self.project,
             title='Zulu Task Search',
-            status=self.status,
-            priority=self.priority,
+            status=progress_status,
+            priority=high_priority,
             assigned_to=self.assignee,
         )
 
         res = self.client.get(
-            f'/api/v1/tasks/?project={self.project.pk}&assigned_to={self.assignee.pk}&search=search&ordering=title&page_size=1',
+            (
+                f'/api/v1/tasks/?project={self.project.pk}'
+                f'&workspace={self.workspace.pk}'
+                f'&organization={self.org.pk}'
+                f'&status=in_progress'
+                f'&priority=high'
+                f'&assignee={self.assignee.pk}'
+                f'&search=search&ordering=title&page_size=1'
+            ),
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 200)
         self.assertIn('count', res.data)
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['title'], 'Alpha Task Search')
+
+    def test_search_matches_labels_and_deduplicates_results(self):
+        task = Task.objects.create(
+            project=self.project,
+            title='Label Search Task',
+            status=self.status,
+            priority=self.priority,
+            assigned_to=self.assignee,
+        )
+        frontend_label = Label.objects.create(name='Frontend', color='#000000')
+        frontend_docs_label = Label.objects.create(name='Frontend Docs', color='#111111')
+        TaskLabel.objects.create(task=task, label=frontend_label)
+        TaskLabel.objects.create(task=task, label=frontend_docs_label)
+
+        res = self.client.get(
+            f'/api/v1/tasks/?search=frontend&page_size=10&ordering=created_at',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['title'], 'Label Search Task')
+
+    def test_invalid_query_parameter_returns_400(self):
+        res = self.client.get(
+            f'/api/v1/tasks/?workspace=abc',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 400)
 
 
 class TaskStatusAPITest(APITestCase):

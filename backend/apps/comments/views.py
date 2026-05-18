@@ -26,8 +26,20 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = [IsWorkspaceMemberCommentAuthorForWrite]
     filterset_class = CommentFilter
-    search_fields = ('content',)
-    ordering_fields = ('created_at', 'updated_at')
+    search_fields = (
+        'content',
+        'task__title',
+        'task__project__name',
+        'author__username',
+        'author__email',
+    )
+    ordering_fields = (
+        'created_at',
+        'updated_at',
+        'task__title',
+        'author__username',
+        'author__email',
+    )
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[Comment]:
@@ -36,7 +48,13 @@ class CommentViewSet(viewsets.ModelViewSet):
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
             Comment.objects.filter(task__project__workspace_id__in=ws_ids)
-            .select_related('task', 'task__project', 'author')
+            .select_related(
+                'task',
+                'task__project',
+                'task__project__workspace',
+                'task__project__workspace__organization',
+                'author',
+            )
         )
 
     def perform_create(self, serializer):
@@ -53,7 +71,21 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ActivityLogSerializer
     permission_classes = [IsWorkspaceTeamMember]
     filterset_class = ActivityLogFilter
-    ordering_fields = ('created_at', 'updated_at', 'action')
+    search_fields = (
+        'action',
+        'description',
+        'task__title',
+        'task__project__name',
+        'user__username',
+        'user__email',
+    )
+    ordering_fields = (
+        'created_at',
+        'updated_at',
+        'action',
+        'task__title',
+        'user__username',
+    )
     ordering = ('-created_at',)
 
     def get_queryset(self) -> QuerySet[ActivityLog]:
@@ -62,5 +94,11 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
             ActivityLog.objects.filter(task__project__workspace_id__in=ws_ids)
-            .select_related('task', 'task__project', 'user')
+            .select_related(
+                'task',
+                'task__project',
+                'task__project__workspace',
+                'task__project__workspace__organization',
+                'user',
+            )
         )

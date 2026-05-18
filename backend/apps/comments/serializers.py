@@ -8,12 +8,14 @@ from .models import ActivityLog, Comment
 
 class CommentSerializer(serializers.ModelSerializer):
     author_email = serializers.EmailField(source='author.email', read_only=True)
+    task_title = serializers.CharField(source='task.title', read_only=True)
 
     class Meta:
         model = Comment
         fields = (
             'id',
             'task',
+            'task_title',
             'author',
             'author_email',
             'content',

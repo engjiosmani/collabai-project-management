@@ -132,6 +132,33 @@ class CommentCRUDAPITest(APITestCase):
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['content'], 'Alpha comment search')
 
+    def test_search_matches_task_title_and_organization_filters(self):
+        other_task = Task.objects.create(
+            project=self.project,
+            title='Bug dashboard task',
+            status=self.status,
+            priority=self.priority,
+        )
+        Comment.objects.create(task=other_task, author=self.other_member, content='Nothing to see here')
+        Comment.objects.create(task=self.task, author=self.author, content='Still nothing')
+
+        res = self.client.get(
+            (
+                f'/api/v1/comments/?workspace={self.workspace.pk}'
+                f'&organization={self.org.pk}'
+                f'&search=dashboard&ordering=created_at&page_size=1'
+            ),
+            **_jwt_header(self.author),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['task_title'], 'Bug dashboard task')
+
+    def test_invalid_query_parameter_returns_400(self):
+        res = self.client.get('/api/v1/comments/?author=abc', **_jwt_header(self.author))
+        self.assertEqual(res.status_code, 400)
+
 
 class ActivityLogReadOnlyAPITest(APITestCase):
     def setUp(self):

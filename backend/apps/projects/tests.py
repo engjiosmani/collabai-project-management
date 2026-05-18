@@ -210,6 +210,24 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['name'], 'Alpha Search')
 
+    def test_search_matches_workspace_and_organization_names(self):
+        res = self.client.get(
+            (
+                f'/api/v1/projects/?workspace={self.workspace.pk}'
+                f'&organization={self.org.pk}'
+                f'&search=crud&ordering=name&page_size=1'
+            ),
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['count'], 1)
+        self.assertEqual(len(res.data['results']), 1)
+        self.assertEqual(res.data['results'][0]['name'], 'Seed Project')
+
+    def test_invalid_query_parameter_returns_400(self):
+        res = self.client.get('/api/v1/projects/?workspace=abc', **_jwt_header(self.member))
+        self.assertEqual(res.status_code, 400)
+
     def test_outsider_does_not_see_foreign_projects_in_list(self):
         res = self.client.get(
             '/api/v1/projects/',

@@ -1,14 +1,11 @@
 from django.core.cache import cache
-from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import viewsets
 from rest_framework.response import Response
 
 from common.cache import make_list_key
 from common.permissions import IsWorkspaceTeamMember
 from common.tenant_viewset import TenantScopedViewSet
 from common.role_permissions import IsAdmin
-from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import ProjectFilter
 from .models import Project
@@ -33,22 +30,25 @@ class ProjectViewSet(TenantScopedViewSet):
     """
     queryset = Project.objects.select_related(
         'workspace',
-        'workspace__organization'
+        'workspace__organization',
     )
 
     serializer_class = ProjectSerializer
     permission_classes = [IsWorkspaceTeamMember]
     filterset_class = ProjectFilter
-    search_fields = ('name', 'description')
-    ordering_fields = ('created_at', 'updated_at', 'name', 'start_date', 'due_date', 'is_active')
+    search_fields = ('name', 'description', 'workspace__name', 'workspace__organization__name')
+    ordering_fields = (
+        'created_at',
+        'updated_at',
+        'name',
+        'start_date',
+        'due_date',
+        'is_active',
+        'workspace__name',
+        'workspace__organization__name',
+    )
     ordering = ('-created_at',)
 
-
-    def get_queryset(self) -> QuerySet[Project]:
-        if getattr(self, 'swagger_fake_view', False):
-            return Project.objects.none()
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
-        return Project.objects.filter(workspace_id__in=ws_ids).select_related('workspace', 'workspace__organization')
 
     def list(self, request, *args, **kwargs):
         cache_key = make_list_key(CACHE_NAMESPACE, request.user.pk, request.get_full_path())
