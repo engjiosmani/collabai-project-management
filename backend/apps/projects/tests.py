@@ -148,6 +148,18 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['name'], 'Alpha Search')
 
+    def test_outsider_does_not_see_foreign_projects_in_list(self):
+        res = self.client.get(
+            '/api/v1/projects/',
+            **_jwt_header(self.outsider)
+        )
+
+        self.assertEqual(res.status_code, 200)
+
+        results = res.data.get('results', res.data)
+
+        self.assertEqual(len(results), 0)
+
 
 class ProjectLoginJWTAuthTest(APITestCase):
     """Ensures real JWT from login works with project endpoints."""

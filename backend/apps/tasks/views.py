@@ -66,9 +66,24 @@ class TaskViewSet(viewsets.ModelViewSet):
         if getattr(self, 'swagger_fake_view', False):
             return Task.objects.none()
         ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+
+        workspace_ids = getattr(
+            self.request,
+            "workspace_ids",
+            []
+        )
+
         return (
-            Task.objects.filter(project__workspace_id__in=ws_ids)
-            .select_related('project', 'project__workspace', 'status', 'priority', 'assigned_to')
+            Task.objects.filter(
+                project__workspace_id__in=workspace_ids
+            )
+            .select_related(
+                'project',
+                'project__workspace',
+                'status',
+                'priority',
+                'assigned_to'
+            )
         )
 
     def list(self, request, *args, **kwargs):

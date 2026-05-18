@@ -1,7 +1,9 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
 
 from apps.organizations.models import Organization
 from apps.workspaces.models import Workspace
@@ -114,8 +116,12 @@ class CommentCRUDAPITest(APITestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_list_supports_filter_search_ordering(self):
-        Comment.objects.create(task=self.task, author=self.author, content='Alpha comment search')
-        Comment.objects.create(task=self.task, author=self.author, content='Zulu comment search')
+        alpha = Comment.objects.create(task=self.task, author=self.author, content='Alpha comment search')
+        zulu = Comment.objects.create(task=self.task, author=self.author, content='Zulu comment search')
+
+        now = timezone.now()
+        Comment.objects.filter(pk=alpha.pk).update(created_at=now - timedelta(minutes=1))
+        Comment.objects.filter(pk=zulu.pk).update(created_at=now)
 
         res = self.client.get(
             f'/api/v1/comments/?task={self.task.pk}&search=search&ordering=created_at&page_size=1',

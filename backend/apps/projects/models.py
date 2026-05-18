@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from common.models import BaseModel
 from apps.workspaces.models import Workspace
-
+from common.tenant_queryset import TenantQuerySet
 
 class Project(BaseModel):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="projects")
@@ -11,6 +11,7 @@ class Project(BaseModel):
     start_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    objects = TenantQuerySet.as_manager()
 
     class Meta:
         unique_together = ("workspace", "name")
@@ -36,6 +37,7 @@ class Subscription(BaseModel):
     plan_name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     expires_at = models.DateTimeField(null=True, blank=True)
+    objects = TenantQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.workspace} - {self.plan_name}"
@@ -46,6 +48,7 @@ class Integration(BaseModel):
     name = models.CharField(max_length=100)
     provider = models.CharField(max_length=100)
     is_enabled = models.BooleanField(default=True)
+    objects = TenantQuerySet.as_manager()
 
     class Meta:
         unique_together = ("workspace", "provider")

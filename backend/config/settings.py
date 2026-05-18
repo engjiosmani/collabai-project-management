@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 
@@ -116,6 +117,7 @@ MIDDLEWARE = [
     'config.middleware.JWTAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'apps.core.middleware.TenantMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -141,12 +143,45 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if "test" in sys.argv:
+    # Use in-memory SQLite for test runs to avoid requiring a running Postgres.
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
+else:
+    # Prefer explicit Postgres configuration via environment variables for production
+    # or when a developer has Postgres running locally. If these are not provided
+    # fall back to a local SQLite file so `runserver` and tooling work out of the box.
+    PG_NAME = os.environ.get('POSTGRES_DB') or os.environ.get('PGDATABASE')
+    PG_USER = os.environ.get('POSTGRES_USER') or os.environ.get('PGUSER')
+    PG_PASSWORD = os.environ.get('POSTGRES_PASSWORD') or os.environ.get('PGPASSWORD')
+    PG_HOST = os.environ.get('POSTGRES_HOST') or os.environ.get('PGHOST')
+    PG_PORT = os.environ.get('POSTGRES_PORT') or os.environ.get('PGPORT')
+
+    if PG_HOST or PG_NAME or os.environ.get('DATABASE_URL'):
+        # Use Postgres when any common Postgres env var is present. Provide sensible
+        # defaults for local development if the individual vars are partially set.
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': PG_NAME or 'collabai_db',
+                'USER': PG_USER or 'postgres',
+                'PASSWORD': PG_PASSWORD or 'postgres',
+                'HOST': PG_HOST or 'localhost',
+                'PORT': PG_PORT or '5432',
+            }
+        }
+    else:
+        # Developer-friendly default: a file-based SQLite DB inside the backend folder.
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': str(Path(BASE_DIR) / 'db.sqlite3'),
+            }
+        }
 
 
 # Cache: Redis when REDIS_URL is set, in-process LocMem otherwise so dev/tests
