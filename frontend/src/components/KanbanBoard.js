@@ -551,9 +551,14 @@ export default function KanbanBoard({
     return (
         <div className="kb-root">
             <header className="kb-header">
-                <h2 className="kb-header__title" data-cy="kanban-title">
-                    Kanban task board
-                </h2>
+                <div className="kb-header__intro">
+                    <h2 className="kb-header__title" data-cy="kanban-title">
+                        Kanban task board
+                    </h2>
+                    <p className="kb-header__desc">
+                        Create tasks, move them between columns, and filter by project.
+                    </p>
+                </div>
                 <div className="kb-header__controls">
                     <label className="kb-filter">
                         <span className="kb-filter-label">Project</span>
@@ -582,9 +587,6 @@ export default function KanbanBoard({
                         + New task
                     </button>
                 </div>
-                <p className="kb-header__desc">
-                    Create tasks, move them between columns, and filter by project.
-                </p>
             </header>
 
             {statuses.length === 0 ? (
@@ -592,21 +594,23 @@ export default function KanbanBoard({
                     No task statuses found. Make sure the backend has TaskStatus records.
                 </div>
             ) : (
-                <div className="kb-board">
-                    {statuses.map((s) => (
-                        <Column
-                            key={s.id}
-                            status={s}
-                            tasks={grouped[s.id] ?? []}
-                            statuses={statuses}
-                            onStatusChange={handleStatusChange}
-                            onEdit={(t) => setEditingTask(t)}
-                            onView={(t) => setViewingTask(t)}
-                            onDrop={handleStatusChange}
-                            projectNameById={projectNameById}
-                            showProject={showProjectOnCards}
-                        />
-                    ))}
+                <div className="kb-board-scroll">
+                    <div className="kb-board">
+                        {statuses.map((s) => (
+                            <Column
+                                key={s.id}
+                                status={s}
+                                tasks={grouped[s.id] ?? []}
+                                statuses={statuses}
+                                onStatusChange={handleStatusChange}
+                                onEdit={(t) => setEditingTask(t)}
+                                onView={(t) => setViewingTask(t)}
+                                onDrop={handleStatusChange}
+                                projectNameById={projectNameById}
+                                showProject={showProjectOnCards}
+                            />
+                        ))}
+                    </div>
                 </div>
             )}
 

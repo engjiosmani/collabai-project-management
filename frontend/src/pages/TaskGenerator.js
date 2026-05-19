@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { fetchWorkspaces } from "../api/ai";
@@ -19,7 +19,6 @@ import {
 } from "../api/taskGenerator";
 import AppSidebar from "../components/AppSidebar";
 import TaskDescriptionMarkdown from "../components/TaskDescriptionMarkdown";
-import { AuthContext } from "../context/AuthContext";
 import { formatWorkspaceLabel } from "../utils/workspaceLabel";
 
 import "./Dashboard.css";
@@ -57,8 +56,6 @@ function membersToTeamPayload(members, selectedIds, jobRoleByMemberId, jobRoles)
 }
 
 function TaskGenerator() {
-  const { user, logout } = useContext(AuthContext);
-
   const [workspaces, setWorkspaces] = useState([]);
   const [workspaceId, setWorkspaceId] = useState("");
   const [members, setMembers] = useState([]);

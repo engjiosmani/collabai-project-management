@@ -34,8 +34,11 @@ class WorkloadAnalyzerTest(TestCase):
         self.workspace = Workspace.objects.create(name='Pulse WS', organization=self.org)
         TeamMember.objects.create(workspace=self.workspace, user=self.user)
         self.project = Project.objects.create(workspace=self.workspace, name='Pulse Proj')
-        self.status = TaskStatus.objects.create(name='To Do')
-        self.priority = TaskPriority.objects.create(name='High', level=4)
+        self.status, _ = TaskStatus.objects.get_or_create(name='To Do')
+        self.priority, _ = TaskPriority.objects.get_or_create(
+            name='High',
+            defaults={'level': 4},
+        )
 
     def test_workload_and_burnout_alert(self):
         for i in range(11):
