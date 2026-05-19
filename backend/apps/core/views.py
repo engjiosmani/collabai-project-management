@@ -1,7 +1,18 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
-from .serializers import RegisterSerializer, LoginSerializer
+from .serializers import (
+    AccessTokenResponseSerializer,
+    DashboardSummarySerializer,
+    DetailResponseSerializer,
+    HealthResponseSerializer,
+    LoginSerializer,
+    LogoutRequestSerializer,
+    MetricsResponseSerializer,
+    RegisterSerializer,
+    TokenRefreshRequestSerializer,
+    TokenResponseSerializer,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -59,7 +70,7 @@ class RegisterView(generics.CreateAPIView):
     tags=['Authentication'],
     request=LoginSerializer,
     responses={
-        200: OpenApiResponse(description='JWT access and refresh tokens'),
+        200: TokenResponseSerializer,
         400: OpenApiResponse(description='Invalid credentials'),
     },
     description='Authenticate with email and password; receive JWT tokens.',
@@ -78,9 +89,9 @@ class LoginView(APIView):
 
 @extend_schema(
     tags=['Authentication'],
-    request={'application/json': {'type': 'object', 'properties': {'refresh': {'type': 'string'}}}},
+    request=TokenRefreshRequestSerializer,
     responses={
-        200: OpenApiResponse(description='New access token'),
+        200: AccessTokenResponseSerializer,
         400: OpenApiResponse(description='Invalid or expired refresh token'),
     },
     description='Obtain a new access token using a valid refresh token.',
@@ -102,10 +113,10 @@ class TokenRefreshView(APIView):
 
 @extend_schema(
     tags=['Authentication'],
-    request={'application/json': {'type': 'object', 'properties': {'refresh': {'type': 'string'}}}},
+    request=LogoutRequestSerializer,
     responses={
         204: OpenApiResponse(description='Logout successful'),
-        400: OpenApiResponse(description='Invalid token or missing refresh token'),
+        400: DetailResponseSerializer,
     },
     description='Invalidate refresh token (server-side) by blacklisting it.',
 )
@@ -128,7 +139,7 @@ class LogoutView(APIView):
 
 @extend_schema(
     tags=['Dashboard'],
-    responses={200: OpenApiResponse(description='Aggregated dashboard summary')},
+    responses={200: DashboardSummarySerializer},
     description='Aggregated counts and recent activity for the current user (workspace-scoped).',
 )
 class DashboardSummaryView(CachedGETMixin, APIView):
@@ -199,7 +210,10 @@ class DashboardSummaryView(CachedGETMixin, APIView):
 
 @extend_schema(
     tags=['Operations'],
-    responses={200: OpenApiResponse(description='Service health')},
+    responses={
+        200: HealthResponseSerializer,
+        503: HealthResponseSerializer,
+    },
     description='Public health check for load balancers and uptime monitoring.',
 )
 class HealthView(APIView):
@@ -244,7 +258,7 @@ class HealthView(APIView):
 
 @extend_schema(
     tags=['Operations'],
-    responses={200: OpenApiResponse(description='Platform metrics')},
+    responses={200: MetricsResponseSerializer},
     description='Admin-only operational metrics for the platform.',
 )
 class MetricsView(APIView):

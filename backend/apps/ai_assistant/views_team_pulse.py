@@ -1,4 +1,4 @@
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -7,9 +7,17 @@ from apps.organizations.models import Organization
 
 from .models import GitHubOrganizationConfig, TeamPulseReport
 from .serializers_team_pulse import (
-    GitHubOrganizationConfigSerializer,
+    DetailResponseSerializer,
+
+    GitHubOrganizationConfigSerializer,
     GitHubOrganizationConfigWriteSerializer,
-    TeamPulseReportSerializer,
+    TeamPulseReportSerializer,
+
+    TeamPulseOverviewSerializer,
+
+    TeamPulseRunQueuedSerializer,
+
+    TeamPulseRunResponseSerializer,
     TeamPulseRunSerializer,
 )
 from .services.team_pulse import TeamPulseService
@@ -17,8 +25,24 @@ from .tasks_team_pulse import generate_organization_standup
 from .views import OrganizationRAGMixin
 
 
-@extend_schema(tags=['AI / Team Pulse'])
-class TeamPulseOverviewView(OrganizationRAGMixin, APIView):
+@extend_schema(
+    tags=['AI / Team Pulse'],
+    parameters=[
+        OpenApiParameter(
+            name='organization_id',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description='Organization ID.',
+        ),
+    ],
+    responses={
+        200: TeamPulseOverviewSerializer,
+        400: DetailResponseSerializer,
+        403: DetailResponseSerializer,
+    },
+)
+class TeamPulseOverviewView(OrganizationRAGMixin, APIView):
     """Latest standup report and GitHub config for an organization."""
 
     def get(self, request):
@@ -52,8 +76,26 @@ class TeamPulseOverviewView(OrganizationRAGMixin, APIView):
         )
 
 
-@extend_schema(tags=['AI / Team Pulse'], request=GitHubOrganizationConfigWriteSerializer)
-class GitHubConfigView(OrganizationRAGMixin, APIView):
+@extend_schema(
+    tags=['AI / Team Pulse'],
+    request=GitHubOrganizationConfigWriteSerializer,
+    parameters=[
+        OpenApiParameter(
+            name='organization_id',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description='Organization ID for GET requests.',
+        ),
+    ],
+    responses={
+        200: GitHubOrganizationConfigSerializer,
+        400: DetailResponseSerializer,
+        403: DetailResponseSerializer,
+        404: DetailResponseSerializer,
+    },
+)
+class GitHubConfigView(OrganizationRAGMixin, APIView):
     def get(self, request):
         organization_id = request.query_params.get('organization_id')
         if not organization_id:
@@ -99,8 +141,16 @@ class GitHubConfigView(OrganizationRAGMixin, APIView):
         return Response(GitHubOrganizationConfigSerializer(config).data)
 
 
-@extend_schema(tags=['AI / Team Pulse'], request=TeamPulseRunSerializer)
-class TeamPulseRunView(OrganizationRAGMixin, APIView):
+@extend_schema(
+    tags=['AI / Team Pulse'],
+    request=TeamPulseRunSerializer,
+    responses={
+        200: TeamPulseRunResponseSerializer,
+        202: TeamPulseRunQueuedSerializer,
+        403: DetailResponseSerializer,
+    },
+)
+class TeamPulseRunView(OrganizationRAGMixin, APIView):
     """Trigger daily standup manually."""
 
     def post(self, request):
