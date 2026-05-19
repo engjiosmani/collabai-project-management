@@ -3,7 +3,7 @@ from django.contrib import admin
 from .models import (
     AIRequest,
     CacheEntity,
-    GitHubWorkspaceConfig,
+    GitHubOrganizationConfig,
     PlannedTask,
     ProjectPlanDraft,
     TeamPulseAlert,
@@ -19,13 +19,13 @@ class PlannedTaskInline(admin.TabularInline):
 
 @admin.register(ProjectPlanDraft)
 class ProjectPlanDraftAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'workspace', 'status', 'created_at')
+    list_display = ('id', 'user', 'organization', 'status', 'created_at')
     list_filter = ('status',)
     inlines = [PlannedTaskInline]
 
 
 admin.site.register(AIRequest)
 admin.site.register(CacheEntity)
-admin.site.register(GitHubWorkspaceConfig)
+admin.site.register(GitHubOrganizationConfig)
 admin.site.register(TeamPulseAlert)
 admin.site.register(TeamPulseReport)

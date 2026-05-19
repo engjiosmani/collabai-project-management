@@ -2,9 +2,8 @@ from django.db.models import QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
 
+from common.cache import CachedListMixin, NAMESPACE_ACTIVITY_LOGS, NAMESPACE_COMMENTS
 from common.permissions import IsWorkspaceMemberCommentAuthorForWrite, IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
-
 from .filters import ActivityLogFilter, CommentFilter
 from .models import ActivityLog, Comment
 from .serializers import ActivityLogSerializer, CommentSerializer
@@ -19,7 +18,9 @@ from .services.activity import log_comment_added
     partial_update=extend_schema(tags=['Comments'], summary='Partially update comment'),
     destroy=extend_schema(tags=['Comments'], summary='Delete comment'),
 )
-class CommentViewSet(viewsets.ModelViewSet):
+class CommentViewSet(CachedListMixin, viewsets.ModelViewSet):
+    cache_namespace = NAMESPACE_COMMENTS
+    cache_default_list_path = '/api/v1/comments/'
     """
     CRUD for task comments. Workspace members may read; only the author may edit or delete.
     """
@@ -46,14 +47,13 @@ class CommentViewSet(viewsets.ModelViewSet):
     def get_queryset(self) -> QuerySet[Comment]:
         if getattr(self, 'swagger_fake_view', False):
             return Comment.objects.none()
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+        org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            Comment.objects.filter(task__project__workspace_id__in=ws_ids)
+            Comment.objects.filter(task__project__organization_id__in=org_ids)
             .select_related(
                 'task',
                 'task__project',
-                'task__project__workspace',
-                'task__project__workspace__organization',
+                'task__project__organization',
                 'author',
             )
         )
@@ -67,7 +67,9 @@ class CommentViewSet(viewsets.ModelViewSet):
     list=extend_schema(tags=['Activity logs'], summary='List activity logs'),
     retrieve=extend_schema(tags=['Activity logs'], summary='Retrieve activity log'),
 )
-class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
+class ActivityLogViewSet(CachedListMixin, viewsets.ReadOnlyModelViewSet):
+    cache_namespace = NAMESPACE_ACTIVITY_LOGS
+    cache_default_list_path = '/api/v1/activity-logs/'
     """Read-only activity entries for tasks in workspaces the user belongs to."""
 
     serializer_class = ActivityLogSerializer
@@ -93,14 +95,13 @@ class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self) -> QuerySet[ActivityLog]:
         if getattr(self, 'swagger_fake_view', False):
             return ActivityLog.objects.none()
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+        org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            ActivityLog.objects.filter(task__project__workspace_id__in=ws_ids)
+            ActivityLog.objects.filter(task__project__organization_id__in=org_ids)
             .select_related(
                 'task',
                 'task__project',
-                'task__project__workspace',
-                'task__project__workspace__organization',
+                'task__project__organization',
                 'user',
             )
         )

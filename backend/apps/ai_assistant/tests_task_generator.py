@@ -7,9 +7,8 @@ from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
-from apps.workspaces.models import Role, TeamMember, Workspace
 
 from .models import PlannedTask, ProjectPlanDraft
 from .services.task_generator import PlanMaterializer, TaskGeneratorService
@@ -88,16 +87,18 @@ class TaskGeneratorServiceTests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='Plan Org')
-        self.workspace = Workspace.objects.create(name='Plan WS', organization=self.org)
-        role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
 
     @patch.object(TaskGeneratorService, '_call_json')
     def test_generate_persists_planned_tasks(self, mock_json):
         mock_json.side_effect = [SAMPLE_PLAN, SAMPLE_VALIDATION]
         draft = ProjectPlanDraft.objects.create(
             user=self.user,
-            workspace=self.workspace,
+            organization=self.org,
             input_description='Build a task app',
             sprint_count=1,
             team_members=[{'user_id': self.user.pk, 'username': 'planner', 'role': 'Backend Developer'}],
@@ -111,7 +112,7 @@ class TaskGeneratorServiceTests(TestCase):
     def test_approve_creates_project_and_tasks(self):
         draft = ProjectPlanDraft.objects.create(
             user=self.user,
-            workspace=self.workspace,
+            organization=self.org,
             input_description='Build a task app',
             sprint_count=1,
             status=ProjectPlanDraft.Status.PENDING_APPROVAL,
@@ -125,10 +126,10 @@ class TaskGeneratorServiceTests(TestCase):
         self.assertEqual(draft.status, ProjectPlanDraft.Status.SYNCED)
 
     def test_approve_creates_unique_name_when_project_exists(self):
-        Project.objects.create(workspace=self.workspace, name='Task App')
+        Project.objects.create(organization=self.org, name='Task App')
         draft = ProjectPlanDraft.objects.create(
             user=self.user,
-            workspace=self.workspace,
+            organization=self.org,
             input_description='Build a task app',
             sprint_count=1,
             status=ProjectPlanDraft.Status.PENDING_APPROVAL,
@@ -139,10 +140,10 @@ class TaskGeneratorServiceTests(TestCase):
         self.assertEqual(project.name, 'Task App (2)')
 
     def test_approve_adds_tasks_to_existing_project(self):
-        existing = Project.objects.create(workspace=self.workspace, name='Existing App')
+        existing = Project.objects.create(organization=self.org, name='Existing App')
         draft = ProjectPlanDraft.objects.create(
             user=self.user,
-            workspace=self.workspace,
+            organization=self.org,
             input_description='Add features',
             sprint_count=1,
             status=ProjectPlanDraft.Status.PENDING_APPROVAL,
@@ -171,20 +172,22 @@ class TaskGeneratorAPITests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='API Plan Org')
-        self.workspace = Workspace.objects.create(name='API Plan WS', organization=self.org)
-        role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
         token = str(RefreshToken.for_user(self.user).access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
 
     @patch('apps.ai_assistant.views_task_generator.generate_task_plan.delay')
     def test_create_plan_with_target_project(self, mock_delay):
         mock_delay.return_value = MagicMock(id='celery-id')
-        existing = Project.objects.create(workspace=self.workspace, name='Target Project')
+        existing = Project.objects.create(organization=self.org, name='Target Project')
         response = self.client.post(
             reverse('ai-task-plan-create'),
             {
-                'workspace_id': self.workspace.pk,
+                'organization_id': self.org.pk,
                 'description': 'Add auth tasks to existing app.',
                 'sprint_count': 1,
                 'target_project_id': existing.pk,
@@ -201,7 +204,7 @@ class TaskGeneratorAPITests(TestCase):
         response = self.client.post(
             reverse('ai-task-plan-create'),
             {
-                'workspace_id': self.workspace.pk,
+                'organization_id': self.org.pk,
                 'description': 'Distributed systems ecommerce app with JWT and Redis.',
                 'sprint_count': 2,
                 'team_members': [
@@ -222,7 +225,7 @@ class TaskGeneratorAPITests(TestCase):
     def test_get_plan_detail(self):
         draft = ProjectPlanDraft.objects.create(
             user=self.user,
-            workspace=self.workspace,
+            organization=self.org,
             input_description='Test',
             status=ProjectPlanDraft.Status.PENDING_APPROVAL,
             ai_raw_output=SAMPLE_PLAN,

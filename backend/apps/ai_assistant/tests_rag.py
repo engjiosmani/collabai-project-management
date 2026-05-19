@@ -8,10 +8,9 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.comments.models import Comment
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskPriority, TaskStatus
-from apps.workspaces.models import Role, TeamMember, Workspace
 
 from .services.indexing import document_from_task, index_instance
 from .services.rag import RAGService
@@ -33,11 +32,13 @@ class RAGServiceTests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='RAG Org')
-        self.workspace = Workspace.objects.create(name='RAG WS', organization=self.org)
-        member_role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=member_role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
         self.project = Project.objects.create(
-            workspace=self.workspace,
+            organization=self.org,
             name='Auth Project',
             description='JWT authentication rollout',
         )
@@ -69,7 +70,7 @@ class RAGServiceTests(TestCase):
         index_instance(self.task, embedding_service=MagicMock(embed_text=mock_embed))
 
         hits = RAGService(embedding_service=MagicMock(embed_text=mock_embed)).semantic_search(
-            workspace_id=self.workspace.pk,
+            organization_id=self.org.pk,
             query='authentication',
             top_k=3,
         )
@@ -85,7 +86,7 @@ class RAGServiceTests(TestCase):
 
         result = RAGService(embedding_service=MagicMock(embed_text=mock_embed)).ask(
             user=self.user,
-            workspace_id=self.workspace.pk,
+            organization_id=self.org.pk,
             question='Do we use JWT?',
         )
         self.assertIn('JWT', result['answer'])
@@ -108,10 +109,12 @@ class RAGAPITests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='API Org')
-        self.workspace = Workspace.objects.create(name='API WS', organization=self.org)
-        member_role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=member_role)
-        self.project = Project.objects.create(workspace=self.workspace, name='P1')
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
+        self.project = Project.objects.create(organization=self.org, name='P1')
         self.status = TaskStatus.objects.create(name='Todo')
         self.priority = TaskPriority.objects.create(name='Med', level=2)
         self.task = Task.objects.create(
@@ -133,7 +136,7 @@ class RAGAPITests(TestCase):
         response = self.client.post(
             url,
             {
-                'workspace_id': self.workspace.pk,
+                'organization_id': self.org.pk,
                 'query': 'authentication',
                 'top_k': 5,
             },
@@ -152,7 +155,7 @@ class RAGAPITests(TestCase):
         response = self.client.post(
             reverse('ai-rag-query'),
             {
-                'workspace_id': self.workspace.pk,
+                'organization_id': self.org.pk,
                 'question': 'Why JWT?',
             },
             format='json',

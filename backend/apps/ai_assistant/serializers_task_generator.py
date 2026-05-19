@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.workspaces.models import Workspace
+from apps.organizations.models import Organization
 
 from .models import PlannedTask, ProjectPlanDraft
 from .services.task_generator.project_target import resolve_target_project
@@ -13,15 +13,15 @@ class TeamMemberSerializer(serializers.Serializer):
 
 
 class CreateTaskPlanSerializer(serializers.Serializer):
-    workspace_id = serializers.IntegerField()
+    organization_id = serializers.IntegerField()
     description = serializers.CharField(max_length=8000)
     sprint_count = serializers.IntegerField(min_value=1, max_value=6, default=3)
     team_members = TeamMemberSerializer(many=True, required=False, default=list)
     target_project_id = serializers.IntegerField(required=False, allow_null=True, default=None)
 
-    def validate_workspace_id(self, value):
-        if not Workspace.objects.filter(pk=value).exists():
-            raise serializers.ValidationError('Workspace not found.')
+    def validate_organization_id(self, value):
+        if not Organization.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('Organization not found.')
         return value
 
     def validate(self, attrs):
@@ -30,10 +30,10 @@ class CreateTaskPlanSerializer(serializers.Serializer):
             return attrs
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        workspace_id = attrs['workspace_id']
+        organization_id = attrs['organization_id']
         try:
             resolve_target_project(
-                workspace_id=workspace_id,
+                organization_id=organization_id,
                 project_id=project_id,
                 user=user,
                 request=request,
@@ -57,7 +57,7 @@ class ApproveTaskPlanSerializer(serializers.Serializer):
             return value
         try:
             resolve_target_project(
-                workspace_id=plan.workspace_id,
+                organization_id=plan.organization_id,
                 project_id=value,
                 user=request.user,
                 request=request,
@@ -150,7 +150,7 @@ class ProjectPlanDraftSerializer(serializers.ModelSerializer):
         model = ProjectPlanDraft
         fields = (
             'id',
-            'workspace',
+            'organization',
             'input_description',
             'sprint_count',
             'team_members',

@@ -2,9 +2,21 @@ from django.db import models
 
 
 class TenantQuerySet(models.QuerySet):
-
-    def for_workspaces(self, workspace_ids):
-        if not workspace_ids:
+    def for_organizations(self, organization_ids):
+        if not organization_ids:
             return self.none()
 
-        return self.filter(workspace_id__in=workspace_ids)
+        if hasattr(self.model, 'organization_id'):
+            return self.filter(organization_id__in=organization_ids)
+
+        if hasattr(self.model, 'project_id'):
+            return self.filter(project__organization_id__in=organization_ids)
+
+        if hasattr(self.model, 'task_id'):
+            return self.filter(task__project__organization_id__in=organization_ids)
+
+        return self.none()
+
+    def for_workspaces(self, workspace_ids):
+        """Deprecated: maps to organization ids when workspace_ids are actually org ids."""
+        return self.for_organizations(workspace_ids)

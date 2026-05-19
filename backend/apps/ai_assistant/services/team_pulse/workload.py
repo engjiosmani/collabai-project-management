@@ -11,6 +11,7 @@ from django.utils import timezone
 from apps.comments.models import ActivityLog
 from apps.tasks.models import Task
 from apps.tasks.status_utils import completed_task_status_ids
+from apps.organizations.models import OrganizationMember
 from apps.workspaces.models import TeamMember
 
 
@@ -50,13 +51,20 @@ class MemberWorkload:
     completed_prev_7d: int
 
 
-def compute_member_workloads(workspace_id: int) -> list[MemberWorkload]:
+def _members_for_organization(organization_id: int):
+    members = OrganizationMember.objects.filter(organization_id=organization_id).select_related('user')
+    if members.exists():
+        return members
+    return TeamMember.objects.filter(workspace__organization_id=organization_id).select_related('user')
+
+
+def compute_member_workloads(organization_id: int) -> list[MemberWorkload]:
     done_ids = completed_task_status_ids()
     now = timezone.now()
     week_ago = now - timedelta(days=7)
     two_weeks_ago = now - timedelta(days=14)
 
-    members = TeamMember.objects.filter(workspace_id=workspace_id).select_related('user')
+    members = _members_for_organization(organization_id)
     results: list[MemberWorkload] = []
 
     for member in members:
@@ -65,7 +73,7 @@ def compute_member_workloads(workspace_id: int) -> list[MemberWorkload]:
             continue
 
         tasks_qs = Task.objects.filter(
-            project__workspace_id=workspace_id,
+            project__organization_id=organization_id,
             assigned_to=user,
         ).select_related('priority', 'status')
 
@@ -75,7 +83,7 @@ def compute_member_workloads(workspace_id: int) -> list[MemberWorkload]:
         est_hours = sum(_estimate_hours(t) for t in active_list)
 
         completed_logs = ActivityLog.objects.filter(
-            task__project__workspace_id=workspace_id,
+            task__project__organization_id=organization_id,
             user=user,
             action='Status changed',
             created_at__gte=two_weeks_ago,
@@ -125,7 +133,7 @@ def compute_member_workloads(workspace_id: int) -> list[MemberWorkload]:
     return results
 
 
-def build_workload_alerts(workspace_id: int, workloads: list[MemberWorkload]) -> list[dict]:
+def build_workload_alerts(organization_id: int, workloads: list[MemberWorkload]) -> list[dict]:
     """Return alert dicts ready for TeamPulseAlert.objects.create."""
     alerts: list[dict] = []
     overloaded = [w for w in workloads if w.active_tasks >= 8 or w.high_priority_tasks >= 4]

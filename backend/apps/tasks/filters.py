@@ -7,8 +7,7 @@ from .models import Task
 
 class TaskFilter(django_filters.FilterSet):
     project = django_filters.NumberFilter(field_name='project_id')
-    workspace = django_filters.NumberFilter(field_name='project__workspace_id')
-    organization = django_filters.NumberFilter(field_name='project__workspace__organization_id')
+    organization = django_filters.NumberFilter(field_name='project__organization_id')
     status = django_filters.CharFilter(method='filter_status')
     priority = django_filters.CharFilter(method='filter_priority')
     assigned_to = django_filters.NumberFilter(field_name='assigned_to_id')
@@ -23,7 +22,6 @@ class TaskFilter(django_filters.FilterSet):
         model = Task
         fields = (
             'project',
-            'workspace',
             'organization',
             'status',
             'priority',

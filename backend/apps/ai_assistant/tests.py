@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from apps.organizations.models import Organization
-from apps.workspaces.models import Workspace
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskStatus, TaskPriority
 from .models import AIRequest, CacheEntity
@@ -13,8 +12,7 @@ class AIModelsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="aiuser", password="test12345")
         self.org = Organization.objects.create(name="AI Org")
-        self.workspace = Workspace.objects.create(name="AI Workspace", organization=self.org)
-        self.project = Project.objects.create(workspace=self.workspace, name="AI Project")
+        self.project = Project.objects.create(organization=self.org, name="AI Project")
         self.status = TaskStatus.objects.create(name="Review")
         self.priority = TaskPriority.objects.create(name="Low", level=3)
         self.task = Task.objects.create(

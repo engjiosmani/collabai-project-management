@@ -2,31 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 
-import AIAssistantChat from "./AIAssistantChat";
-import { useDraggablePosition } from "../hooks/useDraggablePosition";
+import ChatBotPanel from "./ChatBotPanel";
 
 import "./FloatingAIAssistant.css";
-
-const POS_KEY = "collabai-ai-widget-pos";
-const HINT_KEY = "collabai-ai-widget-hint-dismissed";
 
 function FloatingAIAssistant() {
   const { pathname } = useLocation();
   const chatRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [hintDismissed, setHintDismissed] = useState(() => {
-    try {
-      return localStorage.getItem(HINT_KEY) === "1";
-    } catch {
-      return false;
-    }
-  });
 
-  const drag = useDraggablePosition(POS_KEY);
-  const dragEndedRef = useRef(false);
-
-  const hideWidget =
-    pathname === "/ai" || pathname.startsWith("/ai/team-pulse");
+  const hideWidget = pathname === "/ai" || pathname.startsWith("/ai/team-pulse");
 
   useEffect(() => {
     if (!open) return undefined;
@@ -36,75 +21,22 @@ function FloatingAIAssistant() {
 
   if (hideWidget) return null;
 
-  const handleFabPointerDown = (e) => {
-    dragEndedRef.current = false;
-    drag.onPointerDown(e);
-  };
-
-  const handleFabPointerMove = (e) => {
-    drag.onPointerMove(e);
-  };
-
-  const handleFabPointerUp = (e) => {
-    const wasDrag = drag.onPointerUp(e);
-    dragEndedRef.current = wasDrag;
-    if (!wasDrag) {
-      setOpen((v) => !v);
-      if (!hintDismissed) {
-        setHintDismissed(true);
-        try {
-          localStorage.setItem(HINT_KEY, "1");
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  };
-
-  const handleHeaderPointerDown = (e) => {
-    if (e.target.closest("button, a")) return;
-    dragEndedRef.current = false;
-    drag.onPointerDown(e);
-  };
-
-  const handleHeaderPointerMove = (e) => {
-    drag.onPointerMove(e);
-  };
-
-  const handleHeaderPointerUp = (e) => {
-    drag.onPointerUp(e);
-  };
-
-  const dismissHint = () => {
-    setHintDismissed(true);
-    try {
-      localStorage.setItem(HINT_KEY, "1");
-    } catch {
-      /* ignore */
-    }
+  const toggleOpen = () => {
+    setOpen((v) => !v);
   };
 
   const widget = (
-    <div
-      className="ai-float-root"
-      style={{ left: drag.position.x, top: drag.position.y }}
-      role="presentation"
-    >
+    <div className="ai-float-root" role="presentation">
       {open ? (
-        <section className="ai-float-panel" aria-label="CollabAI Assistant chat">
-          <header
-            className="ai-float-header"
-            onPointerDown={handleHeaderPointerDown}
-            onPointerMove={handleHeaderPointerMove}
-            onPointerUp={handleHeaderPointerUp}
-          >
+        <section className="ai-float-panel" aria-label="CollabAI ChatBot">
+          <header className="ai-float-header">
             <div className="ai-float-header-brand">
               <span className="ai-float-logo" aria-hidden>
                 C
               </span>
               <div>
-                <strong>CollabAI Assistant</strong>
-                <span className="ai-float-status">Online</span>
+                <strong>CollabAI ChatBot</strong>
+                <span className="ai-float-status">General chat</span>
               </div>
             </div>
             <div className="ai-float-header-actions">
@@ -117,54 +49,48 @@ function FloatingAIAssistant() {
               >
                 🧹
               </button>
-              <Link to="/ai" className="ai-float-icon-btn" title="Open full page" aria-label="Open full page">
+              <Link
+                to="/ai"
+                className="ai-float-icon-btn"
+                title="Open AI Assistant (project RAG)"
+                aria-label="Open AI Assistant"
+              >
                 ↗
               </Link>
               <button
                 type="button"
                 className="ai-float-icon-btn ai-float-icon-btn--close"
-                aria-label="Close assistant"
+                aria-label="Close chatbot"
                 onClick={() => setOpen(false)}
               >
                 ✕
               </button>
             </div>
           </header>
-          <AIAssistantChat ref={chatRef} variant="widget" showWorkspaceSelect />
+          <ChatBotPanel ref={chatRef} />
         </section>
       ) : null}
 
-      {!open && !hintDismissed ? (
+      <div className="ai-float-trigger">
+        {!open ? (
+          <span className="ai-float-hint" role="tooltip">
+            Chat with CollabAI here
+          </span>
+        ) : null}
+
         <button
           type="button"
-          className="ai-float-hint"
-          onClick={dismissHint}
-          aria-label="Dismiss hint"
+          className={`ai-float-fab${open ? " ai-float-fab--active" : ""}`}
+          aria-label={open ? "Close ChatBot" : "Open ChatBot"}
+          aria-expanded={open}
+          onClick={toggleOpen}
         >
-          Talk to CollabAI Assistant here
-        </button>
-      ) : null}
-
-      <button
-        type="button"
-        className={`ai-float-fab${open ? " ai-float-fab--open" : ""}`}
-        aria-label={open ? "Close CollabAI Assistant" : "Open CollabAI Assistant"}
-        aria-expanded={open}
-        onPointerDown={open ? undefined : handleFabPointerDown}
-        onPointerMove={open ? undefined : handleFabPointerMove}
-        onPointerUp={open ? () => setOpen(false) : handleFabPointerUp}
-      >
-        {open ? (
-          <span className="ai-float-fab-close" aria-hidden>
-            ✕
-          </span>
-        ) : (
           <span className="ai-float-fab-logo" aria-hidden>
             C
           </span>
-        )}
-        {!open ? <span className="ai-float-online" aria-hidden /> : null}
-      </button>
+          <span className="ai-float-online" aria-hidden />
+        </button>
+      </div>
     </div>
   );
 

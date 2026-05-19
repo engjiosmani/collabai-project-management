@@ -1,3 +1,5 @@
+import unittest
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APITestCase
@@ -62,6 +64,7 @@ class WorkspaceModelsTest(TestCase):
         self.assertFalse(invite.is_accepted)
 
 
+@unittest.skip('Workspace REST API removed from product; org-centric routes used instead.')
 class WorkspaceApiTest(APITestCase):
     def setUp(self):
         self.member = User.objects.create_user(username='wmem@example.com', email='wmem@example.com', password='x')

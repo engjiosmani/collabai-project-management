@@ -1,22 +1,20 @@
 from django.db import IntegrityError
 from rest_framework import serializers
 
-from apps.workspaces.models import Workspace
-from common.workspace_access import user_can_access_workspace
+from apps.organizations.models import Organization
+from common.tenant_access import user_can_access_organization
 
 from .models import Project
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    workspace_name = serializers.CharField(source='workspace.name', read_only=True)
-    organization_name = serializers.CharField(source='workspace.organization.name', read_only=True)
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
 
     class Meta:
         model = Project
         fields = (
             'id',
-            'workspace',
-            'workspace_name',
+            'organization',
             'organization_name',
             'name',
             'description',
@@ -28,11 +26,13 @@ class ProjectSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('created_at', 'updated_at')
 
-    def validate_workspace(self, value: Workspace):
+    def validate_organization(self, value: Organization):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if not user_can_access_workspace(user, value):
-            raise serializers.ValidationError('Invalid workspace or you are not a member of this workspace.')
+        if not user_can_access_organization(user, value):
+            raise serializers.ValidationError(
+                'Invalid organization or you are not a member of this organization.'
+            )
         return value
 
     def validate(self, attrs):
@@ -47,7 +47,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             return super().create(validated_data)
         except IntegrityError:
             raise serializers.ValidationError(
-                {'name': 'A project with this name already exists in the workspace.'}
+                {'name': 'A project with this name already exists in this organization.'}
             )
 
     def update(self, instance, validated_data):
@@ -55,5 +55,5 @@ class ProjectSerializer(serializers.ModelSerializer):
             return super().update(instance, validated_data)
         except IntegrityError:
             raise serializers.ValidationError(
-                {'name': 'A project with this name already exists in the workspace.'}
+                {'name': 'A project with this name already exists in this organization.'}
             )

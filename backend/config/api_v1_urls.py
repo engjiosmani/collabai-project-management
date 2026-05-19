@@ -6,7 +6,6 @@ from apps.tasks.views import TaskStatusViewSet
 urlpatterns = [
     path('', include('apps.core.urls')),
     path('organizations/', include('apps.organizations.urls')),
-    path('workspaces/', include('apps.workspaces.urls')),
     path('roles/', include('apps.workspaces.roles_urls')),
     path('job-roles/', include('apps.workspaces.job_roles_urls')),
     path('permissions/', include('apps.workspaces.permissions_urls')),

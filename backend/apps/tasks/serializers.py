@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.projects.models import Project
-from common.workspace_access import user_can_access_workspace
+from common.tenant_access import user_can_access_organization
 
 from .models import Task, TaskStatus
 
@@ -39,7 +39,7 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate_project(self, value: Project):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if not user_can_access_workspace(user, value.workspace):
+        if not user_can_access_organization(user, value.organization):
             raise serializers.ValidationError('Invalid project or access denied.')
         return value
 
@@ -52,9 +52,9 @@ class TaskSerializer(serializers.ModelSerializer):
         if assigned is None and self.instance:
             assigned = self.instance.assigned_to
         if assigned is not None and project is not None:
-            if not user_can_access_workspace(assigned, project.workspace):
+            if not user_can_access_organization(assigned, project.organization):
                 raise serializers.ValidationError(
-                    {'assigned_to': 'Assignee must be a member of the project workspace.'}
+                    {'assigned_to': 'Assignee must be a member of the project organization.'}
                 )
 
         return attrs

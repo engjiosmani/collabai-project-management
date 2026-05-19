@@ -4,8 +4,7 @@ from .models import Project
 
 
 class ProjectFilter(django_filters.FilterSet):
-    organization = django_filters.NumberFilter(field_name='workspace__organization_id')
-    workspace = django_filters.NumberFilter(field_name='workspace_id')
+    organization = django_filters.NumberFilter(field_name='organization_id')
     created_after = django_filters.IsoDateTimeFilter(field_name='created_at', lookup_expr='gte')
     created_before = django_filters.IsoDateTimeFilter(field_name='created_at', lookup_expr='lte')
     start_after = django_filters.DateFilter(field_name='start_date', lookup_expr='gte')
@@ -15,4 +14,4 @@ class ProjectFilter(django_filters.FilterSet):
 
     class Meta:
         model = Project
-        fields = ('is_active', 'workspace', 'organization')
+        fields = ('is_active', 'organization')

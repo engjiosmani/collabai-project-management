@@ -249,7 +249,7 @@ class TaskGeneratorService:
         return planned
 
     def run_generation(self, draft_id: int) -> None:
-        draft = ProjectPlanDraft.objects.select_related('workspace').get(pk=draft_id)
+        draft = ProjectPlanDraft.objects.select_related('organization').get(pk=draft_id)
         draft.status = ProjectPlanDraft.Status.GENERATING
         draft.error_message = ''
         draft.save(update_fields=['status', 'error_message', 'updated_at'])

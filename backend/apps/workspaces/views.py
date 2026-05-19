@@ -4,6 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from common.cache import CachedListMixin, NAMESPACE_WORKSPACES
 from common.permissions import IsAuthenticatedReadOnly, IsWorkspaceInviteAccess, IsWorkspaceTeamMember
 from common.workspace_access import workspaces_queryset_for_user
 
@@ -28,7 +29,10 @@ from .serializers import (
 	partial_update=extend_schema(tags=['Workspaces'], summary='Partially update workspace'),
 	destroy=extend_schema(tags=['Workspaces'], summary='Delete workspace'),
 )
-class WorkspaceViewSet(viewsets.ModelViewSet):
+class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
+	cache_namespace = NAMESPACE_WORKSPACES
+	cache_default_list_path = '/api/v1/workspaces/'
+
 	serializer_class = WorkspaceSerializer
 	permission_classes = [IsWorkspaceTeamMember]
 	filterset_class = WorkspaceFilter

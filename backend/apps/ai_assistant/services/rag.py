@@ -30,13 +30,13 @@ class RAGService:
     def semantic_search(
         self,
         *,
-        workspace_id: int,
+        organization_id: int,
         query: str,
         top_k: int | None = None,
     ) -> List[Dict[str, Any]]:
         k = top_k or settings.RAG_TOP_K_DEFAULT
         vector = self.embeddings.embed_text(query)
-        hits = self.store.search(workspace_id=workspace_id, query_vector=vector, top_k=k)
+        hits = self.store.search(organization_id=organization_id, query_vector=vector, top_k=k)
         return [
             {
                 'doc_type': hit.get('doc_type'),
@@ -50,7 +50,7 @@ class RAGService:
 
     def _format_context(self, hits: List[Dict[str, Any]]) -> str:
         if not hits:
-            return '(No similar documents were found in this workspace.)'
+            return '(No similar documents were found in this organization.)'
         blocks = []
         for index, hit in enumerate(hits, start=1):
             blocks.append(
@@ -62,15 +62,15 @@ class RAGService:
         self,
         *,
         user,
-        workspace_id: int,
+        organization_id: int,
         question: str,
         top_k: int | None = None,
         task_id: int | None = None,
     ) -> Dict[str, Any]:
-        hits = self.semantic_search(workspace_id=workspace_id, query=question, top_k=top_k)
+        hits = self.semantic_search(organization_id=organization_id, query=question, top_k=top_k)
         context = self._format_context(hits)
 
-        user_prompt = f"""Project context (workspace {workspace_id}):
+        user_prompt = f"""Project context (organization {organization_id}):
 {context}
 
 Question: {question}"""

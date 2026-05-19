@@ -21,10 +21,13 @@ from .serializers_task_generator import (
 from .services.task_generator.project_target import resolve_target_project
 from .services.task_generator import PlanMaterializer, TaskGeneratorService
 from .tasks import generate_task_plan
-from .views import WorkspaceRAGMixin
+from .views import OrganizationRAGMixin
 
 
-@extend_schema(tags=['AI / Task Generator'])
+@extend_schema(
+    tags=['AI / Task Generator'],
+    responses={200: OpenApiResponse(description='Groq LLM configuration status')},
+)
 class AIConfigView(APIView):
     """Check whether Groq is configured (for UI diagnostics)."""
 
@@ -45,7 +48,7 @@ class AIConfigView(APIView):
         )
 
 
-class TaskPlanMixin(WorkspaceRAGMixin):
+class TaskPlanMixin(OrganizationRAGMixin):
     def _get_plan(self, request, plan_id: int) -> ProjectPlanDraft:
         plan = get_object_or_404(
             ProjectPlanDraft.objects.select_related('target_project').prefetch_related('planned_tasks'),
@@ -53,7 +56,7 @@ class TaskPlanMixin(WorkspaceRAGMixin):
             user=request.user,
         )
         try:
-            self._assert_workspace_access(request, plan.workspace_id)
+            self._assert_organization_access(request, plan.organization_id)
         except PermissionError as exc:
             raise PermissionError(str(exc)) from exc
         return plan
@@ -69,23 +72,23 @@ class TaskPlanCreateView(TaskPlanMixin, APIView):
             context={'request': request},
         )
         serializer.is_valid(raise_exception=True)
-        workspace_id = serializer.validated_data['workspace_id']
+        organization_id = serializer.validated_data['organization_id']
         try:
-            self._assert_workspace_access(request, workspace_id)
+            self._assert_organization_access(request, organization_id)
         except PermissionError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
-        from apps.workspaces.services.team_members import team_members_payload_for_workspace
+        from apps.workspaces.services.team_members import team_members_payload_for_organization
 
         team_members = serializer.validated_data.get('team_members') or []
         if not team_members:
-            team_members = team_members_payload_for_workspace(workspace_id)
+            team_members = team_members_payload_for_organization(organization_id)
 
         target_project_id = serializer.validated_data.get('target_project_id')
         target_project = None
         if target_project_id:
             target_project = resolve_target_project(
-                workspace_id=workspace_id,
+                organization_id=organization_id,
                 project_id=target_project_id,
                 user=request.user,
                 request=request,
@@ -93,7 +96,7 @@ class TaskPlanCreateView(TaskPlanMixin, APIView):
 
         draft = ProjectPlanDraft.objects.create(
             user=request.user,
-            workspace_id=workspace_id,
+            organization_id=organization_id,
             input_description=serializer.validated_data['description'],
             sprint_count=serializer.validated_data['sprint_count'],
             team_members=team_members,
@@ -175,7 +178,7 @@ class TaskPlanApproveView(TaskPlanMixin, APIView):
             override_project_id = approve_serializer.validated_data['target_project_id']
             if override_project_id:
                 plan.target_project = resolve_target_project(
-                    workspace_id=plan.workspace_id,
+                    organization_id=plan.organization_id,
                     project_id=override_project_id,
                     user=request.user,
                     request=request,

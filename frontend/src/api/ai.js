@@ -1,13 +1,8 @@
 import API from "./api";
 
-export async function fetchWorkspaces() {
-  const { data } = await API.get("/workspaces/");
-  return Array.isArray(data) ? data : data.results ?? [];
-}
-
-export async function semanticSearch({ workspaceId, query, topK = 8 }) {
+export async function semanticSearch({ organizationId, query, topK = 8 }) {
   const { data } = await API.post("/ai/search/", {
-    workspace_id: workspaceId,
+    organization_id: organizationId,
     query,
     top_k: topK,
   });
@@ -15,14 +10,14 @@ export async function semanticSearch({ workspaceId, query, topK = 8 }) {
 }
 
 export async function ragQuery({
-  workspaceId,
+  organizationId,
   question,
   topK = 5,
   taskId = null,
   signal = null,
 }) {
   const payload = {
-    workspace_id: workspaceId,
+    organization_id: organizationId,
     question,
     top_k: topK,
   };
@@ -37,12 +32,21 @@ export async function ragQuery({
   return data;
 }
 
-export async function reindexWorkspace(workspaceId) {
-  const { data } = await API.post("/ai/reindex/", { workspace_id: workspaceId });
+export async function reindexOrganization(organizationId) {
+  const { data } = await API.post("/ai/reindex/", { organization_id: organizationId });
   return data;
 }
 
 export async function fetchAIHistory() {
   const { data } = await API.get("/ai/history/");
+  return data;
+}
+
+export async function analyzeText({ text, mode = "summary", taskId = null }) {
+  const payload = { text, mode };
+  if (taskId != null) {
+    payload.task_id = taskId;
+  }
+  const { data } = await API.post("/ai/analyze/", payload, { timeout: 120000 });
   return data;
 }

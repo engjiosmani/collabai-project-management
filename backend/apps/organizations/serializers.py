@@ -1,11 +1,14 @@
 from django.db import IntegrityError
 from rest_framework import serializers
 
-from .models import Organization
+from apps.workspaces.models import JobRole
+
+from .models import Organization, OrganizationMember
 
 
 class OrganizationSerializer(serializers.ModelSerializer):
-    workspace_count = serializers.IntegerField(read_only=True)
+    project_count = serializers.IntegerField(read_only=True)
+    member_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Organization
@@ -13,11 +16,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'description',
-            'workspace_count',
+            'project_count',
+            'member_count',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('workspace_count', 'created_at', 'updated_at')
+        read_only_fields = ('project_count', 'member_count', 'created_at', 'updated_at')
 
     def validate_name(self, value: str):
         text = (value or '').strip()
@@ -43,3 +47,31 @@ class OrganizationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'name': 'An organization with this name already exists.'})
 
 
+class OrganizationMemberJobRoleUpdateSerializer(serializers.Serializer):
+    job_role_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+class OrganizationMemberSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+    job_role_id = serializers.IntegerField(source='job_role.id', read_only=True, allow_null=True)
+    job_role_code = serializers.CharField(source='job_role.code', read_only=True, allow_null=True)
+    job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
+
+    class Meta:
+        model = OrganizationMember
+        fields = (
+            'id',
+            'organization',
+            'user_id',
+            'username',
+            'email',
+            'role',
+            'job_role_id',
+            'job_role_code',
+            'job_role_name',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = fields

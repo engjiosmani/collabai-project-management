@@ -1,9 +1,9 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { getApiErrorMessage } from "../api/api";
-import { fetchWorkspaces, ragQuery, reindexWorkspace } from "../api/ai";
+import { ragQuery, reindexOrganization } from "../api/ai";
+import { fetchProjects, projectLabel } from "../api/projects";
 import { AuthContext } from "../context/AuthContext";
-import { formatWorkspaceLabel } from "../utils/workspaceLabel";
 
 const EXAMPLE_QUESTIONS = [
   "Why do we use JWT for login?",
@@ -34,9 +34,9 @@ export function useAIAssistantChat() {
   const chatEndRef = useRef(null);
   const chatAbortRef = useRef(null);
 
-  const [workspaces, setWorkspaces] = useState([]);
-  const [workspaceId, setWorkspaceId] = useState("");
-  const [workspacesLoading, setWorkspacesLoading] = useState(true);
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState("");
+  const [projectsLoading, setProjectsLoading] = useState(true);
 
   const [input, setInput] = useState("");
   const [chatTurns, setChatTurns] = useState([]);
@@ -48,18 +48,18 @@ export function useAIAssistantChat() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setWorkspacesLoading(true);
+      setProjectsLoading(true);
       try {
-        const list = await fetchWorkspaces();
+        const list = await fetchProjects();
         if (cancelled) return;
-        setWorkspaces(list);
-        if (list.length > 0) setWorkspaceId(String(list[0].id));
+        setProjects(list);
+        if (list.length > 0) setProjectId(String(list[0].id));
       } catch (err) {
         if (!cancelled) {
-          setError(err.response?.data?.detail || "Could not load workspace.");
+          setError(getApiErrorMessage(err, "Could not load projects."));
         }
       } finally {
-        if (!cancelled) setWorkspacesLoading(false);
+        if (!cancelled) setProjectsLoading(false);
       }
     })();
     return () => {
@@ -71,9 +71,10 @@ export function useAIAssistantChat() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatTurns, loading]);
 
-  const wsId = workspaceId ? Number(workspaceId) : null;
-  const selectedWorkspace = workspaces.find((w) => String(w.id) === workspaceId);
-  const workspaceLabel = formatWorkspaceLabel(selectedWorkspace);
+  const selectedProject = projects.find((p) => String(p.id) === projectId);
+  const organizationId = selectedProject?.organization ?? null;
+  const orgId = organizationId != null ? Number(organizationId) : null;
+  const selectedProjectLabel = projectLabel(selectedProject);
 
   const stopGeneration = useCallback(() => {
     chatAbortRef.current?.abort();
@@ -86,7 +87,7 @@ export function useAIAssistantChat() {
 
   const runChat = useCallback(
     async (text) => {
-      if (!wsId || !text.trim() || loading) return;
+      if (!orgId || !text.trim() || loading) return;
       const q = text.trim();
       setInput("");
       setError("");
@@ -100,7 +101,7 @@ export function useAIAssistantChat() {
 
       try {
         const data = await ragQuery({
-          workspaceId: wsId,
+          organizationId: orgId,
           question: q,
           signal: controller.signal,
         });
@@ -128,7 +129,7 @@ export function useAIAssistantChat() {
         setLoading(false);
       }
     },
-    [wsId, loading]
+    [orgId, loading]
   );
 
   const handleSubmit = (e) => {
@@ -143,14 +144,14 @@ export function useAIAssistantChat() {
   const handleExample = (text) => runChat(text);
 
   const handleReindex = async () => {
-    if (!wsId) return;
+    if (!orgId) return;
     setReindexing(true);
     setError("");
     try {
-      await reindexWorkspace(wsId);
+      await reindexOrganization(orgId);
       setShowSettings(false);
     } catch (err) {
-      setError(err.response?.data?.detail || "Update failed.");
+      setError(getApiErrorMessage(err, "Update failed."));
     } finally {
       setReindexing(false);
     }
@@ -167,16 +168,16 @@ export function useAIAssistantChat() {
   }, []);
 
   const isEmpty = chatTurns.length === 0;
-  const hasWorkspace = Boolean(wsId);
+  const hasProject = Boolean(orgId && selectedProject);
   const displayName = user?.email ? user.email.split("@")[0] : "";
 
   return {
     user,
     chatEndRef,
-    workspaces,
-    workspaceId,
-    setWorkspaceId,
-    workspacesLoading,
+    projects,
+    projectId,
+    setProjectId,
+    projectsLoading,
     input,
     setInput,
     chatTurns,
@@ -186,8 +187,9 @@ export function useAIAssistantChat() {
     setShowSettings,
     error,
     setError,
-    wsId,
-    workspaceLabel,
+    orgId,
+    selectedProject,
+    selectedProjectLabel,
     stopGeneration,
     handleSubmit,
     handleExample,
@@ -195,7 +197,7 @@ export function useAIAssistantChat() {
     clearChat,
     abortOnUnmount,
     isEmpty,
-    hasWorkspace,
+    hasProject,
     displayName,
   };
 }

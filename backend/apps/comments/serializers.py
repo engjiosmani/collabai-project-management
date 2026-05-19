@@ -33,8 +33,8 @@ class CommentSerializer(serializers.ModelSerializer):
     def validate_task(self, value: Task):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        workspace = value.project.workspace
-        if not user_can_access_workspace(user, workspace):
+        organization = value.project.organization
+        if not user_can_access_workspace(user, organization):
             raise serializers.ValidationError('Invalid task or access denied.')
         return value
 

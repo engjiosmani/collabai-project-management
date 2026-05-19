@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchWorkspaces } from "../api/ai";
-import { fetchWorkspaceMembers } from "../api/taskGenerator";
+import { fetchProjects } from "../api/projects";
+import { fetchOrganizationMembers } from "../api/taskGenerator";
 import {
-  dismissTeamPulseAlert,
   fetchTeamPulseOverview,
   getApiErrorMessage,
   runTeamPulse,
   saveGitHubConfig,
 } from "../api/teamPulse";
+import StandupMarkdown from "../components/teamPulse/StandupMarkdown";
 import AppSidebar from "../components/AppSidebar";
 import TeamPulseGitHubSetup, {
   getGitHubSetupStatus,
 } from "../components/teamPulse/TeamPulseGitHubSetup";
-import { formatWorkspaceLabel } from "../utils/workspaceLabel";
 
 import "./Dashboard.css";
 import "./AIAssistant.css";
@@ -21,16 +20,9 @@ import "./TeamPulse.css";
 
 const FEATURES = [
   {
-    icon: "⚖️",
-    title: "Workload balance",
-    desc: "Spots uneven task load and suggests who could take more work or needs help.",
-    run: "workload",
-    runLabel: "Analyze workload",
-  },
-  {
     icon: "📋",
     title: "Daily standup",
-    desc: "Summarizes what the team did yesterday, plans for today, and blockers from tasks and GitHub.",
+    desc: "Every morning at 9:00: tasks (24h), comments, GitHub commits → yesterday / today / blockers per member.",
     run: "standup",
     runLabel: "Generate standup",
   },
@@ -44,8 +36,8 @@ const FEATURES = [
 ];
 
 function TeamPulse() {
-  const [workspaces, setWorkspaces] = useState([]);
-  const [workspaceId, setWorkspaceId] = useState("");
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState("");
   const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -56,24 +48,30 @@ function TeamPulse() {
   const [members, setMembers] = useState([]);
   const [githubLogins, setGithubLogins] = useState({});
 
+  const selectedProject = useMemo(
+    () => projects.find((p) => String(p.id) === projectId),
+    [projects, projectId]
+  );
+  const organizationId = selectedProject?.organization;
+
   useEffect(() => {
     (async () => {
       try {
-        const list = await fetchWorkspaces();
-        setWorkspaces(list);
-        if (list.length) setWorkspaceId(String(list[0].id));
+        const list = await fetchProjects();
+        setProjects(list);
+        if (list.length) setProjectId(String(list[0].id));
       } catch (err) {
-        setError(getApiErrorMessage(err, "Could not load workspaces."));
+        setError(getApiErrorMessage(err, "Could not load projects."));
       }
     })();
   }, []);
 
   const load = useCallback(async () => {
-    if (!workspaceId) return;
+    if (!organizationId) return;
     setLoading(true);
     setError("");
     try {
-      const data = await fetchTeamPulseOverview(workspaceId);
+      const data = await fetchTeamPulseOverview(organizationId);
       setOverview(data);
       const gh = data.github;
       if (gh) {
@@ -86,7 +84,7 @@ function TeamPulse() {
         setGithubLogins({});
       }
       try {
-        const memberList = await fetchWorkspaceMembers(workspaceId);
+        const memberList = await fetchOrganizationMembers(organizationId);
         setMembers(Array.isArray(memberList) ? memberList : []);
       } catch {
         setMembers([]);
@@ -96,7 +94,7 @@ function TeamPulse() {
     } finally {
       setLoading(false);
     }
-  }, [workspaceId]);
+  }, [organizationId]);
 
   useEffect(() => {
     load();
@@ -112,7 +110,7 @@ function TeamPulse() {
 
   const handleSaveGitHub = async (e) => {
     e.preventDefault();
-    if (!workspaceId) return;
+    if (!organizationId) return;
     setError("");
     try {
       const repos = githubRepos
@@ -120,7 +118,7 @@ function TeamPulse() {
         .map((s) => s.trim())
         .filter(Boolean);
       await saveGitHubConfig({
-        workspace_id: Number(workspaceId),
+        organization_id: Number(organizationId),
         access_token: githubToken || undefined,
         repos,
         is_enabled: githubEnabled,
@@ -133,12 +131,12 @@ function TeamPulse() {
     }
   };
 
-  const handleRun = async (runType) => {
-    if (!workspaceId) return;
+  const handleRunStandup = async () => {
+    if (!organizationId) return;
     setRunning(true);
     setError("");
     try {
-      await runTeamPulse(Number(workspaceId), runType);
+      await runTeamPulse(Number(organizationId), "standup");
       await load();
     } catch (err) {
       setError(getApiErrorMessage(err, "Run failed."));
@@ -147,18 +145,7 @@ function TeamPulse() {
     }
   };
 
-  const handleDismiss = async (alertId) => {
-    try {
-      await dismissTeamPulseAlert(alertId);
-      await load();
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Could not dismiss alert."));
-    }
-  };
-
   const standup = overview?.latest_standup;
-  const workload = overview?.latest_workload;
-  const alerts = overview?.alerts || [];
 
   return (
     <div className="dashboard-shell dashboard-shell--viewport">
@@ -169,26 +156,26 @@ function TeamPulse() {
           <div className="tp-page-header__intro">
             <h2 className="tp-page-title">Team Pulse</h2>
             <p className="tp-lead">
-              AI checks how work is spread across your team, flags burnout risk, and builds a daily
-              standup — optionally enriched with GitHub commits.
+              Autonomous daily standup: what each teammate did yesterday, plans for today, and
+              blockers — from tasks, comments, and optional GitHub commits.
             </p>
           </div>
           <div className="tp-page-header__controls">
             <label className="tp-workspace-field">
-              <span className="tp-workspace-label">Workspace</span>
+              <span className="tp-workspace-label">Project</span>
               <select
                 className="tp-workspace-select"
-                value={workspaceId}
-                onChange={(e) => setWorkspaceId(e.target.value)}
-                aria-label="Workspace"
-                disabled={workspaces.length === 0}
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                aria-label="Project"
+                disabled={projects.length === 0}
               >
-                {workspaces.length === 0 ? (
-                  <option value="">No workspace</option>
+                {projects.length === 0 ? (
+                  <option value="">No project</option>
                 ) : (
-                  workspaces.map((ws) => (
-                    <option key={ws.id} value={ws.id}>
-                      {formatWorkspaceLabel(ws)}
+                  projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
                     </option>
                   ))
                 )}
@@ -197,11 +184,11 @@ function TeamPulse() {
             <button
               type="button"
               className="dashboard-button dashboard-button--primary tp-run-all-btn"
-              disabled={running || !workspaceId}
-              onClick={() => handleRun("both")}
-              title="Runs workload analysis and generates today's standup"
+              disabled={running || !projectId}
+              onClick={handleRunStandup}
+              title="Generate today's standup now"
             >
-              {running ? "Running…" : "Run everything"}
+              {running ? "Running…" : "Generate standup"}
             </button>
           </div>
         </header>
@@ -224,8 +211,8 @@ function TeamPulse() {
                 <button
                   type="button"
                   className="dashboard-button dashboard-button--ghost tp-feature-btn"
-                  disabled={running || !workspaceId}
-                  onClick={() => handleRun(f.run)}
+                  disabled={running || !projectId}
+                  onClick={handleRunStandup}
                 >
                   {running ? "…" : f.runLabel}
                 </button>
@@ -239,8 +226,8 @@ function TeamPulse() {
         </section>
 
         <p className="tp-schedule-note">
-          <strong>Automatic runs:</strong> workload analysis around 2:00 AM, standup around 9:00 AM
-          (server time). Use the buttons above anytime for an immediate refresh.
+          <strong>Automatic run:</strong> standup around 9:00 AM (server time). Use the button above
+          anytime for an immediate refresh. Reports appear below in the app.
         </p>
 
         <form className="tp-github-form" onSubmit={handleSaveGitHub}>
@@ -258,7 +245,7 @@ function TeamPulse() {
           />
           <div className="tp-github-form-footer">
             <p className="tp-hint">
-              Save after each step. Your token is stored securely for this workspace only.
+              Save after each step. Your token is stored securely for this project&apos;s team.
             </p>
             <button type="submit" className="dashboard-button dashboard-button--primary">
               Save GitHub settings
@@ -268,38 +255,8 @@ function TeamPulse() {
 
         {loading ? <p className="tp-muted">Loading reports…</p> : null}
 
-        {!loading && alerts.length > 0 ? (
-          <section className="tp-card">
-            <h3 className="tp-card-title">Workload alerts</h3>
-            <p className="tp-card-desc">Active suggestions from the latest workload analysis.</p>
-            <ul className="tp-alert-list">
-              {alerts.map((a) => (
-                <li key={a.id} className={`tp-alert tp-alert--${a.severity}`}>
-                  <div>
-                    <strong>{a.title}</strong>
-                    <p>{a.message}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="dashboard-button dashboard-button--ghost"
-                    onClick={() => handleDismiss(a.id)}
-                  >
-                    Dismiss
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {!loading && alerts.length === 0 ? (
-          <p className="tp-muted tp-results-hint">
-            No active workload alerts. Run <strong>Analyze workload</strong> to refresh.
-          </p>
-        ) : null}
-
-        <div className="tp-grid">
-          <section className="tp-card">
+        {!loading ? (
+          <section className="tp-card tp-standup-card">
             <div className="tp-card-head">
               <div>
                 <h3 className="tp-card-title">Daily standup</h3>
@@ -311,13 +268,13 @@ function TeamPulse() {
                 type="button"
                 className="dashboard-button dashboard-button--ghost"
                 disabled={running}
-                onClick={() => handleRun("standup")}
+                onClick={handleRunStandup}
               >
                 Generate
               </button>
             </div>
             {standup ? (
-              <pre className="tp-pre">{standup.summary_markdown || "No content"}</pre>
+              <StandupMarkdown text={standup.summary_markdown} />
             ) : (
               <p className="tp-muted">
                 No standup yet. Connect GitHub above (optional), then click Generate or wait for the
@@ -325,33 +282,7 @@ function TeamPulse() {
               </p>
             )}
           </section>
-
-          <section className="tp-card">
-            <div className="tp-card-head">
-              <div>
-                <h3 className="tp-card-title">Workload snapshot</h3>
-                <p className="tp-card-desc tp-card-desc--tight">
-                  Who is overloaded, who has capacity, and suggested reassignments.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="dashboard-button dashboard-button--ghost"
-                disabled={running}
-                onClick={() => handleRun("workload")}
-              >
-                Analyze
-              </button>
-            </div>
-            {workload ? (
-              <pre className="tp-pre">{workload.summary_markdown || "No content"}</pre>
-            ) : (
-              <p className="tp-muted">
-                No analysis yet. Click Analyze or wait for the nightly 2:00 AM run.
-              </p>
-            )}
-          </section>
-        </div>
+        ) : null}
       </main>
     </div>
   );

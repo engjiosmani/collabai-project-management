@@ -4,19 +4,13 @@ from apps.ai_assistant.services.team_pulse import TeamPulseService
 
 
 class Command(BaseCommand):
-    help = 'Run Team Pulse workload and/or standup for one workspace or all.'
+    help = 'Run Team Pulse daily standup for one workspace or all.'
 
     def add_arguments(self, parser):
         parser.add_argument('--workspace-id', type=int, default=None)
-        parser.add_argument(
-            '--type',
-            choices=['workload', 'standup', 'both'],
-            default='both',
-        )
 
     def handle(self, *args, **options):
         workspace_id = options['workspace_id']
-        run_type = options['type']
         service = TeamPulseService()
 
         if workspace_id:
@@ -29,9 +23,5 @@ class Command(BaseCommand):
             )
 
         for ws_id in workspaces:
-            if run_type in ('workload', 'both'):
-                service.run_workload_analysis(ws_id)
-                self.stdout.write(self.style.SUCCESS(f'Workload done: workspace {ws_id}'))
-            if run_type in ('standup', 'both'):
-                service.run_daily_standup(ws_id)
-                self.stdout.write(self.style.SUCCESS(f'Standup done: workspace {ws_id}'))
+            service.run_daily_standup(ws_id)
+            self.stdout.write(self.style.SUCCESS(f'Standup done: workspace {ws_id}'))

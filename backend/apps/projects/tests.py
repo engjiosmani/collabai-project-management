@@ -5,13 +5,11 @@ from django.test.utils import CaptureQueriesContext, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.workspaces.models import (TeamMember, Role)
 
-from apps.organizations.models import Organization
-from apps.workspaces.models import Workspace
-from common.cache import make_list_key
+from apps.organizations.models import Organization, OrganizationMember
+
+from common.cache import NAMESPACE_PROJECTS, make_list_key
 from .models import Project, ProjectMember, Subscription, Integration
-from .views import CACHE_NAMESPACE
 
 User = get_user_model()
 
@@ -23,20 +21,19 @@ class ProjectModelsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="projectuser", password="test12345")
         self.org = Organization.objects.create(name="Test Organization")
-        self.workspace = Workspace.objects.create(name="Test Workspace", organization=self.org)
 
     def test_create_project(self):
         project = Project.objects.create(
-            workspace=self.workspace,
+            organization=self.org,
             name="CollabAI Project",
-            description="Project management system"
+            description="Project management system",
         )
 
-        self.assertEqual(project.workspace, self.workspace)
+        self.assertEqual(project.organization, self.org)
         self.assertEqual(project.name, "CollabAI Project")
 
     def test_create_project_member(self):
-        project = Project.objects.create(workspace=self.workspace, name="Project A")
+        project = Project.objects.create(organization=self.org, name="Project A")
         member = ProjectMember.objects.create(project=project, user=self.user)
 
         self.assertEqual(member.project, project)
@@ -44,93 +41,71 @@ class ProjectModelsTest(TestCase):
 
     def test_create_subscription(self):
         subscription = Subscription.objects.create(
-            workspace=self.workspace,
-            plan_name="Free"
+            organization=self.org,
+            plan_name="Free",
         )
 
-        self.assertEqual(subscription.workspace, self.workspace)
+        self.assertEqual(subscription.organization, self.org)
         self.assertTrue(subscription.is_active)
 
     def test_create_integration(self):
         integration = Integration.objects.create(
-            workspace=self.workspace,
+            organization=self.org,
             name="GitHub",
-            provider="github"
+            provider="github",
         )
 
-        self.assertEqual(integration.workspace, self.workspace)
+        self.assertEqual(integration.organization, self.org)
         self.assertEqual(integration.provider, "github")
 
 
 class ProjectCRUDAPITest(APITestCase):
     def setUp(self):
-        # ── 1. Krijo userët ──────────────────────────────────────────────
         self.admin_user = User.objects.create_user(
             username='proj_admin@example.com',
             email='proj_admin@example.com',
-            password='x'
+            password='x',
         )
         self.member = User.objects.create_user(
             username='proj_member@example.com',
             email='proj_member@example.com',
-            password='x'
+            password='x',
         )
         self.outsider = User.objects.create_user(
             username='proj_outsider@example.com',
             email='proj_outsider@example.com',
-            password='x'
+            password='x',
         )
 
-        # ── 2. Krijo org + workspace ─────────────────────────────────────
         self.org = Organization.objects.create(name='CRUD Org')
-        self.workspace = Workspace.objects.create(
-            name='CRUD WS',
-            organization=self.org
-        )
 
-        # ── 3. Krijo rolet (pas workspace) ──────────────────────────────
-        self.admin_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.ADMIN
-        )
-        self.manager_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MANAGER
-        )
-        self.member_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MEMBER
-        )
-
-        # ── 4. Cakto anëtarët e workspace ───────────────────────────────
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.member,
-            role=self.manager_role
+            role=OrganizationMember.MANAGER,
         )
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.admin_user,
-            role=self.admin_role
+            role=OrganizationMember.ADMIN,
         )
 
-        # ── 5. Krijo projektin seed ──────────────────────────────────────
         self.project = Project.objects.create(
-            workspace=self.workspace,
-            name='Seed Project'
+            organization=self.org,
+            name='Seed Project',
         )
 
     def test_member_cannot_delete_project(self):
         response = self.client.delete(
             f'/api/v1/projects/{self.project.pk}/',
-            **_jwt_header(self.member)
+            **_jwt_header(self.member),
         )
         self.assertEqual(response.status_code, 403)
 
     def test_admin_can_delete_project(self):
         response = self.client.delete(
             f'/api/v1/projects/{self.project.pk}/',
-            **_jwt_header(self.admin_user)
+            **_jwt_header(self.admin_user),
         )
         self.assertEqual(response.status_code, 204)
 
@@ -155,7 +130,7 @@ class ProjectCRUDAPITest(APITestCase):
         create = self.client.post(
             '/api/v1/projects/',
             {
-                'workspace': self.workspace.pk,
+                'organization': self.org.pk,
                 'name': 'New API Project',
                 'description': 'd',
                 'is_active': True,
@@ -175,31 +150,30 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(patch.status_code, 200)
         self.assertEqual(patch.data['description'], 'updated')
 
-        # Vetëm ADMIN mund të fshijë — member (MANAGER) nuk ka leje
         delete = self.client.delete(f'/api/v1/projects/{pid}/', **_jwt_header(self.admin_user))
         self.assertEqual(delete.status_code, 204)
 
-    def test_duplicate_name_per_workspace_returns_400(self):
+    def test_duplicate_name_per_organization_returns_400(self):
         res = self.client.post(
             '/api/v1/projects/',
-            {'workspace': self.workspace.pk, 'name': 'Seed Project'},
+            {'organization': self.org.pk, 'name': 'Seed Project'},
             format='json',
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 400)
 
-    def test_outsider_cannot_create_in_workspace(self):
+    def test_outsider_cannot_create_in_organization(self):
         res = self.client.post(
             '/api/v1/projects/',
-            {'workspace': self.workspace.pk, 'name': 'Hack'},
+            {'organization': self.org.pk, 'name': 'Hack'},
             format='json',
             **_jwt_header(self.outsider),
         )
         self.assertEqual(res.status_code, 400)
 
     def test_list_supports_pagination_filter_search_ordering(self):
-        Project.objects.create(workspace=self.workspace, name='Alpha Search', is_active=True)
-        Project.objects.create(workspace=self.workspace, name='Zulu Search', is_active=False)
+        Project.objects.create(organization=self.org, name='Alpha Search', is_active=True)
+        Project.objects.create(organization=self.org, name='Zulu Search', is_active=False)
 
         res = self.client.get(
             '/api/v1/projects/?is_active=true&search=search&ordering=name&page_size=1',
@@ -210,11 +184,10 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(len(res.data['results']), 1)
         self.assertEqual(res.data['results'][0]['name'], 'Alpha Search')
 
-    def test_search_matches_workspace_and_organization_names(self):
+    def test_search_matches_organization_name(self):
         res = self.client.get(
             (
-                f'/api/v1/projects/?workspace={self.workspace.pk}'
-                f'&organization={self.org.pk}'
+                f'/api/v1/projects/?organization={self.org.pk}'
                 f'&search=crud&ordering=name&page_size=1'
             ),
             **_jwt_header(self.member),
@@ -225,13 +198,13 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(res.data['results'][0]['name'], 'Seed Project')
 
     def test_invalid_query_parameter_returns_400(self):
-        res = self.client.get('/api/v1/projects/?workspace=abc', **_jwt_header(self.member))
+        res = self.client.get('/api/v1/projects/?organization=abc', **_jwt_header(self.member))
         self.assertEqual(res.status_code, 400)
 
     def test_outsider_does_not_see_foreign_projects_in_list(self):
         res = self.client.get(
             '/api/v1/projects/',
-            **_jwt_header(self.outsider)
+            **_jwt_header(self.outsider),
         )
         self.assertEqual(res.status_code, 200)
         results = res.data.get('results', res.data)
@@ -245,11 +218,14 @@ class ProjectLoginJWTAuthTest(APITestCase):
         self.user = User.objects.create_user(
             username='jwt@example.com',
             email='jwt@example.com',
-            password='SecretPass123!'
+            password='SecretPass123!',
         )
         self.org = Organization.objects.create(name='JWT Org')
-        self.ws = Workspace.objects.create(name='JWT WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.ws, user=self.user)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
 
     def test_login_then_access_projects(self):
         login = self.client.post(
@@ -279,15 +255,19 @@ class ProjectListCacheTest(APITestCase):
             username='cacheother@example.com', email='cacheother@example.com', password='x',
         )
         self.org = Organization.objects.create(name='Cache Org')
-        self.workspace = Workspace.objects.create(name='Cache WS', organization=self.org)
 
-        # ── RREGULLIM: member=ADMIN për DELETE, other=MEMBER ────────────
-        admin_role = Role.objects.create(workspace=self.workspace, name=Role.ADMIN)
-        member_role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member, role=admin_role)
-        TeamMember.objects.create(workspace=self.workspace, user=self.other, role=member_role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.member,
+            role=OrganizationMember.ADMIN,
+        )
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.other,
+            role=OrganizationMember.MEMBER,
+        )
 
-        Project.objects.create(workspace=self.workspace, name='Seed Cached Project')
+        Project.objects.create(organization=self.org, name='Seed Cached Project')
 
     def _list(self, user):
         return self.client.get('/api/v1/projects/', **_jwt_header(user))
@@ -311,7 +291,7 @@ class ProjectListCacheTest(APITestCase):
         self._list(self.member)
         res = self.client.post(
             '/api/v1/projects/',
-            {'workspace': self.workspace.pk, 'name': 'Brand New Project'},
+            {'organization': self.org.pk, 'name': 'Brand New Project'},
             format='json',
             **_jwt_header(self.member),
         )
@@ -322,7 +302,7 @@ class ProjectListCacheTest(APITestCase):
         self.assertIn('Brand New Project', names)
 
     def test_update_invalidates_cache(self):
-        target = Project.objects.create(workspace=self.workspace, name='Original Name')
+        target = Project.objects.create(organization=self.org, name='Original Name')
         self._list(self.member)
 
         res = self.client.patch(
@@ -339,11 +319,11 @@ class ProjectListCacheTest(APITestCase):
         self.assertNotIn('Original Name', names)
 
     def test_delete_invalidates_cache(self):
-        target = Project.objects.create(workspace=self.workspace, name='To Delete')
+        target = Project.objects.create(organization=self.org, name='To Delete')
         self._list(self.member)
 
         res = self.client.delete(f'/api/v1/projects/{target.pk}/', **_jwt_header(self.member))
-        self.assertEqual(res.status_code, 204)  # ishte 403 para rregullimit
+        self.assertEqual(res.status_code, 204)
 
         after = self._list(self.member)
         names = [p['name'] for p in after.data.get('results', after.data)]
@@ -353,8 +333,8 @@ class ProjectListCacheTest(APITestCase):
         self._list(self.member)
         self._list(self.other)
 
-        member_key = make_list_key(CACHE_NAMESPACE, self.member.pk, '/api/v1/projects/')
-        other_key = make_list_key(CACHE_NAMESPACE, self.other.pk, '/api/v1/projects/')
+        member_key = make_list_key(NAMESPACE_PROJECTS, self.member.pk, '/api/v1/projects/')
+        other_key = make_list_key(NAMESPACE_PROJECTS, self.other.pk, '/api/v1/projects/')
         self.assertNotEqual(member_key, other_key)
         self.assertIsNotNone(cache.get(member_key))
         self.assertIsNotNone(cache.get(other_key))

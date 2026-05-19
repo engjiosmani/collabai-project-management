@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+
 from common.models import BaseModel
 
 
@@ -8,3 +10,40 @@ class Organization(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class OrganizationMember(BaseModel):
+    ADMIN = 'admin'
+    MANAGER = 'manager'
+    MEMBER = 'member'
+
+    ROLE_CHOICES = [
+        (ADMIN, 'Admin'),
+        (MANAGER, 'Manager'),
+        (MEMBER, 'Member'),
+    ]
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name='members',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='organization_memberships',
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=MEMBER)
+    job_role = models.ForeignKey(
+        'workspaces.JobRole',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='organization_members',
+    )
+
+    class Meta:
+        unique_together = ('organization', 'user')
+
+    def __str__(self):
+        return f'{self.user_id} @ {self.organization.name} ({self.role})'
