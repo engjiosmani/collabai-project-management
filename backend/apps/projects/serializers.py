@@ -8,11 +8,16 @@ from .models import Project
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    workspace_name = serializers.CharField(source='workspace.name', read_only=True)
+    organization_name = serializers.CharField(source='workspace.organization.name', read_only=True)
+
     class Meta:
         model = Project
         fields = (
             'id',
             'workspace',
+            'workspace_name',
+            'organization_name',
             'name',
             'description',
             'start_date',

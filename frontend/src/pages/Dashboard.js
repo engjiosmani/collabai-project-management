@@ -1,6 +1,7 @@
-import { useContext, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import AppSidebar from "../components/AppSidebar";
 import ActionChart from "../components/dashboard/ActionChart";
 import CompletionChart from "../components/dashboard/CompletionChart";
 import ErrorState from "../components/dashboard/ErrorState";
@@ -16,26 +17,7 @@ import "./Dashboard.css";
 function DashboardSkeleton() {
     return (
         <div className="dashboard-shell">
-            <aside className="dashboard-sidebar">
-                <div>
-                    <div className="dashboard-brand">
-                        <div className="dashboard-brand-mark">C</div>
-                        <div>
-                            <div className="dashboard-skeleton-line dashboard-skeleton-line--title" style={{ width: "120px" }} />
-                            <div className="dashboard-skeleton-line" style={{ width: "170px" }} />
-                        </div>
-                    </div>
-                    <div className="dashboard-nav">
-                        <div className="dashboard-skeleton-line" />
-                        <div className="dashboard-skeleton-line" />
-                        <div className="dashboard-skeleton-line" />
-                    </div>
-                </div>
-                <div className="dashboard-sidebar-footer">
-                    <div className="dashboard-skeleton-line" style={{ width: "140px" }} />
-                    <div className="dashboard-skeleton-line" style={{ width: "180px" }} />
-                </div>
-            </aside>
+            <AppSidebar />
 
             <main className="dashboard-main">
                 <div className="dashboard-topbar">
@@ -73,7 +55,65 @@ function DashboardScreen() {
     const { user, logout } = useContext(AuthContext);
     const navigate = useNavigate();
     const { summary, loading, refreshing, error, reload } = useDashboard();
+    const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const activityRef = useRef(null);
     const kanbanRef = useRef(null);
+
+    const kanbanProjectFilter = searchParams.get("project") || "";
+
+    const setKanbanProjectFilter = useCallback(
+        (value) => {
+            const next = value ? String(value) : "";
+            const params = new URLSearchParams(searchParams);
+            if (next) {
+                params.set("project", next);
+            } else {
+                params.delete("project");
+            }
+            setSearchParams(params, { replace: true });
+        },
+        [searchParams, setSearchParams]
+    );
+
+    useEffect(() => {
+        const projectId = location.state?.projectId;
+        if (projectId === undefined || projectId === null) {
+            return;
+        }
+        const params = new URLSearchParams(window.location.search);
+        const next = projectId ? String(projectId) : "";
+        if (next) {
+            params.set("project", next);
+        } else {
+            params.delete("project");
+        }
+        const scrollTo = location.state?.scrollTo;
+        setSearchParams(params, {
+            replace: true,
+            state: scrollTo ? { scrollTo } : {},
+        });
+    }, [location.key, location.state?.projectId, location.state?.scrollTo, setSearchParams]);
+
+    const scrollToSection = useCallback((section) => {
+        const targets = {
+            tasks: kanbanRef,
+            activity: activityRef,
+        };
+        targets[section]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, []);
+
+    useEffect(() => {
+        const target = location.state?.scrollTo;
+        if (!target || !["tasks", "activity"].includes(target)) {
+            return undefined;
+        }
+        if (loading && !summary.hasData) {
+            return undefined;
+        }
+        const timer = window.setTimeout(() => scrollToSection(target), 150);
+        return () => window.clearTimeout(timer);
+    }, [location.state, loading, summary.hasData, scrollToSection]);
 
     const handleLogout = () => {
         logout();
@@ -82,10 +122,6 @@ function DashboardScreen() {
 
     const handleRefresh = () => {
         reload({ silent: true });
-    };
-
-    const handleScrollToKanban = () => {
-        kanbanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     };
 
     const isAuthError =
@@ -117,36 +153,7 @@ function DashboardScreen() {
 
     return (
         <div className="dashboard-shell">
-            <aside className="dashboard-sidebar">
-                <div>
-                    <div className="dashboard-brand">
-                        <div className="dashboard-brand-mark">C</div>
-                        <div>
-                            <h1 className="dashboard-brand-title">CollabAI</h1>
-                            <p className="dashboard-brand-subtitle">Project intelligence hub</p>
-                        </div>
-                    </div>
-
-                    <nav className="dashboard-nav" aria-label="Dashboard sections">
-                        <button className="dashboard-nav-item dashboard-nav-item--active" data-cy="dashboard-nav-overview" type="button">Overview</button>
-                        <button className="dashboard-nav-item" data-cy="dashboard-nav-projects" type="button">Projects</button>
-                        <button className="dashboard-nav-item" data-cy="dashboard-nav-tasks" onClick={handleScrollToKanban} type="button">Tasks</button>
-                        <button className="dashboard-nav-item" data-cy="dashboard-nav-activity" type="button">Activity</button>
-                        <Link className="dashboard-nav-item" data-cy="dashboard-nav-ai" to="/ai" style={{ textDecoration: "none", display: "block" }}>
-                            AI Assistant
-                        </Link>
-                    </nav>
-                </div>
-
-                <div className="dashboard-sidebar-footer">
-                    <p className="dashboard-sidebar-note" data-cy="dashboard-sidebar-note">
-                        Connected securely over REST using JWT authentication and the shared CollabAI API client.
-                    </p>
-                    <button className="dashboard-button dashboard-button--ghost" data-cy="dashboard-logout" onClick={handleLogout} type="button">
-                        Logout
-                    </button>
-                </div>
-            </aside>
+            <AppSidebar onNavigateSection={scrollToSection} />
 
             <main className="dashboard-main">
                 <header className="dashboard-topbar">
@@ -207,13 +214,21 @@ function DashboardScreen() {
                     </article>
                 </section>
 
-                <section className="dashboard-panel dashboard-panel--wide" data-cy="dashboard-recent-activity">
+                <section
+                    ref={activityRef}
+                    className="dashboard-panel dashboard-panel--wide"
+                    data-cy="dashboard-recent-activity"
+                >
                     <div className="dashboard-panel-header">
                         <div>
                             <h3 className="dashboard-panel-title">Recent activity logs</h3>
                             <p className="dashboard-panel-subtitle">Showing the latest five events from the activity feed.</p>
                         </div>
-                        <span className="dashboard-status-pill">{summary.recentActivityCount} total logs</span>
+                        <span className="dashboard-status-pill">
+                            {summary.recentActivityCount === 1
+                                ? "1 total log"
+                                : `${summary.recentActivityCount} total logs`}
+                        </span>
                     </div>
 
                     <RecentActivityList items={summary.recentActivity} />
@@ -229,7 +244,11 @@ function DashboardScreen() {
                         </div>
                     </div>
 
-                    <KanbanBoard />
+                    <KanbanBoard
+                        projectFilter={kanbanProjectFilter}
+                        onProjectFilterChange={setKanbanProjectFilter}
+                        onTasksChanged={() => reload({ silent: true })}
+                    />
                 </section>
             </main>
         </div>

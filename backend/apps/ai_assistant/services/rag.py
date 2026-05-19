@@ -10,11 +10,11 @@ from .embeddings import EmbeddingService
 from .groq_client import GroqClient
 from .vector_store import get_vector_store
 
-SYSTEM_PROMPT = """Ti je CollabAI — asistent i brendshëm i projektit.
-Përgjigju vetëm duke përdorur kontekstin e dhënë nga databaza e projektit.
-Nëse konteksti nuk mjafton, thuaj qartë që nuk ke të dhëna në projekt.
-Gjithmonë përfundo me një seksion "Burime:" dhe listo çdo burim si [task #id], [comment #id], etj.
-Mund të përgjigjesh në shqip ose anglisht (përshtatu me pyetjen)."""
+SYSTEM_PROMPT = """You are CollabAI — an internal project assistant.
+Answer only using the project context provided below.
+If the context is insufficient, say clearly that you have no data in the project for that topic.
+Always respond in English.
+End every answer with a "Sources:" section listing each source as [task #id], [comment #id], etc."""
 
 
 class RAGService:
@@ -50,7 +50,7 @@ class RAGService:
 
     def _format_context(self, hits: List[Dict[str, Any]]) -> str:
         if not hits:
-            return '(Asnjë dokument i ngjashëm nuk u gjet në këtë workspace.)'
+            return '(No similar documents were found in this workspace.)'
         blocks = []
         for index, hit in enumerate(hits, start=1):
             blocks.append(
@@ -70,10 +70,10 @@ class RAGService:
         hits = self.semantic_search(workspace_id=workspace_id, query=question, top_k=top_k)
         context = self._format_context(hits)
 
-        user_prompt = f"""Kontekst nga projekti (workspace {workspace_id}):
+        user_prompt = f"""Project context (workspace {workspace_id}):
 {context}
 
-Pyetja: {question}"""
+Question: {question}"""
 
         ai_request = AIRequest.objects.create(
             user=user,

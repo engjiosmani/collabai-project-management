@@ -1,8 +1,10 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 import { fetchWorkspaces, ragQuery, reindexWorkspace } from "../api/ai";
+import AppSidebar from "../components/AppSidebar";
 import { AuthContext } from "../context/AuthContext";
+import { formatWorkspaceLabel } from "../utils/workspaceLabel";
 
 import "./Dashboard.css";
 import "./AIAssistant.css";
@@ -82,8 +84,8 @@ function AIAssistant() {
   }, []);
 
   const wsId = workspaceId ? Number(workspaceId) : null;
-  const workspaceName =
-    workspaces.find((w) => String(w.id) === workspaceId)?.name || "Your project";
+  const selectedWorkspace = workspaces.find((w) => String(w.id) === workspaceId);
+  const workspaceLabel = formatWorkspaceLabel(selectedWorkspace);
 
   const stopGeneration = useCallback(() => {
     chatAbortRef.current?.abort();
@@ -174,33 +176,8 @@ function AIAssistant() {
   const hasWorkspace = Boolean(wsId);
 
   return (
-    <div className="ai-shell">
-      <aside className="ai-sidebar">
-        <div>
-          <div className="dashboard-brand" style={{ marginBottom: 24 }}>
-            <div className="dashboard-brand-mark">C</div>
-            <div>
-              <h1 className="dashboard-brand-title">CollabAI</h1>
-              <p className="dashboard-brand-subtitle">Assistant</p>
-            </div>
-          </div>
-          <nav className="dashboard-nav">
-            <Link to="/dashboard" className="dashboard-nav-item" style={{ display: "block" }}>
-              ← Back to dashboard
-            </Link>
-          </nav>
-        </div>
-        <button
-          type="button"
-          className="dashboard-button dashboard-button--ghost"
-          onClick={() => {
-            logout();
-            navigate("/login");
-          }}
-        >
-          Log out
-        </button>
-      </aside>
+    <div className="dashboard-shell dashboard-shell--viewport">
+      <AppSidebar />
 
       <main className="ai-main">
         <header className="ai-topbar">
@@ -215,7 +192,7 @@ function AIAssistant() {
             >
               {workspaces.map((ws) => (
                 <option key={ws.id} value={ws.id}>
-                  {ws.name}
+                  {formatWorkspaceLabel(ws)}
                 </option>
               ))}
             </select>
@@ -276,7 +253,7 @@ function AIAssistant() {
               </div>
               <h3>Hello{user?.email ? `, ${user.email.split("@")[0]}` : ""}!</h3>
               <p>
-                You&apos;re working in <strong>{workspaceName}</strong>. Pick a question below or
+                You&apos;re working in <strong>{workspaceLabel}</strong>. Pick a question below or
                 type your own.
               </p>
               <div className="ai-examples">

@@ -53,7 +53,7 @@ class RAGServiceTests(TestCase):
         Comment.objects.create(
             task=self.task,
             author=self.user,
-            content='Po përdorim refresh tokens 60min/7 ditë',
+            content='We use refresh tokens: 60min access / 7 day refresh',
         )
 
     def test_document_from_task_shape(self):
@@ -64,13 +64,13 @@ class RAGServiceTests(TestCase):
     @patch('apps.ai_assistant.services.embeddings.EmbeddingService.embed_text')
     def test_semantic_search_finds_auth_related_task(self, mock_embed):
         mock_embed.side_effect = lambda text: (
-            [1.0, 0.0, 0.0] if 'autentikim' in text.lower() else [0.9, 0.1, 0.0]
+            [1.0, 0.0, 0.0] if 'authentication' in text.lower() else [0.9, 0.1, 0.0]
         )
         index_instance(self.task, embedding_service=MagicMock(embed_text=mock_embed))
 
         hits = RAGService(embedding_service=MagicMock(embed_text=mock_embed)).semantic_search(
             workspace_id=self.workspace.pk,
-            query='autentikim',
+            query='authentication',
             top_k=3,
         )
         self.assertGreaterEqual(len(hits), 1)
@@ -80,13 +80,13 @@ class RAGServiceTests(TestCase):
     @patch('apps.ai_assistant.services.embeddings.EmbeddingService.embed_text')
     def test_rag_ask_returns_answer(self, mock_embed, mock_chat):
         mock_embed.return_value = [1.0, 0.0, 0.0]
-        mock_chat.return_value = 'Po, përdorim JWT.\n\nBurime: [task #1]'
+        mock_chat.return_value = 'Yes, we use JWT.\n\nSources: [task #1]'
         index_instance(self.task, embedding_service=MagicMock(embed_text=mock_embed))
 
         result = RAGService(embedding_service=MagicMock(embed_text=mock_embed)).ask(
             user=self.user,
             workspace_id=self.workspace.pk,
-            question='A kemi JWT?',
+            question='Do we use JWT?',
         )
         self.assertIn('JWT', result['answer'])
         self.assertTrue(result['sources'])
@@ -134,7 +134,7 @@ class RAGAPITests(TestCase):
             url,
             {
                 'workspace_id': self.workspace.pk,
-                'query': 'autentikim',
+                'query': 'authentication',
                 'top_k': 5,
             },
             format='json',
@@ -145,7 +145,7 @@ class RAGAPITests(TestCase):
     @patch('apps.ai_assistant.views.RAGService.ask')
     def test_rag_query_endpoint(self, mock_ask):
         mock_ask.return_value = {
-            'answer': 'JWT u zgjodh për multi-device.',
+            'answer': 'JWT was chosen for multi-device support.',
             'sources': [{'doc_type': 'task', 'doc_id': '1', 'score': 0.9}],
             'request_id': 1,
         }
@@ -153,7 +153,7 @@ class RAGAPITests(TestCase):
             reverse('ai-rag-query'),
             {
                 'workspace_id': self.workspace.pk,
-                'question': 'Pse JWT?',
+                'question': 'Why JWT?',
             },
             format='json',
         )

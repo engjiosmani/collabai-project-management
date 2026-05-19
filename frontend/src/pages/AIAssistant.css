@@ -420,6 +420,7 @@
   padding: 8px 12px;
 }
 
+/* Circular icon button for chat composer only — do not use on full-width form actions */
 .ai-btn--send {
   width: 44px;
   height: 44px;

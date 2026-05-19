@@ -36,7 +36,7 @@ class WorkspaceRAGMixin:
     responses={200: OpenApiResponse(description='Semantic search hits')},
 )
 class SemanticSearchView(WorkspaceRAGMixin, APIView):
-    """Kërkim semantik (pa LLM) — për Task Search me kuptim."""
+    """Semantic search (no LLM) for meaning-based task search."""
 
     def post(self, request):
         serializer = RAGSearchSerializer(data=request.data)
@@ -61,7 +61,7 @@ class SemanticSearchView(WorkspaceRAGMixin, APIView):
     responses={200: OpenApiResponse(description='RAG answer with sources')},
 )
 class RAGQueryView(WorkspaceRAGMixin, APIView):
-    """Pyetje + kontekst nga vector DB + përgjigje Groq."""
+    """Question + vector DB context + Groq answer."""
 
     def post(self, request):
         serializer = RAGQuerySerializer(data=request.data)

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API from "../api/api";
+import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
 import "./KanbanBoard.css";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -15,6 +16,22 @@ function groupByStatus(tasks, statuses) {
     return map;
 }
 
+function descriptionPreview(text, maxLen = 100) {
+    if (!text) return "";
+    const plain = text
+        .replace(/^#+\s*/gm, "")
+        .replace(/\*\*/g, "")
+        .replace(/\r\n/g, "\n")
+        .trim();
+    const firstLine = plain.split("\n").find((line) => line.trim()) || plain;
+    if (firstLine.length <= maxLen) return firstLine;
+    return `${firstLine.slice(0, maxLen)}…`;
+}
+
+function statusName(statuses, statusId) {
+    return statuses.find((s) => s.id === statusId)?.name || "—";
+}
+
 // ─── sub-components ─────────────────────────────────────────────────────────
 
 function PriorityBadge({ name }) {
@@ -28,9 +45,10 @@ function PriorityBadge({ name }) {
     return <span className={`kb-badge kb-badge--${tone}`}>{name}</span>;
 }
 
-function TaskCard({ task, statuses, onStatusChange, onEdit }) {
+function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName }) {
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const dragStartedRef = useRef(false);
 
     const handleStatusSelect = async (newStatusId) => {
         setSaving(true);
@@ -39,22 +57,51 @@ function TaskCard({ task, statuses, onStatusChange, onEdit }) {
         setSaving(false);
     };
 
+    const preview = descriptionPreview(task.description);
+
+    const handleBodyClick = () => {
+        if (dragStartedRef.current) {
+            dragStartedRef.current = false;
+            return;
+        }
+        onView(task);
+    };
+
     return (
         <div
             className="kb-card"
             data-cy={`task-card-${task.id}`}
             draggable
             onDragStart={(e) => {
+                dragStartedRef.current = true;
                 e.dataTransfer.setData("taskId", String(task.id));
             }}
+            onDragEnd={() => {
+                window.setTimeout(() => {
+                    dragStartedRef.current = false;
+                }, 0);
+            }}
         >
-            <p className="kb-card-title">{task.title}</p>
-
-            {task.description ? (
-                <p className="kb-card-desc">{task.description.slice(0, 80)}{task.description.length > 80 ? "…" : ""}</p>
-            ) : null}
+            <button
+                type="button"
+                className="kb-card-body"
+                onClick={handleBodyClick}
+                aria-label={`View details for ${task.title}`}
+            >
+                <p className="kb-card-title">{task.title}</p>
+                {preview ? (
+                    <p className="kb-card-desc">{preview}</p>
+                ) : (
+                    <p className="kb-card-desc kb-card-desc--muted">No description</p>
+                )}
+            </button>
 
             <div className="kb-card-meta">
+                {projectName ? (
+                    <span className="kb-card-project" title={projectName}>
+                        {projectName}
+                    </span>
+                ) : null}
                 <PriorityBadge name={task.priority_name} />
                 {task.due_date && (
                     <span className="kb-card-due">📅 {task.due_date}</span>
@@ -106,7 +153,66 @@ function TaskCard({ task, statuses, onStatusChange, onEdit }) {
     );
 }
 
-function Column({ status, tasks, statuses, onStatusChange, onEdit, onDrop }) {
+function TaskDetailModal({ task, statuses, onClose, onEdit }) {
+    if (!task) return null;
+
+    return (
+        <div className="kb-modal-backdrop" onClick={onClose} data-cy="task-detail-backdrop">
+            <div
+                className="kb-modal kb-modal--detail"
+                data-cy="task-detail-modal"
+                onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+            >
+                <div className="kb-modal-header">
+                    <h3 id="task-detail-title">{task.title}</h3>
+                    <button className="kb-modal-close" onClick={onClose} type="button" aria-label="Close">
+                        ✕
+                    </button>
+                </div>
+
+                <div className="kb-detail-meta">
+                    <PriorityBadge name={task.priority_name} />
+                    <span className="kb-detail-status">{statusName(statuses, task.status)}</span>
+                    {task.due_date && <span className="kb-card-due">📅 {task.due_date}</span>}
+                    {task.assigned_to_email && (
+                        <span className="kb-card-assignee" title={task.assigned_to_email}>
+                            {task.assigned_to_email.split("@")[0]}
+                        </span>
+                    )}
+                </div>
+
+                <div className="kb-detail-section">
+                    <h4 className="kb-detail-label">Description</h4>
+                    {task.description ? (
+                        <div className="kb-detail-description">
+                            <TaskDescriptionMarkdown text={task.description} />
+                        </div>
+                    ) : (
+                        <p className="kb-detail-empty">No description for this task.</p>
+                    )}
+                </div>
+
+                <div className="kb-modal-footer">
+                    <button className="kb-btn kb-btn--ghost" onClick={onClose} type="button">
+                        Close
+                    </button>
+                    <button
+                        className="kb-btn kb-btn--primary"
+                        onClick={() => onEdit(task)}
+                        type="button"
+                        data-cy="task-detail-edit"
+                    >
+                        Edit task
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function Column({ status, tasks, statuses, onStatusChange, onEdit, onView, onDrop, projectNameById, showProject }) {
     const [over, setOver] = useState(false);
 
     return (
@@ -134,6 +240,8 @@ function Column({ status, tasks, statuses, onStatusChange, onEdit, onDrop }) {
                         statuses={statuses}
                         onStatusChange={onStatusChange}
                         onEdit={onEdit}
+                        onView={onView}
+                        projectName={showProject ? projectNameById.get(t.project) : null}
                     />
                 ))}
                 {tasks.length === 0 && (
@@ -144,14 +252,14 @@ function Column({ status, tasks, statuses, onStatusChange, onEdit, onDrop }) {
     );
 }
 
-function TaskModal({ task, statuses, onClose, onSaved }) {
+function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
     const isNew = !task;
     const [form, setForm] = useState({
         title: task?.title ?? "",
         description: task?.description ?? "",
         status: task?.status ?? (statuses[0]?.id ?? ""),
         due_date: task?.due_date ?? "",
-        project: task?.project ?? "",
+        project: task?.project ?? defaultProjectId ?? "",
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
@@ -181,9 +289,13 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
                         return current;
                     }
 
+                    const fallback =
+                        defaultProjectId ||
+                        projectList[0]?.id ||
+                        "";
                     return {
                         ...current,
-                        project: projectList[0]?.id ?? "",
+                        project: fallback,
                     };
                 });
             } catch (err) {
@@ -202,7 +314,7 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
         return () => {
             cancelled = true;
         };
-    }, [task?.project]);
+    }, [task?.project, defaultProjectId]);
 
     const handleSubmit = async () => {
         if (!form.title.trim()) { setError("Title is required."); return; }
@@ -296,13 +408,31 @@ function TaskModal({ task, statuses, onClose, onSaved }) {
 
 // ─── main component ──────────────────────────────────────────────────────────
 
-export default function KanbanBoard() {
+export default function KanbanBoard({
+    onTasksChanged,
+    projectFilter: projectFilterProp,
+    onProjectFilterChange,
+}) {
     const [tasks, setTasks] = useState([]);
     const [statuses, setStatuses] = useState([]);
+    const [projects, setProjects] = useState([]);
+    const [internalProjectFilter, setInternalProjectFilter] = useState("");
+    const projectFilter =
+        onProjectFilterChange !== undefined ? (projectFilterProp ?? "") : internalProjectFilter;
+    const setProjectFilter = onProjectFilterChange ?? setInternalProjectFilter;
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [editingTask, setEditingTask] = useState(undefined); // undefined = closed, null = new
+    const [viewingTask, setViewingTask] = useState(null);
     const abortRef = useRef(null);
+
+    const projectNameById = useMemo(() => {
+        const map = new Map();
+        projects.forEach((p) => map.set(p.id, p.name));
+        return map;
+    }, [projects]);
+
+    const showProjectOnCards = !projectFilter;
 
     // ── fetch ──────────────────────────────────────────────────────────────
 
@@ -312,28 +442,36 @@ export default function KanbanBoard() {
         setLoading(true);
         setError(null);
         try {
-            const [taskRes, statusRes] = await Promise.all([
-                API.get("/tasks/", { signal: abortRef.current.signal }),
+            const taskParams = projectFilter ? { project: projectFilter } : {};
+            const [taskRes, statusRes, projectRes] = await Promise.all([
+                API.get("/tasks/", {
+                    params: taskParams,
+                    signal: abortRef.current.signal,
+                }),
                 API.get("/task-statuses/", { signal: abortRef.current.signal }),
+                API.get("/projects/", { signal: abortRef.current.signal }),
             ]);
 
-            // handle paginated or plain list
             const taskList = Array.isArray(taskRes.data)
                 ? taskRes.data
                 : taskRes.data.results ?? [];
             const statusList = Array.isArray(statusRes.data)
                 ? statusRes.data
                 : statusRes.data.results ?? [];
+            const projectList = Array.isArray(projectRes.data)
+                ? projectRes.data
+                : projectRes.data.results ?? [];
 
             setTasks(taskList);
             setStatuses(statusList);
+            setProjects(projectList);
         } catch (err) {
             if (err.name === "CanceledError" || err.name === "AbortError") return;
             setError(err.response?.data?.detail ?? "Failed to load board.");
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [projectFilter]);
 
     useEffect(() => {
         fetchAll();
@@ -343,7 +481,7 @@ export default function KanbanBoard() {
     // ── status change (drag-and-drop or dropdown) ──────────────────────────
 
     const handleStatusChange = useCallback(async (taskId, newStatusId) => {
-        // optimistic update
+        const previous = tasks.find((t) => t.id === taskId);
         setTasks((prev) =>
             prev.map((t) => (t.id === taskId ? { ...t, status: newStatusId } : t))
         );
@@ -352,24 +490,43 @@ export default function KanbanBoard() {
             setTasks((prev) =>
                 prev.map((t) => (t.id === taskId ? { ...t, ...res.data } : t))
             );
+            onTasksChanged?.();
         } catch {
-            // revert
-            fetchAll();
+            if (previous) {
+                setTasks((prev) =>
+                    prev.map((t) => (t.id === taskId ? { ...t, status: previous.status } : t))
+                );
+            } else {
+                fetchAll();
+            }
         }
-    }, [fetchAll]);
+    }, [fetchAll, onTasksChanged, tasks]);
 
     // ── modal callbacks ────────────────────────────────────────────────────
 
     const handleSaved = (saved, isNew) => {
+        const matchesFilter =
+            !projectFilter || String(saved.project) === String(projectFilter);
+
         if (isNew) {
-            setTasks((prev) => [saved, ...prev]);
-        } else {
+            if (matchesFilter) {
+                setTasks((prev) => [saved, ...prev]);
+            }
+        } else if (matchesFilter) {
             setTasks((prev) => prev.map((t) => (t.id === saved.id ? saved : t)));
+        } else {
+            setTasks((prev) => prev.filter((t) => t.id !== saved.id));
         }
         setEditingTask(undefined);
+        onTasksChanged?.();
     };
 
-    const grouped = groupByStatus(tasks, statuses);
+    const visibleTasks = useMemo(() => {
+        if (!projectFilter) return tasks;
+        return tasks.filter((t) => String(t.project) === String(projectFilter));
+    }, [tasks, projectFilter]);
+
+    const grouped = groupByStatus(visibleTasks, statuses);
 
     // ── render ─────────────────────────────────────────────────────────────
 
@@ -395,14 +552,34 @@ export default function KanbanBoard() {
         <div className="kb-root">
             <div className="kb-toolbar">
                 <h2 className="kb-toolbar-title" data-cy="kanban-title">Kanban Board</h2>
-                <button
-                    className="kb-btn kb-btn--primary"
-                    data-cy="new-task-button"
-                    onClick={() => setEditingTask(null)}
-                    type="button"
-                >
-                    + New task
-                </button>
+                <div className="kb-toolbar-actions">
+                    <label className="kb-filter">
+                        <span className="kb-filter-label">Project</span>
+                        <select
+                            className="kb-filter-select"
+                            data-cy="kanban-project-filter"
+                            value={projectFilter}
+                            onChange={(e) => setProjectFilter(e.target.value)}
+                            aria-label="Filter tasks by project"
+                        >
+                            <option value="">All projects</option>
+                            {projects.map((p) => (
+                                <option key={p.id} value={String(p.id)}>
+                                    {p.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <button
+                        className="kb-btn kb-btn--primary"
+                        data-cy="new-task-button"
+                        onClick={() => setEditingTask(null)}
+                        type="button"
+                        disabled={projects.length === 0}
+                    >
+                        + New task
+                    </button>
+                </div>
             </div>
 
             {statuses.length === 0 ? (
@@ -419,10 +596,25 @@ export default function KanbanBoard() {
                             statuses={statuses}
                             onStatusChange={handleStatusChange}
                             onEdit={(t) => setEditingTask(t)}
+                            onView={(t) => setViewingTask(t)}
                             onDrop={handleStatusChange}
+                            projectNameById={projectNameById}
+                            showProject={showProjectOnCards}
                         />
                     ))}
                 </div>
+            )}
+
+            {viewingTask && (
+                <TaskDetailModal
+                    task={viewingTask}
+                    statuses={statuses}
+                    onClose={() => setViewingTask(null)}
+                    onEdit={(t) => {
+                        setViewingTask(null);
+                        setEditingTask(t);
+                    }}
+                />
             )}
 
             {editingTask !== undefined && (
@@ -431,6 +623,7 @@ export default function KanbanBoard() {
                     statuses={statuses}
                     onClose={() => setEditingTask(undefined)}
                     onSaved={handleSaved}
+                    defaultProjectId={projectFilter ? Number(projectFilter) : undefined}
                 />
             )}
         </div>

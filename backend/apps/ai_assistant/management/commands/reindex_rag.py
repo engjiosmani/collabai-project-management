@@ -5,11 +5,11 @@ from apps.workspaces.models import Workspace
 
 
 class Command(BaseCommand):
-    help = 'Indekson tasks, comments, projects dhe activity logs për RAG.'
+    help = 'Index tasks, comments, projects, and activity logs for RAG.'
 
     def add_arguments(self, parser):
-        parser.add_argument('--workspace', type=int, help='Workspace ID (opsionale)')
-        parser.add_argument('--sync', action='store_true', help='Ekzekuto pa Celery queue')
+        parser.add_argument('--workspace', type=int, help='Workspace ID (optional)')
+        parser.add_argument('--sync', action='store_true', help='Run synchronously without Celery queue')
 
     def handle(self, *args, **options):
         workspace_id = options.get('workspace')

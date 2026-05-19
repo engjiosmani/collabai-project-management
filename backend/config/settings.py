@@ -305,7 +305,7 @@ LOGGING = {
 }
 
 # --- RAG / AI (local dev) ---
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_API_KEY = (os.environ.get('GROQ_API_KEY') or '').strip().strip('"').strip("'")
 GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.1-8b-instant')
 RAG_EMBEDDING_MODEL = os.environ.get(
     'RAG_EMBEDDING_MODEL',

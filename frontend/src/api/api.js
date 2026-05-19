@@ -17,6 +17,24 @@ const processRefreshQueue = (error, accessToken = null) => {
   refreshWaitQueue = [];
 };
 
+/** Extract a human-readable message from a DRF/axios error. */
+export function getApiErrorMessage(err, fallback = "Something went wrong.") {
+  if (!err?.response) {
+    return err?.message || "Cannot reach the backend. Is runserver running on port 8000?";
+  }
+  const data = err.response.data;
+  if (!data) return fallback;
+  if (typeof data.detail === "string") return data.detail;
+  if (Array.isArray(data.detail) && data.detail.length) return String(data.detail[0]);
+  if (typeof data === "object") {
+    const firstKey = Object.keys(data)[0];
+    const val = data[firstKey];
+    if (Array.isArray(val) && val.length) return `${firstKey}: ${val[0]}`;
+    if (typeof val === "string") return `${firstKey}: ${val}`;
+  }
+  return fallback;
+}
+
 export const clearAuthStorage = () => {
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");

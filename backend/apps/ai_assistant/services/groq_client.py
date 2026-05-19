@@ -11,22 +11,34 @@ class GroqClient:
     def is_configured(self) -> bool:
         return bool(self.api_key)
 
-    def chat(self, *, system: str, user: str) -> str:
+    def chat(
+        self,
+        *,
+        system: str,
+        user: str,
+        temperature: float = 0.2,
+        max_tokens: int = 1024,
+        json_mode: bool = False,
+    ) -> str:
         if not self.is_configured():
             raise RuntimeError(
-                'GROQ_API_KEY mungon. Vendose në backend/.env (shiko .env.example).'
+                'GROQ_API_KEY is missing. Set it in backend/.env (see .env.example).'
             )
 
         from groq import Groq
 
         client = Groq(api_key=self.api_key)
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=[
+        kwargs = {
+            'model': self.model,
+            'messages': [
                 {'role': 'system', 'content': system},
                 {'role': 'user', 'content': user},
             ],
-            temperature=0.2,
-            max_tokens=1024,
-        )
+            'temperature': temperature,
+            'max_tokens': max_tokens,
+        }
+        if json_mode:
+            kwargs['response_format'] = {'type': 'json_object'}
+
+        response = client.chat.completions.create(**kwargs)
         return (response.choices[0].message.content or '').strip()

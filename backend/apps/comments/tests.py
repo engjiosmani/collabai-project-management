@@ -81,6 +81,9 @@ class CommentCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 201, res.data)
         self.assertEqual(res.data['author'], self.author.pk)
+        self.assertTrue(
+            ActivityLog.objects.filter(task=self.task, action='Comment added').exists()
+        )
 
     def test_non_author_member_cannot_patch_or_delete(self):
         res = self.client.patch(
