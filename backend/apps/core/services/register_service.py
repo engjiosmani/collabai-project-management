@@ -22,7 +22,7 @@ class RegisterService(BaseService):
         org, _ = Organization.objects.get_or_create(name='CollabAI')
         workspace, _ = Workspace.objects.get_or_create(
             organization=org,
-            name='CollabAI',
+            name='My Workspace',
             defaults={'is_active': True},
         )
         member_role, _ = Role.objects.get_or_create(

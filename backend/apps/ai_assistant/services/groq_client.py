@@ -40,5 +40,13 @@ class GroqClient:
         if json_mode:
             kwargs['response_format'] = {'type': 'json_object'}
 
-        response = client.chat.completions.create(**kwargs)
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except Exception as exc:
+            name = type(exc).__name__
+            if 'Authentication' in name or getattr(exc, 'status_code', None) in (401, 403):
+                raise RuntimeError(
+                    'Invalid or expired GROQ_API_KEY. Update backend/.env and restart runserver.'
+                ) from exc
+            raise RuntimeError(f'Groq API error: {exc}') from exc
         return (response.choices[0].message.content or '').strip()

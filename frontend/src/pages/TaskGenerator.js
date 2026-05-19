@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { fetchWorkspaces } from "../api/ai";
 import {
@@ -58,7 +58,6 @@ function membersToTeamPayload(members, selectedIds, jobRoleByMemberId, jobRoles)
 
 function TaskGenerator() {
   const { user, logout } = useContext(AuthContext);
-  const navigate = useNavigate();
 
   const [workspaces, setWorkspaces] = useState([]);
   const [workspaceId, setWorkspaceId] = useState("");
@@ -193,7 +192,7 @@ function TaskGenerator() {
     return () => {
       cancelled = true;
     };
-  }, [wsId]);
+  }, [wsId, syncMode, targetProjectId]);
 
   const handleSyncModeChange = (mode) => {
     setSyncMode(mode);

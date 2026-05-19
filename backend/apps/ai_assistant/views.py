@@ -82,6 +82,11 @@ class RAGQueryView(WorkspaceRAGMixin, APIView):
             )
         except RuntimeError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        except Exception as exc:
+            return Response(
+                {'detail': f'AI request failed: {exc}'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         return Response(payload)
 

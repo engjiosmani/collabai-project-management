@@ -24,6 +24,15 @@ export function getApiErrorMessage(err, fallback = "Something went wrong.") {
   }
   const data = err.response.data;
   if (!data) return fallback;
+  if (typeof data === "string") {
+    if (data.includes("<!DOCTYPE html>") || data.includes("<html")) {
+      const titleMatch = data.match(/<title>\s*([^<]+?)\s*<\/title>/i);
+      if (titleMatch) {
+        return titleMatch[1].replace(/\s+at\s+\/api\/.*/i, "").trim();
+      }
+    }
+    return data.length > 200 ? `${data.slice(0, 200)}…` : data;
+  }
   if (typeof data.detail === "string") return data.detail;
   if (Array.isArray(data.detail) && data.detail.length) return String(data.detail[0]);
   if (typeof data === "object") {

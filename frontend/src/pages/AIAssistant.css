@@ -39,6 +39,89 @@
   overflow: hidden;
 }
 
+.ai-chat--page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-chat--widget {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px 10px;
+  box-sizing: border-box;
+}
+
+.ai-widget-workspace {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 4px 4px;
+}
+
+.ai-select--widget {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+
+.ai-icon-btn--widget {
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+}
+
+.ai-chat--widget .ai-chat-area {
+  padding: 4px 2px 6px;
+}
+
+.ai-chat--widget .ai-welcome {
+  padding: 12px 6px;
+}
+
+.ai-chat--widget .ai-welcome h3 {
+  font-size: 1rem;
+}
+
+.ai-chat--widget .ai-welcome p {
+  font-size: 0.85rem;
+}
+
+.ai-chat--widget .ai-footer {
+  padding-top: 4px;
+  background: linear-gradient(to top, #f1f5f9 80%, transparent);
+}
+
+.ai-chat--widget .ai-composer {
+  padding: 8px 10px;
+}
+
+.ai-chat--widget .ai-composer-input {
+  font-size: 0.92rem;
+}
+
+.ai-chat--widget .ai-btn--send {
+  width: 40px;
+  height: 40px;
+}
+
+.ai-chat--widget .ai-settings {
+  margin: 4px 4px 6px;
+  font-size: 0.8rem;
+}
+
+.ai-chat--widget .ai-error,
+.ai-chat--widget .ai-no-workspace {
+  margin: 4px 4px 6px;
+  font-size: 0.8rem;
+}
+
 .ai-topbar {
   flex-shrink: 0;
   display: flex;

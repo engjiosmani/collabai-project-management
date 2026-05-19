@@ -284,6 +284,7 @@ class TaskStatusAPITest(APITestCase):
         self.assertEqual([item['name'] for item in data], ['To Do', 'In Progress', 'Done'])
 
 
+@override_settings(RAG_AUTO_INDEX=False, RAG_FORCE_MEMORY_STORE=True)
 class TaskPermissionsAPITest(APITestCase):
     """Workspace membership gates task access through queryset + object permission."""
 
@@ -310,10 +311,16 @@ class TaskPermissionsAPITest(APITestCase):
         self.assertFalse(Task.objects.filter(pk=self.task.pk).exists())
 
 
-@override_settings(CACHES={'default': {
-    'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    'LOCATION': 'tasks-cache-tests',
-}})
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'tasks-cache-tests',
+        }
+    },
+    RAG_AUTO_INDEX=False,
+    RAG_FORCE_MEMORY_STORE=True,
+)
 class TaskListCacheTest(APITestCase):
     """Verifies that GET /api/v1/tasks/ is cached and invalidated on writes."""
 

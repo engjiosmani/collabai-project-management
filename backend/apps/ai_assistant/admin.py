@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import AIRequest, CacheEntity, PlannedTask, ProjectPlanDraft
+from .models import (
+    AIRequest,
+    CacheEntity,
+    GitHubWorkspaceConfig,
+    PlannedTask,
+    ProjectPlanDraft,
+    TeamPulseAlert,
+    TeamPulseReport,
+)
 
 
 class PlannedTaskInline(admin.TabularInline):
@@ -18,3 +26,6 @@ class ProjectPlanDraftAdmin(admin.ModelAdmin):
 
 admin.site.register(AIRequest)
 admin.site.register(CacheEntity)
+admin.site.register(GitHubWorkspaceConfig)
+admin.site.register(TeamPulseAlert)
+admin.site.register(TeamPulseReport)

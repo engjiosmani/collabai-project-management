@@ -10,7 +10,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--email', type=str, help='User email to add as member')
-        parser.add_argument('--workspace-name', type=str, default='CollabAI')
+        parser.add_argument('--workspace-name', type=str, default='My Workspace')
         parser.add_argument('--org-name', type=str, default='CollabAI')
 
     def handle(self, *args, **options):

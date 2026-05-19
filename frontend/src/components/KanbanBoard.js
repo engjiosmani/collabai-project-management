@@ -550,9 +550,11 @@ export default function KanbanBoard({
 
     return (
         <div className="kb-root">
-            <div className="kb-toolbar">
-                <h2 className="kb-toolbar-title" data-cy="kanban-title">Kanban Board</h2>
-                <div className="kb-toolbar-actions">
+            <header className="kb-header">
+                <h2 className="kb-header__title" data-cy="kanban-title">
+                    Kanban task board
+                </h2>
+                <div className="kb-header__controls">
                     <label className="kb-filter">
                         <span className="kb-filter-label">Project</span>
                         <select
@@ -580,7 +582,10 @@ export default function KanbanBoard({
                         + New task
                     </button>
                 </div>
-            </div>
+                <p className="kb-header__desc">
+                    Create tasks, move them between columns, and filter by project.
+                </p>
+            </header>
 
             {statuses.length === 0 ? (
                 <div className="kb-state kb-state--empty">

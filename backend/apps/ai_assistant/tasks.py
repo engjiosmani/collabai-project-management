@@ -68,3 +68,12 @@ def generate_task_plan(self, plan_draft_id: int) -> int:
         # run_generation records FAILED on the draft; do not bubble to HTTP 500 when eager=True
         pass
     return plan_draft_id
+
+
+# Team Pulse (workload + standup) — register Celery task names
+from .tasks_team_pulse import (  # noqa: E402
+    analyze_workspace_workload,
+    generate_workspace_standup,
+    run_daily_standup_agent,
+    run_nightly_workload_analysis,
+)

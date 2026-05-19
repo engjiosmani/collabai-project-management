@@ -77,13 +77,9 @@ export default function ProjectsPanel({ onSelectProject, selectedProjectId, layo
                 <ul className="projects-panel-list">
                     {projects.map((project) => {
                         const isSelected = String(selectedProjectId) === String(project.id);
-                        const workspaceLabel =
-                            project.organization_name || project.workspace_name
-                                ? formatWorkspaceLabel({
-                                      name: project.workspace_name || project.name,
-                                      organization_name: project.organization_name,
-                                  })
-                                : null;
+                        const workspaceLabel = project.workspace_name
+                            ? formatWorkspaceLabel({ name: project.workspace_name })
+                            : null;
                         return (
                             <li key={project.id}>
                                 <article

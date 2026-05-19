@@ -40,6 +40,10 @@ export default function AppSidebar({ onNavigateSection }) {
     } catch {
       /* ignore */
     }
+    document.documentElement.dataset.sidebarCollapsed = collapsed ? "1" : "0";
+    return () => {
+      delete document.documentElement.dataset.sidebarCollapsed;
+    };
   }, [collapsed]);
 
   const toggle = useCallback(() => {
@@ -50,6 +54,7 @@ export default function AppSidebar({ onNavigateSection }) {
   const isProjects = pathname === "/projects";
   const isAI = pathname === "/ai";
   const isTaskGen = pathname.startsWith("/ai/task-generator");
+  const isTeamPulse = pathname.startsWith("/ai/team-pulse");
 
   const navClass = (active) =>
     `dashboard-nav-item${active ? " dashboard-nav-item--active" : ""}`;
@@ -146,6 +151,13 @@ export default function AppSidebar({ onNavigateSection }) {
                   style={linkStyle}
                 >
                   Task Generator
+                </Link>
+                <Link
+                  className={navClass(isTeamPulse)}
+                  to="/ai/team-pulse"
+                  style={linkStyle}
+                >
+                  Team Pulse
                 </Link>
               </nav>
             </>

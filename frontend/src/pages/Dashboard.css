@@ -205,6 +205,7 @@ a.dashboard-nav-item {
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    transition: flex-basis 0.22s ease;
 }
 
 .dashboard-topbar {
@@ -355,6 +356,18 @@ a.dashboard-nav-item {
 
 .dashboard-panel--wide {
     margin-top: 16px;
+}
+
+.dashboard-panel--kanban {
+    padding-top: 18px;
+    padding-bottom: 18px;
+    overflow: visible;
+}
+
+.dashboard-panel--kanban .kb-root {
+    margin: 0;
+    height: auto;
+    min-height: 0;
 }
 
 .dashboard-panel-header {

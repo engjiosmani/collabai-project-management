@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import AppSidebar from "../components/AppSidebar";
@@ -234,16 +234,7 @@ function DashboardScreen() {
                     <RecentActivityList items={summary.recentActivity} />
                 </section>
 
-                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide" data-cy="dashboard-kanban">
-                    <div className="dashboard-panel-header">
-                        <div>
-                            <h3 className="dashboard-panel-title">Kanban task board</h3>
-                            <p className="dashboard-panel-subtitle">
-                                Create tasks, move them between statuses, and update them directly from the API-01 task endpoints.
-                            </p>
-                        </div>
-                    </div>
-
+                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide dashboard-panel--kanban" data-cy="dashboard-kanban">
                     <KanbanBoard
                         projectFilter={kanbanProjectFilter}
                         onProjectFilterChange={setKanbanProjectFilter}

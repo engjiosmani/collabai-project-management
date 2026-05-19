@@ -7,7 +7,7 @@ from rest_framework import viewsets
 from rest_framework.response import Response
 
 from apps.comments.services.activity import log_task_created, log_task_deleted, log_task_updated
-from common.cache import make_list_key
+from common.cache import bump_version, invalidate_list_cache, make_list_key
 from common.permissions import IsWorkspaceTeamMember
 from common.workspace_access import workspaces_queryset_for_user
 
@@ -16,6 +16,7 @@ from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
 
 CACHE_NAMESPACE = 'tasks'
+DEFAULT_LIST_PATH = '/api/v1/tasks/'
 DEFAULT_TASK_STATUS_NAMES = ('To Do', 'In Progress', 'Done')
 # Kanban column order (not alphabetical — "Done" must not appear before "To Do")
 _TASK_STATUS_ORDER_CASE = Case(
@@ -125,9 +126,29 @@ class TaskViewSet(viewsets.ModelViewSet):
             cache.set(cache_key, response.data)
         return response
 
+    def _invalidate_task_list_cache(self) -> None:
+        """Drop cached list responses for this user and bump the tasks namespace version."""
+        request = getattr(self, 'request', None)
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and getattr(user, 'is_authenticated', False):
+            paths = {DEFAULT_LIST_PATH}
+            if request is not None:
+                paths.add(request.get_full_path())
+            for path in paths:
+                invalidate_list_cache(CACHE_NAMESPACE, user.pk, path)
+        else:
+            bump_version(CACHE_NAMESPACE)
+
+    def destroy(self, request, *args, **kwargs):
+        response = super().destroy(request, *args, **kwargs)
+        if response.status_code == 204:
+            self._invalidate_task_list_cache()
+        return response
+
     def perform_create(self, serializer):
         task = serializer.save()
         log_task_created(task=task, user=self.request.user)
+        self._invalidate_task_list_cache()
 
     def perform_update(self, serializer):
         instance = serializer.instance
@@ -140,6 +161,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             previous.assigned_to
         task = serializer.save()
         log_task_updated(task=task, user=self.request.user, previous=previous)
+        self._invalidate_task_list_cache()
 
     def perform_destroy(self, instance):
         log_task_deleted(task=instance, user=self.request.user)
+        super().perform_destroy(instance)
