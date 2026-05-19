@@ -1,5 +1,5 @@
 from django.db.models import Count, Q, QuerySet
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -28,6 +28,20 @@ from .serializers import (
 	update=extend_schema(tags=['Workspaces'], summary='Update workspace'),
 	partial_update=extend_schema(tags=['Workspaces'], summary='Partially update workspace'),
 	destroy=extend_schema(tags=['Workspaces'], summary='Delete workspace'),
+	set_member_job_role=extend_schema(
+		tags=['Workspaces'],
+		summary='Set a member job role (Backend, Frontend, DevOps, …)',
+		request=TeamMemberJobRoleUpdateSerializer,
+		parameters=[
+			OpenApiParameter(
+				name='member_id',
+				type=OpenApiTypes.INT,
+				location=OpenApiParameter.PATH,
+				description='Workspace team member ID.',
+			),
+		],
+		responses={200: TeamMemberSerializer},
+	),
 )
 class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
 	cache_namespace = NAMESPACE_WORKSPACES
@@ -74,6 +88,15 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
 		tags=['Workspaces'],
 		summary='Set a member job role (Backend, Frontend, DevOps, …)',
 		request=TeamMemberJobRoleUpdateSerializer,
+		parameters=[
+			OpenApiParameter(
+				name='member_id',
+				type=OpenApiTypes.INT,
+				location=OpenApiParameter.PATH,
+				description='Workspace team member ID.',
+			),
+		],
+		responses={200: TeamMemberSerializer},
 	)
 	def set_member_job_role(self, request, pk=None, member_id=None):
 		workspace = self.get_object()

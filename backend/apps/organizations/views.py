@@ -1,5 +1,5 @@
 from django.db.models import Count, QuerySet
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -26,6 +26,20 @@ from .serializers import (
     update=extend_schema(tags=['Organizations'], summary='Update organization'),
     partial_update=extend_schema(tags=['Organizations'], summary='Partially update organization'),
     destroy=extend_schema(tags=['Organizations'], summary='Delete organization'),
+    set_member_job_role=extend_schema(
+        tags=['Organizations'],
+        summary='Set a member job role (Backend, Frontend, DevOps, ...)',
+        request=OrganizationMemberJobRoleUpdateSerializer,
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description='Organization member ID.',
+            ),
+        ],
+        responses={200: OrganizationMemberSerializer},
+    ),
 )
 class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     cache_namespace = NAMESPACE_ORGANIZATIONS
@@ -74,8 +88,17 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     @extend_schema(
         tags=['Organizations'],
-        summary='Set a member job role (Backend, Frontend, DevOps, …)',
+        summary='Set a member job role (Backend, Frontend, DevOps, ...)',
         request=OrganizationMemberJobRoleUpdateSerializer,
+        parameters=[
+            OpenApiParameter(
+                name='member_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description='Organization member ID.',
+            ),
+        ],
+        responses={200: OrganizationMemberSerializer},
     )
     def set_member_job_role(self, request, pk=None, member_id=None):
         organization = self.get_object()

@@ -140,6 +140,44 @@ class RegenerateTaskSerializer(serializers.Serializer):
     hint = serializers.CharField(max_length=2000, required=False, allow_blank=True, default='')
 
 
+class AIConfigSerializer(serializers.Serializer):
+    groq_configured = serializers.BooleanField()
+    groq_model = serializers.CharField()
+    hint = serializers.CharField(allow_null=True)
+
+
+class TaskPlanCreateResponseSerializer(serializers.Serializer):
+    plan_id = serializers.IntegerField()
+    status = serializers.CharField()
+    detail = serializers.CharField()
+
+
+class TaskPlanErrorResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    plan_id = serializers.IntegerField(required=False)
+    status = serializers.CharField(required=False)
+
+
+class TaskPlanApproveResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    project_id = serializers.IntegerField()
+    project_name = serializers.CharField()
+    created_new_project = serializers.BooleanField()
+    tasks_created = serializers.IntegerField()
+    plan = serializers.DictField()
+
+
+class TaskPlanPreviewTaskSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+    title = serializers.CharField()
+    body = serializers.CharField(allow_blank=True)
+
+
+class TaskPlanPreviewMarkdownSerializer(serializers.Serializer):
+    tasks = TaskPlanPreviewTaskSerializer(many=True)
+    count = serializers.IntegerField()
+
+
 class ProjectPlanDraftSerializer(serializers.ModelSerializer):
     planned_tasks = PlannedTaskSerializer(many=True, read_only=True)
     task_count = serializers.SerializerMethodField()
@@ -171,15 +209,15 @@ class ProjectPlanDraftSerializer(serializers.ModelSerializer):
         )
         read_only_fields = fields
 
-    def get_target_project_name(self, obj):
+    def get_target_project_name(self, obj) -> str | None:
         if obj.target_project_id:
             return obj.target_project.name
         return None
 
-    def get_task_count(self, obj):
+    def get_task_count(self, obj) -> int:
         return obj.planned_tasks.count()
 
-    def get_scope_tag_count(self, obj):
+    def get_scope_tag_count(self, obj) -> int:
         tags = set()
         for task in obj.planned_tasks.all():
             for tag in task.covers_requirements or []:

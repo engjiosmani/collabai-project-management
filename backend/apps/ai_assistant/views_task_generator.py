@@ -10,6 +10,7 @@ from apps.ai_assistant.services.groq_client import GroqClient
 
 from .models import PlannedTask, ProjectPlanDraft
 from .serializers_task_generator import (
+    AIConfigSerializer,
     ApproveTaskPlanSerializer,
     CreateTaskPlanSerializer,
     PlannedTaskSerializer,
@@ -17,6 +18,10 @@ from .serializers_task_generator import (
     ProjectPlanDraftSerializer,
     ProjectPlanStatusSerializer,
     RegenerateTaskSerializer,
+    TaskPlanApproveResponseSerializer,
+    TaskPlanCreateResponseSerializer,
+    TaskPlanErrorResponseSerializer,
+    TaskPlanPreviewMarkdownSerializer,
 )
 from .services.task_generator.project_target import resolve_target_project
 from .services.task_generator import PlanMaterializer, TaskGeneratorService
@@ -26,7 +31,7 @@ from .views import OrganizationRAGMixin
 
 @extend_schema(
     tags=['AI / Task Generator'],
-    responses={200: OpenApiResponse(description='Groq LLM configuration status')},
+    responses={200: AIConfigSerializer},
 )
 class AIConfigView(APIView):
     """Check whether Groq is configured (for UI diagnostics)."""
@@ -62,7 +67,15 @@ class TaskPlanMixin(OrganizationRAGMixin):
         return plan
 
 
-@extend_schema(tags=['AI / Task Generator'], request=CreateTaskPlanSerializer)
+@extend_schema(
+    tags=['AI / Task Generator'],
+    request=CreateTaskPlanSerializer,
+    responses={
+        202: TaskPlanCreateResponseSerializer,
+        403: TaskPlanErrorResponseSerializer,
+        503: TaskPlanErrorResponseSerializer,
+    },
+)
 class TaskPlanCreateView(TaskPlanMixin, APIView):
     """Create a draft plan and start async generation (Prompt 1 + 2)."""
 
@@ -161,7 +174,15 @@ class TaskPlanStatusView(TaskPlanMixin, APIView):
         return Response(ProjectPlanStatusSerializer(plan).data)
 
 
-@extend_schema(tags=['AI / Task Generator'])
+@extend_schema(
+    tags=['AI / Task Generator'],
+    request=ApproveTaskPlanSerializer,
+    responses={
+        200: TaskPlanApproveResponseSerializer,
+        400: TaskPlanErrorResponseSerializer,
+        403: TaskPlanErrorResponseSerializer,
+    },
+)
 class TaskPlanApproveView(TaskPlanMixin, APIView):
     def post(self, request, plan_id: int):
         try:
@@ -211,7 +232,14 @@ class TaskPlanApproveView(TaskPlanMixin, APIView):
         )
 
 
-@extend_schema(tags=['AI / Task Generator'])
+@extend_schema(
+    tags=['AI / Task Generator'],
+    responses={
+        204: OpenApiResponse(description='Plan rejected'),
+        400: TaskPlanErrorResponseSerializer,
+        403: TaskPlanErrorResponseSerializer,
+    },
+)
 class TaskPlanRejectView(TaskPlanMixin, APIView):
     def delete(self, request, plan_id: int):
         try:
@@ -230,7 +258,15 @@ class TaskPlanRejectView(TaskPlanMixin, APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-@extend_schema(tags=['AI / Task Generator'], request=PlannedTaskUpdateSerializer)
+@extend_schema(
+    tags=['AI / Task Generator'],
+    request=PlannedTaskUpdateSerializer,
+    responses={
+        200: PlannedTaskSerializer,
+        400: TaskPlanErrorResponseSerializer,
+        403: TaskPlanErrorResponseSerializer,
+    },
+)
 class PlannedTaskUpdateView(TaskPlanMixin, APIView):
     def patch(self, request, plan_id: int, task_id: int):
         try:
@@ -251,7 +287,16 @@ class PlannedTaskUpdateView(TaskPlanMixin, APIView):
         return Response(PlannedTaskSerializer(planned).data)
 
 
-@extend_schema(tags=['AI / Task Generator'], request=RegenerateTaskSerializer)
+@extend_schema(
+    tags=['AI / Task Generator'],
+    request=RegenerateTaskSerializer,
+    responses={
+        200: PlannedTaskSerializer,
+        400: TaskPlanErrorResponseSerializer,
+        403: TaskPlanErrorResponseSerializer,
+        503: TaskPlanErrorResponseSerializer,
+    },
+)
 class PlannedTaskRegenerateView(TaskPlanMixin, APIView):
     """Prompt 3 — enrich a single task."""
 
@@ -303,7 +348,13 @@ class PlannedTaskRegenerateView(TaskPlanMixin, APIView):
         return Response(PlannedTaskSerializer(planned).data)
 
 
-@extend_schema(tags=['AI / Task Generator'])
+@extend_schema(
+    tags=['AI / Task Generator'],
+    responses={
+        200: TaskPlanPreviewMarkdownSerializer,
+        403: TaskPlanErrorResponseSerializer,
+    },
+)
 class TaskPlanPreviewMarkdownView(TaskPlanMixin, APIView):
     def get(self, request, plan_id: int):
         try:

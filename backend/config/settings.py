@@ -164,7 +164,7 @@ else:
             "ENGINE": "django.db.backends.postgresql",
             "NAME": os.environ.get("DB_NAME", "collabai_db"),
             "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "admin123"),
+            "PASSWORD": os.environ.get("DB_PASSWORD", "12345678"),
             "HOST": os.environ.get("DB_HOST", "localhost"),
             "PORT": os.environ.get("DB_PORT", "5432"),
         }
@@ -258,6 +258,13 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API documentation for CollabAI.',
     'VERSION': '1.0.0',
     'SECURITY': [{'bearerAuth': []}],
+    'ENUM_NAME_OVERRIDES': {
+        'MemberRoleEnum': [
+            ('admin', 'Admin'),
+            ('manager', 'Manager'),
+            ('member', 'Member'),
+        ],
+    },
     'COMPONENTS': {
         'securitySchemes': {
             'bearerAuth': {

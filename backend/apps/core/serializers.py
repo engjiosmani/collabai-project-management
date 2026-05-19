@@ -67,3 +67,61 @@ class LoginSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+
+
+class TokenRefreshRequestSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class AccessTokenResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()
+
+
+class LogoutRequestSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class DetailResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
+class HealthResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    database = serializers.CharField()
+    groq_configured = serializers.BooleanField()
+
+
+class ActivityByActionSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    value = serializers.IntegerField()
+
+
+class DashboardSummarySerializer(serializers.Serializer):
+    total_projects = serializers.IntegerField()
+    total_tasks = serializers.IntegerField()
+    completed_tasks = serializers.IntegerField()
+    pending_tasks = serializers.IntegerField()
+    total_activity_logs = serializers.IntegerField()
+    recent_activity = serializers.ListField(child=serializers.DictField())
+    activity_by_action = ActivityByActionSerializer(many=True)
+
+
+class MetricsResponseSerializer(serializers.Serializer):
+    users = serializers.IntegerField()
+    organizations = serializers.IntegerField()
+    workspaces = serializers.IntegerField()
+    roles = serializers.IntegerField()
+    permissions = serializers.IntegerField()
+    team_members = serializers.IntegerField()
+    workspace_invites = serializers.IntegerField()
+    projects = serializers.IntegerField()
+    tasks = serializers.IntegerField()
+    comments = serializers.IntegerField()
+    activity_logs = serializers.IntegerField()
+    notifications = serializers.IntegerField()

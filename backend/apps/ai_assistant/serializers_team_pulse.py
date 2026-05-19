@@ -1,4 +1,5 @@
-from rest_framework import serializers
+from drf_spectacular.utils import extend_schema_serializer
+from rest_framework import serializers
 
 from .models import GitHubOrganizationConfig, TeamPulseAlert, TeamPulseReport
 
@@ -74,6 +75,24 @@ class TeamPulseReportSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class TeamPulseRunSerializer(serializers.Serializer):
+class TeamPulseRunSerializer(serializers.Serializer):
     organization_id = serializers.IntegerField()
-    run_type = serializers.ChoiceField(choices=['standup'], default='standup')
+    run_type = serializers.ChoiceField(choices=['standup'], default='standup')
+
+
+@extend_schema_serializer(component_name='TeamPulseDetailResponse')
+class DetailResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
+class TeamPulseOverviewSerializer(serializers.Serializer):
+    github = GitHubOrganizationConfigSerializer(allow_null=True)
+    latest_standup = TeamPulseReportSerializer(allow_null=True)
+
+
+class TeamPulseRunQueuedSerializer(serializers.Serializer):
+    standup = serializers.CharField()
+
+
+class TeamPulseRunResponseSerializer(serializers.Serializer):
+    standup = TeamPulseReportSerializer()

@@ -1,5 +1,6 @@
 from django.db import IntegrityError
 from django.utils.crypto import get_random_string
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
@@ -187,6 +188,7 @@ class JobRoleSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+@extend_schema_serializer(component_name='WorkspaceTeamMember')
 class TeamMemberSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     role_name = serializers.CharField(source='role.name', read_only=True)
@@ -195,7 +197,7 @@ class TeamMemberSerializer(serializers.ModelSerializer):
     task_categories = serializers.SerializerMethodField()
     workspace_name = serializers.CharField(source='workspace.name', read_only=True)
 
-    def get_task_categories(self, obj):
+    def get_task_categories(self, obj) -> list[str]:
         if obj.job_role_id and obj.job_role:
             return list(obj.job_role.task_categories or [])
         return []
