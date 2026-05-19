@@ -79,13 +79,13 @@ def build_document(instance) -> Optional[Dict[str, Any]]:
     return None
 
 
-def index_instance(instance) -> str | None:
+def index_instance(instance, embedding_service: Optional[EmbeddingService] = None) -> str | None:
     doc = build_document(instance)
     if not doc:
         return None
     from .vector_store import get_vector_store
 
-    embedding = EmbeddingService().embed_text(doc['content'])
-    doc['embedding'] = embedding
+    service = embedding_service or EmbeddingService()
+    doc['embedding'] = service.embed_text(doc['content'])
     get_vector_store().upsert(doc)
     return doc['id']
