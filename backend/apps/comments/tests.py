@@ -5,9 +5,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
 
-from apps.organizations.models import Organization
-from apps.workspaces.models import Workspace
-from apps.workspaces.models import TeamMember
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskStatus, TaskPriority
 from .models import Comment, ActivityLog
@@ -24,8 +22,7 @@ class CommentModelsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="commentuser", password="test12345")
         self.org = Organization.objects.create(name="Comment Org")
-        self.workspace = Workspace.objects.create(name="Comment Workspace", organization=self.org)
-        self.project = Project.objects.create(workspace=self.workspace, name="Comment Project")
+        self.project = Project.objects.create(organization=self.org, name="Comment Project")
         self.status = TaskStatus.objects.create(name="In Progress Test")
         self.priority = TaskPriority.objects.create(name="Medium", level=2)
         self.task = Task.objects.create(
@@ -63,10 +60,9 @@ class CommentCRUDAPITest(APITestCase):
         self.other_member = User.objects.create_user(username='oth@example.com', email='oth@example.com', password='x')
         self.outsider = User.objects.create_user(username='cout@example.com', email='cout@example.com', password='x')
         self.org = Organization.objects.create(name='Com Org')
-        self.workspace = Workspace.objects.create(name='Com WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.author)
-        TeamMember.objects.create(workspace=self.workspace, user=self.other_member)
-        self.project = Project.objects.create(workspace=self.workspace, name='Com Proj')
+        OrganizationMember.objects.create(organization=self.org, user=self.author)
+        OrganizationMember.objects.create(organization=self.org, user=self.other_member)
+        self.project = Project.objects.create(organization=self.org, name='Com Proj')
         self.status = TaskStatus.objects.create(name='S')
         self.priority = TaskPriority.objects.create(name='P', level=1)
         self.task = Task.objects.create(project=self.project, title='Com Task', status=self.status, priority=self.priority)
@@ -147,8 +143,7 @@ class CommentCRUDAPITest(APITestCase):
 
         res = self.client.get(
             (
-                f'/api/v1/comments/?workspace={self.workspace.pk}'
-                f'&organization={self.org.pk}'
+                f'/api/v1/comments/?organization={self.org.pk}'
                 f'&search=dashboard&ordering=created_at&page_size=1'
             ),
             **_jwt_header(self.author),
@@ -167,9 +162,8 @@ class ActivityLogReadOnlyAPITest(APITestCase):
     def setUp(self):
         self.member = User.objects.create_user(username='alog@example.com', email='alog@example.com', password='x')
         self.org = Organization.objects.create(name='AL Org')
-        self.workspace = Workspace.objects.create(name='AL WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.member)
-        self.project = Project.objects.create(workspace=self.workspace, name='AL Proj')
+        OrganizationMember.objects.create(organization=self.org, user=self.member)
+        self.project = Project.objects.create(organization=self.org, name='AL Proj')
         self.status = TaskStatus.objects.create(name='S2')
         self.priority = TaskPriority.objects.create(name='P2', level=2)
         self.task = Task.objects.create(project=self.project, title='AL Task', status=self.status, priority=self.priority)

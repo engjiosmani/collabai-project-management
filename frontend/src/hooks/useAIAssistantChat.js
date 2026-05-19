@@ -129,7 +129,7 @@ export function useAIAssistantChat() {
         setLoading(false);
       }
     },
-    [orgId, loading, selectedProject]
+    [orgId, loading]
   );
 
   const handleSubmit = (e) => {

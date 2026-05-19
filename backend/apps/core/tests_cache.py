@@ -6,10 +6,9 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskPriority, TaskStatus
-from apps.workspaces.models import Role, TeamMember, Workspace
 from common.cache import NAMESPACE_DASHBOARD, bump_version, get_version, make_list_key
 
 
@@ -58,9 +57,11 @@ class DashboardSummaryCacheTests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='Dash Org')
-        self.workspace = Workspace.objects.create(name='Dash WS', organization=self.org)
-        role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
         self.client = APIClient()
         self.client.credentials(**_jwt_header(self.user))
 
@@ -78,7 +79,7 @@ class DashboardSummaryCacheTests(TestCase):
     def test_task_create_invalidates_dashboard_cache(self):
         url = '/api/v1/dashboard/summary/'
         self.client.get(url)
-        project = Project.objects.create(workspace=self.workspace, name='P')
+        project = Project.objects.create(organization=self.org, name='P')
         status_obj = TaskStatus.objects.create(name='Open')
         priority = TaskPriority.objects.create(name='High', level=1)
         self.client.post(

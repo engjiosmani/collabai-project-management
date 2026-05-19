@@ -4,8 +4,6 @@ from rest_framework import viewsets
 
 from common.cache import CachedListMixin, NAMESPACE_ACTIVITY_LOGS, NAMESPACE_COMMENTS
 from common.permissions import IsWorkspaceMemberCommentAuthorForWrite, IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
-
 from .filters import ActivityLogFilter, CommentFilter
 from .models import ActivityLog, Comment
 from .serializers import ActivityLogSerializer, CommentSerializer
@@ -49,14 +47,13 @@ class CommentViewSet(CachedListMixin, viewsets.ModelViewSet):
     def get_queryset(self) -> QuerySet[Comment]:
         if getattr(self, 'swagger_fake_view', False):
             return Comment.objects.none()
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+        org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            Comment.objects.filter(task__project__workspace_id__in=ws_ids)
+            Comment.objects.filter(task__project__organization_id__in=org_ids)
             .select_related(
                 'task',
                 'task__project',
-                'task__project__workspace',
-                'task__project__workspace__organization',
+                'task__project__organization',
                 'author',
             )
         )
@@ -98,14 +95,13 @@ class ActivityLogViewSet(CachedListMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self) -> QuerySet[ActivityLog]:
         if getattr(self, 'swagger_fake_view', False):
             return ActivityLog.objects.none()
-        ws_ids = workspaces_queryset_for_user(self.request.user).values_list('pk', flat=True)
+        org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            ActivityLog.objects.filter(task__project__workspace_id__in=ws_ids)
+            ActivityLog.objects.filter(task__project__organization_id__in=org_ids)
             .select_related(
                 'task',
                 'task__project',
-                'task__project__workspace',
-                'task__project__workspace__organization',
+                'task__project__organization',
                 'user',
             )
         )

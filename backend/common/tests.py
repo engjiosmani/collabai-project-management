@@ -144,15 +144,13 @@ class CommonTests(TestCase):
 
     def test_resolve_workspace_from_project(self):
         org = Organization.objects.create(name="Resolve Org")
-        workspace = Workspace.objects.create(name="Resolve WS", organization=org)
-        project = Project.objects.create(name="Resolve Project", workspace=workspace)
+        project = Project.objects.create(name="Resolve Project", organization=org)
 
-        self.assertEqual(resolve_workspace(project), workspace)
+        self.assertEqual(resolve_workspace(project), org)
 
     def test_resolve_workspace_from_task(self):
         org = Organization.objects.create(name="Resolve Task Org")
-        workspace = Workspace.objects.create(name="Resolve Task WS", organization=org)
-        project = Project.objects.create(name="Resolve Task Project", workspace=workspace)
+        project = Project.objects.create(name="Resolve Task Project", organization=org)
 
         status, _ = TaskStatus.objects.get_or_create(name="To Do")
         priority, _ = TaskPriority.objects.get_or_create(
@@ -167,7 +165,7 @@ class CommonTests(TestCase):
             priority=priority
         )
 
-        self.assertEqual(resolve_workspace(task), workspace)
+        self.assertEqual(resolve_workspace(task), org)
 
     def test_resolve_workspace_returns_none_for_unknown_object(self):
         obj = object()

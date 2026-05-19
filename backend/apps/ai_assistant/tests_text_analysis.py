@@ -9,8 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.ai_assistant.models import AIRequest
 from apps.ai_assistant.services.text_analysis import TextAnalysisService
-from apps.organizations.models import Organization
-from apps.workspaces.models import Role, TeamMember, Workspace
+from apps.organizations.models import Organization, OrganizationMember
 
 
 @override_settings(GROQ_API_KEY='test-key')
@@ -46,9 +45,11 @@ class TextAnalyzeAPITests(TestCase):
             password='StrongPass123!',
         )
         self.org = Organization.objects.create(name='Analyze Org')
-        self.workspace = Workspace.objects.create(name='Analyze WS', organization=self.org)
-        member_role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=member_role)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
         access = str(RefreshToken.for_user(self.user).access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
 

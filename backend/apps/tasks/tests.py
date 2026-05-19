@@ -5,8 +5,7 @@ from django.test.utils import CaptureQueriesContext, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
-from apps.organizations.models import Organization
-from apps.workspaces.models import (TeamMember,Workspace,Role)
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from common.cache import NAMESPACE_TASKS, make_list_key
 from apps.comments.models import ActivityLog
@@ -23,8 +22,7 @@ class TaskModelsTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="taskuser", password="test12345")
         self.org = Organization.objects.create(name="Task Org")
-        self.workspace = Workspace.objects.create(name="Task Workspace", organization=self.org)
-        self.project = Project.objects.create(workspace=self.workspace, name="Task Project")
+        self.project = Project.objects.create(organization=self.org, name="Task Project")
         self.status, _ = TaskStatus.objects.get_or_create(name="To Do")
         self.priority = TaskPriority.objects.create(name="High", level=1)
 
@@ -80,29 +78,17 @@ class TaskCRUDAPITest(APITestCase):
         self.assignee = User.objects.create_user(username='assign@example.com', email='assign@example.com', password='x')
         self.outsider = User.objects.create_user(username='taskout@example.com', email='taskout@example.com', password='x')
         self.org = Organization.objects.create(name='Task API Org')
-        self.workspace = Workspace.objects.create(name='Task API WS', organization=self.org)
-        self.manager_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MANAGER
-        )
-
-        self.member_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MEMBER
-        )
-
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.member,
-            role=self.manager_role
+            role=OrganizationMember.MANAGER,
         )
-
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.assignee,
-            role=self.member_role
+            role=OrganizationMember.MEMBER,
         )
-        self.project = Project.objects.create(workspace=self.workspace, name='Task API Project')
+        self.project = Project.objects.create(organization=self.org, name='Task API Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         self.task = Task.objects.create(
@@ -224,7 +210,6 @@ class TaskCRUDAPITest(APITestCase):
         res = self.client.get(
             (
                 f'/api/v1/tasks/?project={self.project.pk}'
-                f'&workspace={self.workspace.pk}'
                 f'&organization={self.org.pk}'
                 f'&status=in_progress'
                 f'&priority=high'
@@ -262,7 +247,7 @@ class TaskCRUDAPITest(APITestCase):
 
     def test_invalid_query_parameter_returns_400(self):
         res = self.client.get(
-            f'/api/v1/tasks/?workspace=abc',
+            f'/api/v1/tasks/?organization=abc',
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 400)
@@ -290,18 +275,12 @@ class TaskPermissionsAPITest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='tp@example.com', email='tp@example.com', password='x')
         self.org = Organization.objects.create(name='TP Org')
-        self.ws = Workspace.objects.create(name='TP WS', organization=self.org)
-        self.manager_role = Role.objects.create(
-            workspace=self.ws,
-            name=Role.MANAGER
-        )
-
-        TeamMember.objects.create(
-            workspace=self.ws,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.user,
-            role=self.manager_role
+            role=OrganizationMember.MANAGER,
         )
-        self.project = Project.objects.create(workspace=self.ws, name='TP')
+        self.project = Project.objects.create(organization=self.org, name='TP')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.task = Task.objects.create(project=self.project, title='T', status=self.status)
 
@@ -332,29 +311,17 @@ class TaskListCacheTest(APITestCase):
             username='taskother@example.com', email='taskother@example.com', password='x',
         )
         self.org = Organization.objects.create(name='Task Cache Org')
-        self.workspace = Workspace.objects.create(name='Task Cache WS', organization=self.org)
-        self.manager_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MANAGER
-        )
-
-        self.member_role = Role.objects.create(
-            workspace=self.workspace,
-            name=Role.MEMBER
-        )
-
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.member,
-            role=self.manager_role
+            role=OrganizationMember.MANAGER,
         )
-
-        TeamMember.objects.create(
-            workspace=self.workspace,
+        OrganizationMember.objects.create(
+            organization=self.org,
             user=self.other,
-            role=self.member_role
+            role=OrganizationMember.MEMBER,
         )
-        self.project = Project.objects.create(workspace=self.workspace, name='Cache Project')
+        self.project = Project.objects.create(organization=self.org, name='Cache Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         Task.objects.create(

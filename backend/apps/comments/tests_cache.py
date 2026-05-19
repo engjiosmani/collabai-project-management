@@ -6,10 +6,9 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskPriority, TaskStatus
-from apps.workspaces.models import Role, TeamMember, Workspace
 
 
 def _jwt(user):
@@ -35,10 +34,12 @@ class CommentListCacheTests(TestCase):
             password='x',
         )
         org = Organization.objects.create(name='C Org')
-        ws = Workspace.objects.create(name='C WS', organization=org)
-        role = Role.objects.create(workspace=ws, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=ws, user=self.user, role=role)
-        project = Project.objects.create(workspace=ws, name='P')
+        OrganizationMember.objects.create(
+            organization=org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
+        project = Project.objects.create(organization=org, name='P')
         status = TaskStatus.objects.create(name='Open')
         priority = TaskPriority.objects.create(name='H', level=1)
         self.task = Task.objects.create(

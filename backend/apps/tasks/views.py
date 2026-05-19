@@ -8,8 +8,6 @@ from apps.comments.services.activity import log_task_created, log_task_deleted, 
 from common.cache import CachedListMixin, NAMESPACE_TASKS
 from common.cache_signals import invalidate_after_task_change
 from common.permissions import IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
-
 from .filters import TaskFilter
 from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
@@ -56,8 +54,8 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
     cache_namespace = NAMESPACE_TASKS
     cache_default_list_path = DEFAULT_LIST_PATH
     """
-    CRUD for tasks in projects belonging to the user's workspaces.
-    Filter by project, workspace, organization, status, priority, assignee, dates.
+    CRUD for tasks in projects belonging to the user's organizations.
+    Filter by project, organization, status, priority, assignee, dates.
     Sort with ordering=-created_at,priority,...
     """
 
@@ -72,7 +70,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         'assigned_to__username',
         'assigned_to__email',
         'project__name',
-        'project__workspace__name',
+        'project__organization__name',
         'task_labels__label__name',
     )
     ordering_fields = (
@@ -95,14 +93,13 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         if getattr(self, 'swagger_fake_view', False):
             return Task.objects.none()
 
-        workspace_ids = getattr(self.request, 'workspace_ids', [])
+        org_ids = getattr(self.request, 'organization_ids', [])
 
         return (
-            Task.objects.filter(project__workspace_id__in=workspace_ids)
+            Task.objects.filter(project__organization_id__in=org_ids)
             .select_related(
                 'project',
-                'project__workspace',
-                'project__workspace__organization',
+                'project__organization',
                 'status',
                 'priority',
                 'assigned_to',

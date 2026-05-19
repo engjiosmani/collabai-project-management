@@ -68,7 +68,6 @@ function TaskGenerator() {
   const [syncMode, setSyncMode] = useState("new");
   const [targetProjectId, setTargetProjectId] = useState("");
   const [organizationProjects, setOrganizationProjects] = useState([]);
-  const [orgProjectsLoading, setOrgProjectsLoading] = useState(false);
 
   const [phase, setPhase] = useState("form");
   const [planId, setPlanId] = useState(null);
@@ -171,7 +170,7 @@ function TaskGenerator() {
     }
     let cancelled = false;
     (async () => {
-      setOrgProjectsLoading(true);
+      setProjectsLoading(true);
       try {
         const list = await fetchOrganizationProjects(orgId);
         if (!cancelled) {
@@ -183,7 +182,7 @@ function TaskGenerator() {
       } catch {
         if (!cancelled) setOrganizationProjects([]);
       } finally {
-        if (!cancelled) setOrgProjectsLoading(false);
+        if (!cancelled) setProjectsLoading(false);
       }
     })();
     return () => {
