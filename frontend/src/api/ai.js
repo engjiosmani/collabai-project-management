@@ -29,7 +29,10 @@ export async function ragQuery({
   if (taskId) {
     payload.task_id = taskId;
   }
-  const config = signal ? { signal } : {};
+  const config = {
+    timeout: 120000,
+    ...(signal ? { signal } : {}),
+  };
   const { data } = await API.post("/ai/query/", payload, config);
   return data;
 }

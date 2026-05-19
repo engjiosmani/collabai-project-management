@@ -8,10 +8,12 @@ from common.permissions import IsAuthenticatedReadOnly, IsWorkspaceInviteAccess,
 from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import PermissionFilter, RoleFilter, WorkspaceFilter, WorkspaceInviteFilter
-from .models import Permission, Role, TeamMember, Workspace, WorkspaceInvite
+from .models import JobRole, Permission, Role, TeamMember, Workspace, WorkspaceInvite
 from .serializers import (
+	JobRoleSerializer,
 	PermissionSerializer,
 	RoleSerializer,
+	TeamMemberJobRoleUpdateSerializer,
 	TeamMemberSerializer,
 	WorkspaceInviteSerializer,
 	WorkspaceSerializer,
@@ -54,8 +56,54 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 	@extend_schema(tags=['Workspaces'], summary='List workspace members')
 	def members(self, request, pk=None):
 		workspace = self.get_object()
-		members = TeamMember.objects.filter(workspace=workspace).select_related('user', 'role', 'workspace')
+		members = TeamMember.objects.filter(workspace=workspace).select_related(
+			'user', 'role', 'job_role', 'workspace'
+		)
 		return Response(TeamMemberSerializer(members, many=True).data, status=status.HTTP_200_OK)
+
+	@action(
+		detail=True,
+		methods=['patch'],
+		url_path=r'members/(?P<member_id>[^/.]+)/job-role',
+	)
+	@extend_schema(
+		tags=['Workspaces'],
+		summary='Set a member job role (Backend, Frontend, DevOps, …)',
+		request=TeamMemberJobRoleUpdateSerializer,
+	)
+	def set_member_job_role(self, request, pk=None, member_id=None):
+		workspace = self.get_object()
+		member = TeamMember.objects.filter(pk=member_id, workspace=workspace).first()
+		if member is None:
+			return Response({'detail': 'Member not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+		serializer = TeamMemberJobRoleUpdateSerializer(data=request.data)
+		serializer.is_valid(raise_exception=True)
+		job_role_id = serializer.validated_data.get('job_role_id')
+
+		if job_role_id is None:
+			member.job_role = None
+		else:
+			member.job_role = JobRole.objects.get(pk=job_role_id)
+		member.save(update_fields=['job_role', 'updated_at'])
+
+		member = TeamMember.objects.select_related('user', 'role', 'job_role', 'workspace').get(
+			pk=member.pk
+		)
+		return Response(TeamMemberSerializer(member).data)
+
+
+@extend_schema_view(
+	list=extend_schema(tags=['Job roles'], summary='List job roles for task assignment'),
+	retrieve=extend_schema(tags=['Job roles'], summary='Retrieve job role'),
+)
+class JobRoleViewSet(viewsets.ReadOnlyModelViewSet):
+	serializer_class = JobRoleSerializer
+	permission_classes = [IsAuthenticatedReadOnly]
+	queryset = JobRole.objects.filter(is_active=True).order_by('name')
+	search_fields = ('name', 'code', 'description')
+	ordering_fields = ('name', 'code')
+	ordering = ('name',)
 
 
 @extend_schema_view(

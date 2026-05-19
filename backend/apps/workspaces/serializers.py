@@ -5,7 +5,7 @@ from rest_framework import serializers
 from apps.organizations.models import Organization
 from common.workspace_access import user_can_access_workspace
 
-from .models import Permission, Role, TeamMember, Workspace, WorkspaceInvite
+from .models import JobRole, Permission, Role, TeamMember, Workspace, WorkspaceInvite
 
 
 class PermissionSerializer(serializers.ModelSerializer):
@@ -173,10 +173,32 @@ class RoleSerializer(serializers.ModelSerializer):
         return role
 
 
+class JobRoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = JobRole
+        fields = (
+            'id',
+            'code',
+            'name',
+            'description',
+            'task_categories',
+            'is_active',
+        )
+        read_only_fields = fields
+
+
 class TeamMemberSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
     role_name = serializers.CharField(source='role.name', read_only=True)
+    job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
+    job_role_code = serializers.CharField(source='job_role.code', read_only=True, allow_null=True)
+    task_categories = serializers.SerializerMethodField()
     workspace_name = serializers.CharField(source='workspace.name', read_only=True)
+
+    def get_task_categories(self, obj):
+        if obj.job_role_id and obj.job_role:
+            return list(obj.job_role.task_categories or [])
+        return []
 
     class Meta:
         model = TeamMember
@@ -188,10 +210,25 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             'user_email',
             'role',
             'role_name',
+            'job_role',
+            'job_role_name',
+            'job_role_code',
+            'task_categories',
             'created_at',
             'updated_at',
         )
         read_only_fields = fields
+
+
+class TeamMemberJobRoleUpdateSerializer(serializers.Serializer):
+    job_role_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_job_role_id(self, value):
+        if value is None:
+            return None
+        if not JobRole.objects.filter(pk=value, is_active=True).exists():
+            raise serializers.ValidationError('Job role not found.')
+        return value
 
 
 class WorkspaceInviteSerializer(serializers.ModelSerializer):

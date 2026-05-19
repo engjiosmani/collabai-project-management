@@ -17,7 +17,8 @@ from apps.comments.serializers import ActivityLogSerializer
 from apps.notifications.models import Notification
 from apps.organizations.models import Organization
 from apps.projects.models import Project
-from apps.tasks.models import Task, TaskStatus
+from apps.tasks.models import Task
+from apps.tasks.status_utils import completed_task_status_ids
 from apps.workspaces.models import Permission, Role, TeamMember, Workspace, WorkspaceInvite
 
 
@@ -140,28 +141,26 @@ class DashboardSummaryView(APIView):
         tasks_qs = Task.objects.filter(project__workspace__in=ws_qs)
         total_tasks = tasks_qs.count()
 
-        # Determine "completed" statuses by name hints (case-insensitive).
-        done_status_qs = TaskStatus.objects.filter(name__iregex=r"\b(done|completed|complete|closed|resolved|finished)\b")
-        done_status_ids = list(done_status_qs.values_list('pk', flat=True))
+        done_status_ids = completed_task_status_ids()
         if done_status_ids:
             completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count()
         else:
-            # Fallback: no status matches — treat completed as 0
             completed_tasks = 0
 
         pending_tasks = max(total_tasks - completed_tasks, 0)
 
+        activity_base_qs = ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
+        total_activity_logs = activity_base_qs.count()
+
         # Recent activity (limit 10) - fetch with select_related to avoid N+1
         recent_activity_qs = (
-            ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
-            .select_related('task', 'user')
-            .order_by('-created_at')[:10]
+            activity_base_qs.select_related('task', 'user').order_by('-created_at')[:10]
         )
         recent_activity = ActivityLogSerializer(recent_activity_qs, many=True).data
 
         # Activity aggregated by action (small aggregation)
         activity_by_action_qs = (
-            ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
+            activity_base_qs
             .values('action')
             .annotate(value=Count('id'))
             .order_by('-value')[:20]
@@ -175,6 +174,7 @@ class DashboardSummaryView(APIView):
             'total_tasks': total_tasks,
             'completed_tasks': completed_tasks,
             'pending_tasks': pending_tasks,
+            'total_activity_logs': total_activity_logs,
             'recent_activity': recent_activity,
             'activity_by_action': activity_by_action,
         }
@@ -200,11 +200,20 @@ class HealthView(APIView):
         except Exception:
             db_ok = False
 
+        groq_ok = False
+        try:
+            from apps.ai_assistant.services.groq_client import GroqClient
+
+            groq_ok = GroqClient().is_configured()
+        except Exception:
+            groq_ok = False
+
         return Response(
             {
                 'status': 'ok' if db_ok else 'degraded',
                 'timestamp': timezone.now().isoformat(),
                 'database': 'ok' if db_ok else 'unavailable',
+                'groq_configured': groq_ok,
             },
             status=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
         )

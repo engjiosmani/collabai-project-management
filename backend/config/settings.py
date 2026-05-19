@@ -305,7 +305,7 @@ LOGGING = {
 }
 
 # --- RAG / AI (local dev) ---
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_API_KEY = (os.environ.get('GROQ_API_KEY') or '').strip().strip('"').strip("'")
 GROQ_MODEL = os.environ.get('GROQ_MODEL', 'llama-3.1-8b-instant')
 RAG_EMBEDDING_MODEL = os.environ.get(
     'RAG_EMBEDDING_MODEL',
@@ -326,3 +326,20 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get(
     'true' if DEBUG else 'false',
 ).lower() == 'true'
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Celery Beat — Team Pulse (workload nightly, standup 9:00). Requires: celery -A config beat
+from celery.schedules import crontab  # noqa: E402
+
+TEAM_PULSE_STANDUP_HOUR = int(os.environ.get('TEAM_PULSE_STANDUP_HOUR', '9'))
+TEAM_PULSE_WORKLOAD_HOUR = int(os.environ.get('TEAM_PULSE_WORKLOAD_HOUR', '2'))
+
+CELERY_BEAT_SCHEDULE = {
+    'team-pulse-nightly-workload': {
+        'task': 'apps.ai_assistant.tasks_team_pulse.run_nightly_workload_analysis',
+        'schedule': crontab(hour=TEAM_PULSE_WORKLOAD_HOUR, minute=0),
+    },
+    'team-pulse-daily-standup': {
+        'task': 'apps.ai_assistant.tasks_team_pulse.run_daily_standup_agent',
+        'schedule': crontab(hour=TEAM_PULSE_STANDUP_HOUR, minute=0),
+    },
+}

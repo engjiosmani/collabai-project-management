@@ -8,6 +8,7 @@ urlpatterns = [
     path('organizations/', include('apps.organizations.urls')),
     path('workspaces/', include('apps.workspaces.urls')),
     path('roles/', include('apps.workspaces.roles_urls')),
+    path('job-roles/', include('apps.workspaces.job_roles_urls')),
     path('permissions/', include('apps.workspaces.permissions_urls')),
     path('invites/', include('apps.workspaces.invites_urls')),
     path('projects/', include('apps.projects.urls')),

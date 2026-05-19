@@ -30,6 +30,29 @@ class Workspace(BaseModel):
         return f"{self.organization.name} - {self.name}"
 
 
+class JobRole(BaseModel):
+    """
+    Job discipline for task assignment (Backend, Frontend, DevOps, etc.).
+    Separate from workspace Role (admin/manager/member permissions).
+    """
+
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    task_categories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='AI task categories this role typically owns (e.g. backend, api, auth).',
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('name',)
+
+    def __str__(self):
+        return self.name
+
+
 class Role(BaseModel):
     ADMIN = "admin"
     MANAGER = "manager"
@@ -78,7 +101,15 @@ class TeamMember(BaseModel):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="team_members"
+        related_name="team_members",
+    )
+    job_role = models.ForeignKey(
+        JobRole,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="team_members",
+        help_text='Discipline used for AI task assignment (Backend, Frontend, DevOps, …).',
     )
 
     class Meta:

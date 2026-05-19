@@ -1,12 +1,14 @@
+from copy import copy
+
 from django.core.cache import cache
-from django.db.models import QuerySet
+from django.db.models import Case, IntegerField, QuerySet, Value, When
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.response import Response
 
-from common.cache import make_list_key
+from apps.comments.services.activity import log_task_created, log_task_deleted, log_task_updated
+from common.cache import bump_version, invalidate_list_cache, make_list_key
 from common.permissions import IsWorkspaceTeamMember
-from common.role_permissions import (IsManagerOrAdmin)
 from common.workspace_access import workspaces_queryset_for_user
 
 from .filters import TaskFilter
@@ -14,7 +16,16 @@ from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
 
 CACHE_NAMESPACE = 'tasks'
+DEFAULT_LIST_PATH = '/api/v1/tasks/'
 DEFAULT_TASK_STATUS_NAMES = ('To Do', 'In Progress', 'Done')
+# Kanban column order (not alphabetical — "Done" must not appear before "To Do")
+_TASK_STATUS_ORDER_CASE = Case(
+    When(name='To Do', then=Value(0)),
+    When(name='In Progress', then=Value(1)),
+    When(name='Done', then=Value(2)),
+    default=Value(99),
+    output_field=IntegerField(),
+)
 
 
 @extend_schema_view(
@@ -30,7 +41,9 @@ class TaskStatusViewSet(viewsets.ReadOnlyModelViewSet):
                 [TaskStatus(name=name) for name in DEFAULT_TASK_STATUS_NAMES],
                 ignore_conflicts=True,
             )
-        return TaskStatus.objects.all().order_by('name')
+        return TaskStatus.objects.annotate(
+            _kb_order=_TASK_STATUS_ORDER_CASE,
+        ).order_by('_kb_order', 'name')
 
 
 @extend_schema_view(
@@ -112,3 +125,44 @@ class TaskViewSet(viewsets.ModelViewSet):
         if response.status_code == 200:
             cache.set(cache_key, response.data)
         return response
+
+    def _invalidate_task_list_cache(self) -> None:
+        """Drop cached list responses for this user and bump the tasks namespace version."""
+        request = getattr(self, 'request', None)
+        user = getattr(request, 'user', None) if request else None
+        if user is not None and getattr(user, 'is_authenticated', False):
+            paths = {DEFAULT_LIST_PATH}
+            if request is not None:
+                paths.add(request.get_full_path())
+            for path in paths:
+                invalidate_list_cache(CACHE_NAMESPACE, user.pk, path)
+        else:
+            bump_version(CACHE_NAMESPACE)
+
+    def destroy(self, request, *args, **kwargs):
+        response = super().destroy(request, *args, **kwargs)
+        if response.status_code == 204:
+            self._invalidate_task_list_cache()
+        return response
+
+    def perform_create(self, serializer):
+        task = serializer.save()
+        log_task_created(task=task, user=self.request.user)
+        self._invalidate_task_list_cache()
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        previous = copy(instance)
+        if previous.status_id:
+            previous.status  # populate cache
+        if previous.priority_id:
+            previous.priority
+        if previous.assigned_to_id:
+            previous.assigned_to
+        task = serializer.save()
+        log_task_updated(task=task, user=self.request.user, previous=previous)
+        self._invalidate_task_list_cache()
+
+    def perform_destroy(self, instance):
+        log_task_deleted(task=instance, user=self.request.user)
+        super().perform_destroy(instance)

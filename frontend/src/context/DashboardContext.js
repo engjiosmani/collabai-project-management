@@ -93,6 +93,7 @@ export const DashboardProvider = ({ children }) => {
                     total_tasks: payload.total_tasks ?? 0,
                     completed_tasks: payload.completed_tasks ?? 0,
                     pending_tasks: payload.pending_tasks ?? 0,
+                    total_activity_logs: payload.total_activity_logs ?? 0,
                     activity_by_action: payload.activity_by_action ?? null,
                 });
                 setLastUpdated(new Date());
@@ -142,14 +143,17 @@ export const DashboardProvider = ({ children }) => {
 
         const recentActivity = activityLogs.slice(0, 5);
 
+        const completionRate =
+            totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
         return {
             totalProjects,
             totalTasks,
             completedTasks,
             pendingTasks,
-            completionRate: 0,
+            completionRate,
             recentActivity,
-            recentActivityCount: activityLogs.length,
+            recentActivityCount: serverCounts?.total_activity_logs ?? activityLogs.length,
             activityByAction: serverCounts && serverCounts.activity_by_action ? serverCounts.activity_by_action : buildActionSummary(activityLogs),
             hasData: activityLogs.length > 0,
             lastUpdated,

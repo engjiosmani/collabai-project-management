@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password
 from django.db import transaction
 
 from apps.organizations.models import Organization
-from apps.workspaces.models import Role, TeamMember, Workspace
+from apps.workspaces.models import JobRole, Role, TeamMember, Workspace
 
 from .base_service import BaseService
 
@@ -19,7 +19,7 @@ class RegisterService(BaseService):
             password=make_password(password),
         )
 
-        org, _ = Organization.objects.get_or_create(name='My Organization')
+        org, _ = Organization.objects.get_or_create(name='CollabAI')
         workspace, _ = Workspace.objects.get_or_create(
             organization=org,
             name='My Workspace',
@@ -29,10 +29,11 @@ class RegisterService(BaseService):
             workspace=workspace,
             name=Role.MEMBER,
         )
+        default_job_role = JobRole.objects.filter(code='full_stack_developer').first()
         TeamMember.objects.get_or_create(
             workspace=workspace,
             user=user,
-            defaults={'role': member_role},
+            defaults={'role': member_role, 'job_role': default_job_role},
         )
 
         return user

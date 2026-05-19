@@ -8,6 +8,7 @@ from common.workspace_access import workspaces_queryset_for_user
 from .filters import ActivityLogFilter, CommentFilter
 from .models import ActivityLog, Comment
 from .serializers import ActivityLogSerializer, CommentSerializer
+from .services.activity import log_comment_added
 
 
 @extend_schema_view(
@@ -58,7 +59,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        comment = serializer.save(author=self.request.user)
+        log_comment_added(task=comment.task, user=self.request.user, content=comment.content)
 
 
 @extend_schema_view(

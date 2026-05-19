@@ -27,12 +27,18 @@ def get_version(namespace: str) -> int:
 
 
 def bump_version(namespace: str) -> int:
+    """Increment namespace version so new list keys do not reuse stale entries."""
     key = _version_key(namespace)
-    try:
-        return cache.incr(key)
-    except ValueError:
-        cache.set(key, 1, timeout=_VERSION_TIMEOUT)
-        return 1
+    version = get_version(namespace)
+    next_version = version + 1
+    cache.set(key, next_version, timeout=_VERSION_TIMEOUT)
+    return next_version
+
+
+def invalidate_list_cache(namespace: str, user_id, full_path: str) -> int:
+    """Drop a specific cached list response and bump the namespace version."""
+    cache.delete(make_list_key(namespace, user_id, full_path))
+    return bump_version(namespace)
 
 
 def make_list_key(namespace: str, user_id, full_path: str) -> str:

@@ -56,3 +56,24 @@ def reindex_workspace(workspace_id: int) -> int:
 
     logger.info('Reindexed workspace %s (%s documents)', workspace_id, count)
     return count
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=60)
+def generate_task_plan(self, plan_draft_id: int) -> int:
+    from .services.task_generator import TaskGeneratorService
+
+    try:
+        TaskGeneratorService().run_generation(plan_draft_id)
+    except Exception:
+        # run_generation records FAILED on the draft; do not bubble to HTTP 500 when eager=True
+        pass
+    return plan_draft_id
+
+
+# Team Pulse (workload + standup) — register Celery task names
+from .tasks_team_pulse import (  # noqa: E402
+    analyze_workspace_workload,
+    generate_workspace_standup,
+    run_daily_standup_agent,
+    run_nightly_workload_analysis,
+)

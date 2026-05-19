@@ -9,7 +9,10 @@ from apps.organizations.models import Organization
 from apps.workspaces.models import (TeamMember,Workspace,Role)
 from apps.projects.models import Project
 from common.cache import make_list_key
+from apps.comments.models import ActivityLog
+
 from .models import Task, TaskStatus, TaskPriority, Label, TaskLabel, Attachment
+from .status_utils import completed_task_status_ids, is_completed_status_name
 from .views import CACHE_NAMESPACE
 
 User = get_user_model()
@@ -147,6 +150,42 @@ class TaskCRUDAPITest(APITestCase):
         res = self.client.delete(f'/api/v1/tasks/{tid}/', **_jwt_header(self.member))
         self.assertEqual(res.status_code, 204)
 
+    def test_task_mutations_create_activity_logs(self):
+        done_status, _ = TaskStatus.objects.get_or_create(name='Done')
+
+        res = self.client.post(
+            '/api/v1/tasks/',
+            {
+                'project': self.project.pk,
+                'title': 'Activity Task',
+                'status': self.status.pk,
+                'priority': self.priority.pk,
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        tid = res.data['id']
+        self.assertTrue(
+            ActivityLog.objects.filter(task_id=tid, action='Task created').exists()
+        )
+
+        res = self.client.patch(
+            f'/api/v1/tasks/{tid}/',
+            {'status': done_status.pk},
+            format='json',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertTrue(
+            ActivityLog.objects.filter(task_id=tid, action='Status changed').exists()
+        )
+
+        summary = self.client.get('/api/v1/dashboard/summary/', **_jwt_header(self.member))
+        self.assertEqual(summary.status_code, 200)
+        self.assertGreaterEqual(summary.data['total_activity_logs'], 2)
+        self.assertGreaterEqual(len(summary.data['recent_activity']), 1)
+
     def test_assignee_must_be_workspace_member(self):
         res = self.client.post(
             '/api/v1/tasks/',
@@ -242,9 +281,10 @@ class TaskStatusAPITest(APITestCase):
         self.assertEqual(res.status_code, 200)
 
         data = res.data.get('results', res.data)
-        self.assertEqual([item['name'] for item in data], ['Done', 'In Progress', 'To Do'])
+        self.assertEqual([item['name'] for item in data], ['To Do', 'In Progress', 'Done'])
 
 
+@override_settings(RAG_AUTO_INDEX=False, RAG_FORCE_MEMORY_STORE=True)
 class TaskPermissionsAPITest(APITestCase):
     """Workspace membership gates task access through queryset + object permission."""
 
@@ -271,10 +311,16 @@ class TaskPermissionsAPITest(APITestCase):
         self.assertFalse(Task.objects.filter(pk=self.task.pk).exists())
 
 
-@override_settings(CACHES={'default': {
-    'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    'LOCATION': 'tasks-cache-tests',
-}})
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'tasks-cache-tests',
+        }
+    },
+    RAG_AUTO_INDEX=False,
+    RAG_FORCE_MEMORY_STORE=True,
+)
 class TaskListCacheTest(APITestCase):
     """Verifies that GET /api/v1/tasks/ is cached and invalidated on writes."""
 
@@ -397,3 +443,14 @@ class TaskListCacheTest(APITestCase):
         self.assertNotEqual(member_key, other_key)
         self.assertIsNotNone(cache.get(member_key))
         self.assertIsNotNone(cache.get(other_key))
+
+
+class TaskStatusUtilsTest(TestCase):
+    def test_done_status_detection(self):
+        done, _ = TaskStatus.objects.get_or_create(name='Done')
+        todo, _ = TaskStatus.objects.get_or_create(name='To Do')
+        self.assertTrue(is_completed_status_name('Done'))
+        self.assertFalse(is_completed_status_name('To Do'))
+        ids = completed_task_status_ids()
+        self.assertIn(done.pk, ids)
+        self.assertNotIn(todo.pk, ids)

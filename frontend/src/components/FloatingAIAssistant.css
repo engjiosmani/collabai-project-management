@@ -1,0 +1,228 @@
+.ai-float-root {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  touch-action: none;
+  user-select: none;
+}
+
+.ai-float-hint {
+  position: relative;
+  margin: 0;
+  padding: 10px 14px;
+  max-width: 220px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  animation: ai-float-hint-in 0.35s ease;
+}
+
+.ai-float-hint::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 7px solid transparent;
+  border-left-color: #fff;
+  filter: drop-shadow(2px 0 2px rgba(15, 23, 42, 0.06));
+}
+
+@keyframes ai-float-hint-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.ai-float-fab {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.18);
+  cursor: grab;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ai-float-fab:active {
+  cursor: grabbing;
+}
+
+.ai-float-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.22);
+}
+
+.ai-float-fab--open {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  cursor: pointer;
+}
+
+.ai-float-fab-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1 0%, #22c55e 100%);
+}
+
+.ai-float-fab-close {
+  color: #fff;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.ai-float-online {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #22c55e;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
+}
+
+.ai-float-panel {
+  width: min(380px, calc(100vw - 32px));
+  height: min(520px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  background: #f8fafc;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.2);
+  animation: ai-float-panel-in 0.22s ease;
+}
+
+@keyframes ai-float-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ai-float-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 12px 12px 14px;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #fff;
+  cursor: grab;
+}
+
+.ai-float-header:active {
+  cursor: grabbing;
+}
+
+.ai-float-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ai-float-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  color: #4f46e5;
+  font-weight: 800;
+  font-size: 1.05rem;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.ai-float-header-brand strong {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.ai-float-status {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.88;
+}
+
+.ai-float-header-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ai-float-icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.ai-float-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.ai-float-icon-btn--close {
+  font-size: 1.1rem;
+}
+
+.ai-float-panel .ai-chat--widget {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+}
+
+@media (max-width: 480px) {
+  .ai-float-panel {
+    width: min(360px, calc(100vw - 24px));
+    height: min(480px, calc(100dvh - 100px));
+  }
+
+  .ai-float-hint {
+    max-width: 180px;
+    font-size: 0.82rem;
+  }
+}
