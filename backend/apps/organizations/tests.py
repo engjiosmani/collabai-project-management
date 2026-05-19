@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Organization
+from .models import Organization, OrganizationMember
 
 User = get_user_model()
 
@@ -22,6 +22,11 @@ class OrganizationAPITest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='org@example.com', email='org@example.com', password='x')
         self.org = Organization.objects.create(name='Alpha Org', description='Primary')
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.ADMIN,
+        )
 
     def test_auth_required(self):
         res = self.client.get('/api/v1/organizations/')

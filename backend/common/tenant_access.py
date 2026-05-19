@@ -13,6 +13,9 @@ def resolve_organization(obj):
     org = getattr(obj, 'organization', None)
     if org is not None:
         return org
+    workspace = getattr(obj, 'workspace', None)
+    if workspace is not None:
+        return getattr(workspace, 'organization', None)
     project = getattr(obj, 'project', None)
     if project is not None:
         return getattr(project, 'organization', None)
@@ -27,7 +30,17 @@ def organizations_queryset_for_user(user) -> QuerySet[Organization]:
         return Organization.objects.none()
     if getattr(user, 'is_superuser', False):
         return Organization.objects.all()
-    return Organization.objects.filter(members__user=user).distinct()
+
+    from django.db.models import Q
+    from apps.workspaces.models import TeamMember
+
+    org_ids_via_team = TeamMember.objects.filter(user=user).values_list(
+        'workspace__organization_id', flat=True
+    )
+
+    return Organization.objects.filter(
+        Q(members__user=user) | Q(pk__in=org_ids_via_team)
+    ).distinct()
 
 
 def user_can_access_organization(user, organization) -> bool:
@@ -37,6 +50,10 @@ def user_can_access_organization(user, organization) -> bool:
         return True
     if organization is None:
         return False
+    if not isinstance(organization, Organization):
+        organization = resolve_organization(organization)
+        if organization is None:
+            return False
     if OrganizationMember.objects.filter(organization=organization, user=user).exists():
         return True
     # Legacy workspace memberships until data is fully migrated

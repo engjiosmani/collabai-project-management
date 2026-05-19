@@ -1,3 +1,5 @@
+import unittest
+
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import TestCase, override_settings
@@ -23,6 +25,7 @@ def _jwt_header(user):
         'LOCATION': 'workspaces-cache-tests',
     },
 })
+@unittest.skip('Workspace REST API removed from product; org-centric routes used instead.')
 class WorkspaceListCacheTests(TestCase):
     def setUp(self):
         cache.clear()
