@@ -31,7 +31,7 @@ class PlanMaterializer:
             created_new = False
         else:
             project = self._create_project(
-                workspace=draft.workspace,
+                organization=draft.organization,
                 base_name=project_name[:150],
                 description=project_description,
             )
@@ -59,12 +59,12 @@ class PlanMaterializer:
         project._created_new_for_plan = created_new  # noqa: SLF001 — API hint for clients
         return project
 
-    def _create_project(self, *, workspace, base_name: str, description: str) -> Project:
-        """Create a project; if the name exists in the workspace, append (2), (3), …"""
+    def _create_project(self, *, organization, base_name: str, description: str) -> Project:
+        """Create a project; if the name exists in the organization, append (2), (3), …"""
         name = (base_name or 'Generated project').strip() or 'Generated project'
         candidate = name[:150]
         suffix = 2
-        while Project.objects.filter(workspace=workspace, name=candidate).exists():
+        while Project.objects.filter(organization=organization, name=candidate).exists():
             tail = f' ({suffix})'
             candidate = f'{name[: 150 - len(tail)]}{tail}'
             suffix += 1
@@ -74,7 +74,7 @@ class PlanMaterializer:
                     'Rename or delete an existing project with the same name.'
                 )
         return Project.objects.create(
-            workspace=workspace,
+            organization=organization,
             name=candidate,
             description=description,
             is_active=True,

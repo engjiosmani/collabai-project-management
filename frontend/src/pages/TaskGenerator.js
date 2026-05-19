@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { fetchWorkspaces } from "../api/ai";
+import { fetchProjects } from "../api/projects";
 import {
   approveTaskPlan,
   createTaskPlan,
@@ -9,8 +9,8 @@ import {
   fetchJobRoles,
   fetchTaskPlan,
   fetchTaskPlanStatus,
-  fetchWorkspaceMembers,
-  fetchWorkspaceProjects,
+  fetchOrganizationMembers,
+  fetchOrganizationProjects,
   getApiErrorMessage,
   regeneratePlannedTask,
   rejectTaskPlan,
@@ -19,7 +19,6 @@ import {
 } from "../api/taskGenerator";
 import AppSidebar from "../components/AppSidebar";
 import TaskDescriptionMarkdown from "../components/TaskDescriptionMarkdown";
-import { formatWorkspaceLabel } from "../utils/workspaceLabel";
 
 import "./Dashboard.css";
 import "./AIAssistant.css";
@@ -56,20 +55,20 @@ function membersToTeamPayload(members, selectedIds, jobRoleByMemberId, jobRoles)
 }
 
 function TaskGenerator() {
-  const [workspaces, setWorkspaces] = useState([]);
-  const [workspaceId, setWorkspaceId] = useState("");
+  const [projects, setProjects] = useState([]);
+  const [projectId, setProjectId] = useState("");
   const [members, setMembers] = useState([]);
   const [jobRoles, setJobRoles] = useState([]);
   const [jobRoleByMemberId, setJobRoleByMemberId] = useState({});
   const [selectedMemberIds, setSelectedMemberIds] = useState(new Set());
-  const [workspacesLoading, setWorkspacesLoading] = useState(true);
+  const [projectsLoading, setProjectsLoading] = useState(true);
 
   const [description, setDescription] = useState("");
   const [sprintCount, setSprintCount] = useState(3);
   const [syncMode, setSyncMode] = useState("new");
   const [targetProjectId, setTargetProjectId] = useState("");
-  const [workspaceProjects, setWorkspaceProjects] = useState([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [organizationProjects, setOrganizationProjects] = useState([]);
+  const [orgProjectsLoading, setOrgProjectsLoading] = useState(false);
 
   const [phase, setPhase] = useState("form");
   const [planId, setPlanId] = useState(null);
@@ -86,18 +85,19 @@ function TaskGenerator() {
   const [regenHint, setRegenHint] = useState("");
   const [syncResult, setSyncResult] = useState(null);
 
-  const wsId = workspaceId ? Number(workspaceId) : null;
+  const selectedProject = projects.find((p) => String(p.id) === projectId);
+  const orgId = selectedProject?.organization ? Number(selectedProject.organization) : null;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setWorkspacesLoading(true);
+      setProjectsLoading(true);
       try {
-        const [list, roles] = await Promise.all([fetchWorkspaces(), fetchJobRoles()]);
+        const [list, roles] = await Promise.all([fetchProjects(), fetchJobRoles()]);
         if (cancelled) return;
-        setWorkspaces(list);
+        setProjects(list);
         setJobRoles(roles);
-        if (list.length > 0) setWorkspaceId(String(list[0].id));
+        if (list.length > 0) setProjectId(String(list[0].id));
 
         try {
           const aiConfig = await fetchAIConfig();
@@ -125,10 +125,10 @@ function TaskGenerator() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(getApiErrorMessage(err, "Could not load workspaces."));
+          setError(getApiErrorMessage(err, "Could not load projects."));
         }
       } finally {
-        if (!cancelled) setWorkspacesLoading(false);
+        if (!cancelled) setProjectsLoading(false);
       }
     })();
     return () => {
@@ -137,7 +137,7 @@ function TaskGenerator() {
   }, []);
 
   useEffect(() => {
-    if (!wsId) {
+    if (!orgId) {
       setMembers([]);
       setSelectedMemberIds(new Set());
       return;
@@ -145,7 +145,7 @@ function TaskGenerator() {
     let cancelled = false;
     (async () => {
       try {
-        const list = await fetchWorkspaceMembers(wsId);
+        const list = await fetchOrganizationMembers(orgId);
         if (cancelled) return;
         setMembers(list);
         setSelectedMemberIds(new Set(list.map((m) => m.user)));
@@ -161,40 +161,40 @@ function TaskGenerator() {
     return () => {
       cancelled = true;
     };
-  }, [wsId]);
+  }, [orgId]);
 
   useEffect(() => {
-    if (!wsId) {
-      setWorkspaceProjects([]);
+    if (!orgId) {
+      setOrganizationProjects([]);
       setTargetProjectId("");
       return undefined;
     }
     let cancelled = false;
     (async () => {
-      setProjectsLoading(true);
+      setOrgProjectsLoading(true);
       try {
-        const list = await fetchWorkspaceProjects(wsId);
+        const list = await fetchOrganizationProjects(orgId);
         if (!cancelled) {
-          setWorkspaceProjects(list);
+          setOrganizationProjects(list);
           if (syncMode === "existing" && list.length > 0 && !targetProjectId) {
             setTargetProjectId(String(list[0].id));
           }
         }
       } catch {
-        if (!cancelled) setWorkspaceProjects([]);
+        if (!cancelled) setOrganizationProjects([]);
       } finally {
-        if (!cancelled) setProjectsLoading(false);
+        if (!cancelled) setOrgProjectsLoading(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [wsId, syncMode, targetProjectId]);
+  }, [orgId, syncMode, targetProjectId]);
 
   const handleSyncModeChange = (mode) => {
     setSyncMode(mode);
-    if (mode === "existing" && workspaceProjects.length > 0) {
-      setTargetProjectId(String(workspaceProjects[0].id));
+    if (mode === "existing" && organizationProjects.length > 0) {
+      setTargetProjectId(String(organizationProjects[0].id));
     } else if (mode === "new") {
       setTargetProjectId("");
     }
@@ -268,7 +268,7 @@ function TaskGenerator() {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    if (!wsId || !description.trim()) return;
+    if (!orgId || !description.trim()) return;
 
     const team = membersToTeamPayload(members, selectedMemberIds, jobRoleByMemberId, jobRoles);
     if (team.length === 0) {
@@ -279,7 +279,7 @@ function TaskGenerator() {
       setError("Select an existing project to add tasks to.");
       return;
     }
-    if (syncMode === "existing" && workspaceProjects.length === 0) {
+    if (syncMode === "existing" && organizationProjects.length === 0) {
       setError("No projects in this workspace. Create a project on the Dashboard first, or choose “New project”.");
       return;
     }
@@ -290,7 +290,7 @@ function TaskGenerator() {
 
     try {
       const res = await createTaskPlan({
-        workspaceId: wsId,
+        organizationId: orgId,
         description: description.trim(),
         sprintCount: Number(sprintCount),
         teamMembers: team,
@@ -412,7 +412,7 @@ function TaskGenerator() {
   const missingThemes = plan?.validation_meta?.missing_themes || [];
 
   const selectedProjectName =
-    workspaceProjects.find((p) => String(p.id) === String(targetProjectId))?.name ||
+    organizationProjects.find((p) => String(p.id) === String(targetProjectId))?.name ||
     plan?.target_project_name ||
     "";
 
@@ -456,7 +456,7 @@ function TaskGenerator() {
           </label>
           {projectsLoading ? (
             <p className="tg-regen-hint">Loading projects…</p>
-          ) : workspaceProjects.length === 0 ? (
+          ) : organizationProjects.length === 0 ? (
             <p className="tg-regen-hint">
               No projects in this workspace yet. Use Dashboard to create one, or choose “Create new project”.
             </p>
@@ -468,7 +468,7 @@ function TaskGenerator() {
               onChange={(e) => setTargetProjectId(e.target.value)}
               disabled={actionLoading || submitting}
             >
-              {workspaceProjects.map((p) => (
+              {organizationProjects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
@@ -522,9 +522,9 @@ function TaskGenerator() {
   const handleJobRoleChange = async (member, jobRoleId) => {
     const parsed = jobRoleId ? Number(jobRoleId) : null;
     setJobRoleByMemberId((prev) => ({ ...prev, [member.id]: parsed }));
-    if (!wsId) return;
+    if (!orgId) return;
     try {
-      await updateMemberJobRole(wsId, member.id, parsed);
+      await updateMemberJobRole(orgId, member.id, parsed);
     } catch (err) {
       setError(err.response?.data?.detail || "Could not save job role.");
     }
@@ -540,14 +540,14 @@ function TaskGenerator() {
           <div className="ai-topbar-actions">
             <select
               className="ai-select ai-select--compact"
-              value={workspaceId}
-              onChange={(e) => setWorkspaceId(e.target.value)}
-              disabled={workspacesLoading || phase !== "form"}
-              aria-label="Workspace"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              disabled={projectsLoading || phase !== "form"}
+              aria-label="Project"
             >
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>
-                  {formatWorkspaceLabel(ws)}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -609,7 +609,7 @@ function TaskGenerator() {
               <div className="tg-members">
                 {members.length === 0 ? (
                   <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                    {wsId ? "No members in this workspace." : "Select a workspace."}
+                    {orgId ? "No members in this workspace." : "Select a workspace."}
                   </span>
                 ) : (
                   members.map((m) => (
@@ -645,7 +645,7 @@ function TaskGenerator() {
                 <button
                   type="submit"
                   className="dashboard-button dashboard-button--primary tg-form-submit"
-                  disabled={submitting || !wsId || !description.trim() || groqConfigured === false}
+                  disabled={submitting || !orgId || !description.trim() || groqConfigured === false}
                 >
                   {submitting ? "Starting…" : "Generate plan"}
                 </button>

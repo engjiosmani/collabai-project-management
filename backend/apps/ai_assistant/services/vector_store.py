@@ -32,7 +32,7 @@ class VectorStore(ABC):
     def search(
         self,
         *,
-        workspace_id: int,
+        organization_id: int,
         query_vector: List[float],
         top_k: int = 5,
     ) -> List[Dict[str, Any]]:
@@ -58,14 +58,15 @@ class MemoryVectorStore(VectorStore):
     def search(
         self,
         *,
-        workspace_id: int,
+        organization_id: int,
         query_vector: List[float],
         top_k: int = 5,
     ) -> List[Dict[str, Any]]:
-        ws = str(workspace_id)
+        org = str(organization_id)
         scored = []
         for doc in self._docs.values():
-            if str(doc.get('workspace_id')) != ws:
+            doc_org = str(doc.get('organization_id') or doc.get('workspace_id', ''))
+            if doc_org != org:
                 continue
             score = _cosine(query_vector, doc['embedding'])
             scored.append({**doc, 'score': score})
@@ -94,7 +95,7 @@ class RedisVectorStore(VectorStore):
                 },
                 'fields': [
                     {'name': 'id', 'type': 'tag'},
-                    {'name': 'workspace_id', 'type': 'tag'},
+                    {'name': 'organization_id', 'type': 'tag'},
                     {'name': 'doc_type', 'type': 'tag'},
                     {'name': 'doc_id', 'type': 'tag'},
                     {'name': 'title', 'type': 'text'},
@@ -126,7 +127,7 @@ class RedisVectorStore(VectorStore):
     def search(
         self,
         *,
-        workspace_id: int,
+        organization_id: int,
         query_vector: List[float],
         top_k: int = 5,
     ) -> List[Dict[str, Any]]:
@@ -136,9 +137,9 @@ class RedisVectorStore(VectorStore):
         query = VectorQuery(
             vector=query_vector,
             vector_field_name='embedding',
-            return_fields=['id', 'workspace_id', 'doc_type', 'doc_id', 'title', 'content'],
+            return_fields=['id', 'organization_id', 'doc_type', 'doc_id', 'title', 'content'],
             num_results=top_k,
-            filter_expression=Tag('workspace_id') == str(workspace_id),
+            filter_expression=Tag('organization_id') == str(organization_id),
         )
         raw = self._index.query(query)
         results = []
@@ -148,7 +149,7 @@ class RedisVectorStore(VectorStore):
             results.append(
                 {
                     'id': item.get('id'),
-                    'workspace_id': item.get('workspace_id'),
+                    'organization_id': item.get('organization_id'),
                     'doc_type': item.get('doc_type'),
                     'doc_id': item.get('doc_id'),
                     'title': item.get('title'),

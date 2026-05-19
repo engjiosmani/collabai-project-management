@@ -1,5 +1,8 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
-from common.workspace_access import resolve_workspace, user_can_access_workspace
+from common.tenant_access import resolve_organization, user_can_access_organization
+
+resolve_workspace = resolve_organization
+user_can_access_workspace = user_can_access_organization
 
 def user_matches_any_required_role(user, required_roles):
     """True if Django auth user satisfies any identifier in ``required_roles`` (names/slugs or objects).
@@ -51,21 +54,24 @@ class IsAuthenticatedReadOnly(BasePermission):
             return bool(user and user.is_authenticated)
         return bool(user and user.is_authenticated and getattr(user, 'is_staff', False))
 
-class IsWorkspaceTeamMember(BasePermission):
-    """
-    Read/write allowed only when the authenticated user is (or superuser) a TeamMember
-    of the workspace derived from the object (project → workspace chain).
-    """
+class IsOrganizationMember(BasePermission):
+    """Read/write when the user belongs to the object's organization."""
+
     message = 'You do not have access to this resource.'
+
     def has_permission(self, request, view):
         user = getattr(request, 'user', None)
         return bool(user and user.is_authenticated)
+
     def has_object_permission(self, request, view, obj):
         user = request.user
         if getattr(user, 'is_superuser', False):
             return True
-        workspace = resolve_workspace(obj)
-        return user_can_access_workspace(user, workspace)
+        organization = resolve_organization(obj)
+        return user_can_access_organization(user, organization)
+
+
+IsWorkspaceTeamMember = IsOrganizationMember
 class IsWorkspaceMemberCommentAuthorForWrite(BasePermission):
     """
     Safe methods: user must be a workspace team member for the comment's task/project.
@@ -79,8 +85,8 @@ class IsWorkspaceMemberCommentAuthorForWrite(BasePermission):
         user = request.user
         if getattr(user, 'is_superuser', False):
             return True
-        workspace = resolve_workspace(obj)
-        if not user_can_access_workspace(user, workspace):
+        organization = resolve_organization(obj)
+        if not user_can_access_organization(user, organization):
             return False
         if request.method in SAFE_METHODS:
             return True
@@ -101,8 +107,8 @@ class IsWorkspaceInviteAccess(BasePermission):
         if getattr(user, 'is_superuser', False):
             return True
 
-        workspace = resolve_workspace(obj)
-        is_member = user_can_access_workspace(user, workspace)
+        organization = resolve_organization(obj)
+        is_member = user_can_access_organization(user, organization)
         user_email = (getattr(user, 'email', '') or '').strip().lower()
         invite_email = (getattr(obj, 'email', '') or '').strip().lower()
         is_recipient = bool(user_email and invite_email and user_email == invite_email)

@@ -8,6 +8,8 @@ This document ties CollabAI layers together and points contributors to technical
 |-------|----------|
 | Backend (DRF, OOP, middleware, permissions) | [backend_architecture.md](./backend_architecture.md) |
 | Models / API (as needed) | [database-models.md](./database-models.md), [api-endpoints.md](./api-endpoints.md) |
+| AI / LLM (#16) | [ai-module.md](./ai-module.md) |
+| Caching / Redis (#17) | [caching.md](./caching.md) |
 | GitHub Issues wording (paths, no ambiguity) | [github-issues-sync.md](./github-issues-sync.md) |
 
 ## High-level view

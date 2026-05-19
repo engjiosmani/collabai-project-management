@@ -2,8 +2,9 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.db import transaction
 
-from apps.organizations.models import Organization
-from apps.workspaces.models import JobRole, Role, TeamMember, Workspace
+from apps.organizations.models import Organization, OrganizationMember
+from apps.projects.models import Project
+from apps.workspaces.models import JobRole
 
 from .base_service import BaseService
 
@@ -20,20 +21,16 @@ class RegisterService(BaseService):
         )
 
         org, _ = Organization.objects.get_or_create(name='CollabAI')
-        workspace, _ = Workspace.objects.get_or_create(
-            organization=org,
-            name='My Workspace',
-            defaults={'is_active': True},
-        )
-        member_role, _ = Role.objects.get_or_create(
-            workspace=workspace,
-            name=Role.MEMBER,
-        )
         default_job_role = JobRole.objects.filter(code='full_stack_developer').first()
-        TeamMember.objects.get_or_create(
-            workspace=workspace,
+        OrganizationMember.objects.get_or_create(
+            organization=org,
             user=user,
-            defaults={'role': member_role, 'job_role': default_job_role},
+            defaults={'role': OrganizationMember.MEMBER, 'job_role': default_job_role},
+        )
+        Project.objects.get_or_create(
+            organization=org,
+            name='Demo Project',
+            defaults={'description': 'Starter project for CollabAI', 'is_active': True},
         )
 
         return user

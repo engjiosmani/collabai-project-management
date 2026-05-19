@@ -1,13 +1,12 @@
 from copy import copy
 
-from django.core.cache import cache
 from django.db.models import Case, IntegerField, QuerySet, Value, When
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
-from rest_framework.response import Response
 
 from apps.comments.services.activity import log_task_created, log_task_deleted, log_task_updated
-from common.cache import bump_version, invalidate_list_cache, make_list_key
+from common.cache import CachedListMixin, NAMESPACE_TASKS
+from common.cache_signals import invalidate_after_task_change
 from common.permissions import IsWorkspaceTeamMember
 from common.workspace_access import workspaces_queryset_for_user
 
@@ -15,7 +14,6 @@ from .filters import TaskFilter
 from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
 
-CACHE_NAMESPACE = 'tasks'
 DEFAULT_LIST_PATH = '/api/v1/tasks/'
 DEFAULT_TASK_STATUS_NAMES = ('To Do', 'In Progress', 'Done')
 # Kanban column order (not alphabetical — "Done" must not appear before "To Do")
@@ -54,7 +52,9 @@ class TaskStatusViewSet(viewsets.ReadOnlyModelViewSet):
     partial_update=extend_schema(tags=['Tasks'], summary='Partially update task'),
     destroy=extend_schema(tags=['Tasks'], summary='Delete task'),
 )
-class TaskViewSet(viewsets.ModelViewSet):
+class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
+    cache_namespace = NAMESPACE_TASKS
+    cache_default_list_path = DEFAULT_LIST_PATH
     """
     CRUD for tasks in projects belonging to the user's workspaces.
     Filter by project, workspace, organization, status, priority, assignee, dates.
@@ -116,28 +116,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             queryset = queryset.distinct()
         return queryset
 
-    def list(self, request, *args, **kwargs):
-        cache_key = make_list_key(CACHE_NAMESPACE, request.user.pk, request.get_full_path())
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return Response(cached)
-        response = super().list(request, *args, **kwargs)
-        if response.status_code == 200:
-            cache.set(cache_key, response.data)
-        return response
-
     def _invalidate_task_list_cache(self) -> None:
-        """Drop cached list responses for this user and bump the tasks namespace version."""
-        request = getattr(self, 'request', None)
-        user = getattr(request, 'user', None) if request else None
-        if user is not None and getattr(user, 'is_authenticated', False):
-            paths = {DEFAULT_LIST_PATH}
-            if request is not None:
-                paths.add(request.get_full_path())
-            for path in paths:
-                invalidate_list_cache(CACHE_NAMESPACE, user.pk, path)
-        else:
-            bump_version(CACHE_NAMESPACE)
+        self.invalidate_list_cache_for_request()
+        invalidate_after_task_change()
 
     def destroy(self, request, *args, **kwargs):
         response = super().destroy(request, *args, **kwargs)

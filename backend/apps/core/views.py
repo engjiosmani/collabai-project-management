@@ -6,11 +6,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.cache import cache
 from django.db.models import Count
 from django.db import connection
 from django.utils import timezone
 
-from common.workspace_access import workspaces_queryset_for_user
+from common.cache import (
+    CachedGETMixin,
+    NAMESPACE_DASHBOARD,
+    NAMESPACE_METRICS,
+    cache_backend_label,
+    get_cached_payload,
+    get_metrics_cache_timeout,
+    make_fixed_key,
+    set_cached_payload,
+)
+from common.tenant_access import organizations_queryset_for_user
 from apps.comments.models import ActivityLog
 from apps.comments.models import Comment
 from apps.comments.serializers import ActivityLogSerializer
@@ -120,25 +131,28 @@ class LogoutView(APIView):
     responses={200: OpenApiResponse(description='Aggregated dashboard summary')},
     description='Aggregated counts and recent activity for the current user (workspace-scoped).',
 )
-class DashboardSummaryView(APIView):
+class DashboardSummaryView(CachedGETMixin, APIView):
     """Return aggregated workspace-scoped counts and recent activity.
 
     Optimized to run a small number of DB queries and return cached-friendly,
     pre-aggregated metrics for dashboard consumption.
     """
     permission_classes = [IsAuthenticated]
+    cache_namespace = NAMESPACE_DASHBOARD
+    cache_path_suffix = '/api/v1/dashboard/summary/'
 
     def get(self, request, *args, **kwargs):
+        cached = self.get_cached_response(request)
+        if cached is not None:
+            return cached
+
         user = request.user
 
-        # Workspaces the user can access (handles superuser)
-        ws_qs = workspaces_queryset_for_user(user)
+        org_qs = organizations_queryset_for_user(user)
 
-        # Projects accessible
-        total_projects = Project.objects.filter(workspace__in=ws_qs).count()
+        total_projects = Project.objects.filter(organization__in=org_qs).count()
 
-        # Tasks accessible
-        tasks_qs = Task.objects.filter(project__workspace__in=ws_qs)
+        tasks_qs = Task.objects.filter(project__organization__in=org_qs)
         total_tasks = tasks_qs.count()
 
         done_status_ids = completed_task_status_ids()
@@ -149,7 +163,7 @@ class DashboardSummaryView(APIView):
 
         pending_tasks = max(total_tasks - completed_tasks, 0)
 
-        activity_base_qs = ActivityLog.objects.filter(task__project__workspace__in=ws_qs)
+        activity_base_qs = ActivityLog.objects.filter(task__project__organization__in=org_qs)
         total_activity_logs = activity_base_qs.count()
 
         # Recent activity (limit 10) - fetch with select_related to avoid N+1
@@ -179,7 +193,8 @@ class DashboardSummaryView(APIView):
             'activity_by_action': activity_by_action,
         }
 
-        return Response(payload, status=status.HTTP_200_OK)
+        response = Response(payload, status=status.HTTP_200_OK)
+        return self.cache_response(request, response)
 
 
 @extend_schema(
@@ -208,11 +223,19 @@ class HealthView(APIView):
         except Exception:
             groq_ok = False
 
+        cache_ok = True
+        try:
+            cache.set('health:ping', '1', timeout=5)
+            cache_ok = cache.get('health:ping') == '1'
+        except Exception:
+            cache_ok = False
+
         return Response(
             {
                 'status': 'ok' if db_ok else 'degraded',
                 'timestamp': timezone.now().isoformat(),
                 'database': 'ok' if db_ok else 'unavailable',
+                'cache': cache_backend_label() if cache_ok else 'unavailable',
                 'groq_configured': groq_ok,
             },
             status=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -228,6 +251,11 @@ class MetricsView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request, *args, **kwargs):
+        cache_key = make_fixed_key(NAMESPACE_METRICS, 'platform')
+        cached = get_cached_payload(cache_key)
+        if cached is not None:
+            return Response(cached, status=status.HTTP_200_OK)
+
         payload = {
             'users': self._count_users(),
             'organizations': Organization.objects.count(),
@@ -242,6 +270,7 @@ class MetricsView(APIView):
             'activity_logs': ActivityLog.objects.count(),
             'notifications': Notification.objects.count(),
         }
+        set_cached_payload(cache_key, payload, timeout=get_metrics_cache_timeout())
         return Response(payload, status=status.HTTP_200_OK)
 
     def _count_users(self):

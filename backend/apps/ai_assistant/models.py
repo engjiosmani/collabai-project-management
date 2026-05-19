@@ -3,7 +3,7 @@ from django.conf import settings
 from common.models import BaseModel
 from apps.projects.models import Project
 from apps.tasks.models import Task
-from apps.workspaces.models import Workspace
+from apps.organizations.models import Organization
 
 
 class AIRequest(BaseModel):
@@ -42,8 +42,8 @@ class ProjectPlanDraft(BaseModel):
         on_delete=models.CASCADE,
         related_name='project_plan_drafts',
     )
-    workspace = models.ForeignKey(
-        Workspace,
+    organization = models.ForeignKey(
+        Organization,
         on_delete=models.CASCADE,
         related_name='project_plan_drafts',
     )
@@ -149,11 +149,11 @@ class PlannedTask(BaseModel):
         }
 
 
-class GitHubWorkspaceConfig(BaseModel):
-    """Per-workspace GitHub PAT + repos for commit sync in standups."""
+class GitHubOrganizationConfig(BaseModel):
+    """Per-organization GitHub PAT + repos for commit sync in standups."""
 
-    workspace = models.OneToOneField(
-        Workspace,
+    organization = models.OneToOneField(
+        Organization,
         on_delete=models.CASCADE,
         related_name='github_config',
     )
@@ -171,7 +171,7 @@ class GitHubWorkspaceConfig(BaseModel):
     is_enabled = models.BooleanField(default=False)
 
     def __str__(self):
-        return f'GitHub config for workspace {self.workspace_id}'
+        return f'GitHub config for organization {self.organization_id}'
 
 
 class TeamPulseAlert(BaseModel):
@@ -185,8 +185,8 @@ class TeamPulseAlert(BaseModel):
         WARNING = 'warning', 'Warning'
         SUGGESTION = 'suggestion', 'Suggestion'
 
-    workspace = models.ForeignKey(
-        Workspace,
+    organization = models.ForeignKey(
+        Organization,
         on_delete=models.CASCADE,
         related_name='team_pulse_alerts',
     )
@@ -211,7 +211,7 @@ class TeamPulseAlert(BaseModel):
 
     class Meta:
         ordering = ['-created_at']
-        indexes = [models.Index(fields=['workspace', 'is_dismissed', 'created_at'])]
+        indexes = [models.Index(fields=['organization', 'is_dismissed', 'created_at'])]
 
 
 class TeamPulseReport(BaseModel):
@@ -219,8 +219,8 @@ class TeamPulseReport(BaseModel):
         WORKLOAD = 'workload', 'Workload analysis'
         STANDUP = 'standup', 'Daily standup'
 
-    workspace = models.ForeignKey(
-        Workspace,
+    organization = models.ForeignKey(
+        Organization,
         on_delete=models.CASCADE,
         related_name='team_pulse_reports',
     )
@@ -232,4 +232,4 @@ class TeamPulseReport(BaseModel):
 
     class Meta:
         ordering = ['-created_at']
-        indexes = [models.Index(fields=['workspace', 'report_type', 'created_at'])]
+        indexes = [models.Index(fields=['organization', 'report_type', 'created_at'])]

@@ -9,9 +9,8 @@ from apps.workspaces.models import (TeamMember, Role)
 
 from apps.organizations.models import Organization
 from apps.workspaces.models import Workspace
-from common.cache import make_list_key
+from common.cache import NAMESPACE_PROJECTS, make_list_key
 from .models import Project, ProjectMember, Subscription, Integration
-from .views import CACHE_NAMESPACE
 
 User = get_user_model()
 
@@ -353,8 +352,8 @@ class ProjectListCacheTest(APITestCase):
         self._list(self.member)
         self._list(self.other)
 
-        member_key = make_list_key(CACHE_NAMESPACE, self.member.pk, '/api/v1/projects/')
-        other_key = make_list_key(CACHE_NAMESPACE, self.other.pk, '/api/v1/projects/')
+        member_key = make_list_key(NAMESPACE_PROJECTS, self.member.pk, '/api/v1/projects/')
+        other_key = make_list_key(NAMESPACE_PROJECTS, self.other.pk, '/api/v1/projects/')
         self.assertNotEqual(member_key, other_key)
         self.assertIsNotNone(cache.get(member_key))
         self.assertIsNotNone(cache.get(other_key))

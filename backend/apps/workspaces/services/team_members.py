@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+from apps.organizations.models import OrganizationMember
 from apps.workspaces.models import TeamMember
 
 
-def team_members_payload_for_workspace(workspace_id: int) -> list[dict]:
+def team_members_payload_for_organization(organization_id: int) -> list[dict]:
     """Build team_members list for Task Generator API / AI prompts."""
     members = (
-        TeamMember.objects.filter(workspace_id=workspace_id)
+        OrganizationMember.objects.filter(organization_id=organization_id)
         .select_related('user', 'job_role')
         .order_by('user__email')
     )
+    if not members.exists():
+        members = (
+            TeamMember.objects.filter(workspace__organization_id=organization_id)
+            .select_related('user', 'job_role')
+            .order_by('user__email')
+        )
     payload = []
     for member in members:
         job = member.job_role
@@ -24,3 +31,6 @@ def team_members_payload_for_workspace(workspace_id: int) -> list[dict]:
             }
         )
     return payload
+
+
+team_members_payload_for_workspace = team_members_payload_for_organization

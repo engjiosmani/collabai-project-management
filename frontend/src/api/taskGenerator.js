@@ -7,8 +7,8 @@ export async function fetchAIConfig() {
   return data;
 }
 
-export async function fetchWorkspaceMembers(workspaceId) {
-  const { data } = await API.get(`/workspaces/${workspaceId}/members/`);
+export async function fetchOrganizationMembers(organizationId) {
+  const { data } = await API.get(`/organizations/${organizationId}/members/`);
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
@@ -17,30 +17,30 @@ export async function fetchJobRoles() {
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
-export async function updateMemberJobRole(workspaceId, memberId, jobRoleId) {
+export async function updateMemberJobRole(organizationId, memberId, jobRoleId) {
   const { data } = await API.patch(
-    `/workspaces/${workspaceId}/members/${memberId}/job-role/`,
+    `/organizations/${organizationId}/members/${memberId}/job-role/`,
     { job_role_id: jobRoleId }
   );
   return data;
 }
 
-export async function fetchWorkspaceProjects(workspaceId) {
+export async function fetchOrganizationProjects(organizationId) {
   const { data } = await API.get("/projects/", {
-    params: { workspace: workspaceId },
+    params: { organization: organizationId },
   });
   return Array.isArray(data) ? data : data.results ?? [];
 }
 
 export async function createTaskPlan({
-  workspaceId,
+  organizationId,
   description,
   sprintCount,
   teamMembers,
   targetProjectId = null,
 }) {
   const payload = {
-    workspace_id: workspaceId,
+    organization_id: organizationId,
     description,
     sprint_count: sprintCount,
     team_members: teamMembers,

@@ -8,12 +8,11 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.organizations.models import Organization
 from apps.workspaces.models import (TeamMember,Workspace,Role)
 from apps.projects.models import Project
-from common.cache import make_list_key
+from common.cache import NAMESPACE_TASKS, make_list_key
 from apps.comments.models import ActivityLog
 
 from .models import Task, TaskStatus, TaskPriority, Label, TaskLabel, Attachment
 from .status_utils import completed_task_status_ids, is_completed_status_name
-from .views import CACHE_NAMESPACE
 
 User = get_user_model()
 
@@ -438,8 +437,8 @@ class TaskListCacheTest(APITestCase):
         self._list(self.member)
         self._list(self.other)
 
-        member_key = make_list_key(CACHE_NAMESPACE, self.member.pk, '/api/v1/tasks/')
-        other_key = make_list_key(CACHE_NAMESPACE, self.other.pk, '/api/v1/tasks/')
+        member_key = make_list_key(NAMESPACE_TASKS, self.member.pk, '/api/v1/tasks/')
+        other_key = make_list_key(NAMESPACE_TASKS, self.other.pk, '/api/v1/tasks/')
         self.assertNotEqual(member_key, other_key)
         self.assertIsNotNone(cache.get(member_key))
         self.assertIsNotNone(cache.get(other_key))

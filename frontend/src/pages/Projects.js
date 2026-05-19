@@ -41,7 +41,7 @@ function Projects() {
                     <div>
                         <h2 className="ai-heading">Your projects</h2>
                         <p className="projects-page-lead">
-                            Browse workspace projects and open tasks on the Kanban board.
+                            Browse your projects and open tasks on the Kanban board.
                         </p>
                     </div>
                 </header>

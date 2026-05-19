@@ -1,8 +1,8 @@
 import API, { getApiErrorMessage } from "./api";
 
-export async function fetchTeamPulseOverview(workspaceId) {
+export async function fetchTeamPulseOverview(organizationId) {
   const { data } = await API.get("/ai/team-pulse/", {
-    params: { workspace_id: workspaceId },
+    params: { organization_id: organizationId },
   });
   return data;
 }
@@ -12,16 +12,11 @@ export async function saveGitHubConfig(payload) {
   return data;
 }
 
-export async function runTeamPulse(workspaceId, runType = "both") {
+export async function runTeamPulse(organizationId, runType = "standup") {
   const { data } = await API.post("/ai/team-pulse/run/", {
-    workspace_id: workspaceId,
+    organization_id: organizationId,
     run_type: runType,
   });
-  return data;
-}
-
-export async function dismissTeamPulseAlert(alertId) {
-  const { data } = await API.post(`/ai/team-pulse/alerts/${alertId}/dismiss/`);
   return data;
 }
 

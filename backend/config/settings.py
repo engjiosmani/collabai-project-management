@@ -175,6 +175,7 @@ else:
 # work without a running Redis. Default cache TTL is 5 min for list endpoints.
 REDIS_URL = os.environ.get('REDIS_URL')
 CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_DEFAULT_TIMEOUT', 300))
+METRICS_CACHE_TIMEOUT = int(os.environ.get('METRICS_CACHE_TIMEOUT', 60))
 
 if REDIS_URL:
     CACHES = {
@@ -327,17 +328,12 @@ CELERY_TASK_ALWAYS_EAGER = os.environ.get(
 ).lower() == 'true'
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# Celery Beat — Team Pulse (workload nightly, standup 9:00). Requires: celery -A config beat
+# Celery Beat — Team Pulse daily standup (9:00). Requires: celery -A config beat
 from celery.schedules import crontab  # noqa: E402
 
 TEAM_PULSE_STANDUP_HOUR = int(os.environ.get('TEAM_PULSE_STANDUP_HOUR', '9'))
-TEAM_PULSE_WORKLOAD_HOUR = int(os.environ.get('TEAM_PULSE_WORKLOAD_HOUR', '2'))
 
 CELERY_BEAT_SCHEDULE = {
-    'team-pulse-nightly-workload': {
-        'task': 'apps.ai_assistant.tasks_team_pulse.run_nightly_workload_analysis',
-        'schedule': crontab(hour=TEAM_PULSE_WORKLOAD_HOUR, minute=0),
-    },
     'team-pulse-daily-standup': {
         'task': 'apps.ai_assistant.tasks_team_pulse.run_daily_standup_agent',
         'schedule': crontab(hour=TEAM_PULSE_STANDUP_HOUR, minute=0),

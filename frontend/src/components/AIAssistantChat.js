@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle } from "react";
+import { Link } from "react-router-dom";
 
 import {
   EXAMPLE_QUESTIONS,
@@ -6,21 +7,19 @@ import {
   formatScore,
   useAIAssistantChat,
 } from "../hooks/useAIAssistantChat";
-import { formatWorkspaceLabel } from "../utils/workspaceLabel";
-
 import "../pages/AIAssistant.css";
 
 const AIAssistantChat = forwardRef(function AIAssistantChat(
-  { variant = "page", showWorkspaceSelect = true, onClearChat },
+  { variant = "page", showProjectSelect = true, onClearChat },
   ref
 ) {
   const chat = useAIAssistantChat();
   const {
     chatEndRef,
-    workspaces,
-    workspaceId,
-    setWorkspaceId,
-    workspacesLoading,
+    projects,
+    projectId,
+    setProjectId,
+    projectsLoading,
     input,
     setInput,
     chatTurns,
@@ -30,14 +29,14 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
     setShowSettings,
     error,
     setError,
-    workspaceLabel,
+    selectedProjectLabel,
     handleSubmit,
     handleExample,
     handleReindex,
     clearChat,
     abortOnUnmount,
     isEmpty,
-    hasWorkspace,
+    hasProject,
     displayName,
   } = chat;
 
@@ -53,20 +52,20 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
 
   return (
     <div className={rootClass}>
-      {variant === "page" && showWorkspaceSelect ? (
+      {variant === "page" && showProjectSelect ? (
         <header className="ai-topbar">
           <h2 className="ai-heading">Ask about your project</h2>
           <div className="ai-topbar-actions">
             <select
               className="ai-select ai-select--compact"
-              value={workspaceId}
-              onChange={(e) => setWorkspaceId(e.target.value)}
-              disabled={workspacesLoading}
-              aria-label="Select workspace"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              disabled={projectsLoading}
+              aria-label="Select project"
             >
-              {workspaces.map((ws) => (
-                <option key={ws.id} value={ws.id}>
-                  {formatWorkspaceLabel(ws)}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -83,18 +82,18 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
         </header>
       ) : null}
 
-      {variant === "widget" && showWorkspaceSelect ? (
+      {variant === "widget" && showProjectSelect ? (
         <div className="ai-widget-workspace">
           <select
             className="ai-select ai-select--compact ai-select--widget"
-            value={workspaceId}
-            onChange={(e) => setWorkspaceId(e.target.value)}
-            disabled={workspacesLoading}
-            aria-label="Select workspace"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            disabled={projectsLoading}
+            aria-label="Select project"
           >
-            {workspaces.map((ws) => (
-              <option key={ws.id} value={ws.id}>
-                {formatWorkspaceLabel(ws)}
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
@@ -120,7 +119,7 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
             type="button"
             className="ai-btn ai-btn--secondary"
             onClick={handleReindex}
-            disabled={reindexing || !hasWorkspace}
+            disabled={reindexing || !hasProject}
           >
             {reindexing ? "Updating…" : "Refresh memory"}
           </button>
@@ -136,19 +135,18 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
         </div>
       ) : null}
 
-      {!workspacesLoading && !hasWorkspace ? (
+      {!projectsLoading && !hasProject ? (
         <div className="ai-no-workspace" role="alert">
-          <strong>No workspace found.</strong>
+          <strong>No projects found.</strong>
           <p>
-            Run in the backend folder:{" "}
-            <code>python manage.py bootstrap_workspace --email=your@email.com</code>
-            , then refresh.
+            Open the <Link to="/projects">Projects</Link> page to create one, or run in the backend:{" "}
+            <code>python manage.py bootstrap_organization --email=your@email.com</code>, then refresh.
           </p>
         </div>
       ) : null}
 
       <div className="ai-chat-area" aria-live="polite">
-        {isEmpty && !loading && hasWorkspace ? (
+        {isEmpty && !loading && hasProject ? (
           <div className="ai-welcome">
             {variant === "page" ? (
               <div className="ai-welcome-icon" aria-hidden>
@@ -157,7 +155,7 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
             ) : null}
             <h3>Hello{displayName ? `, ${displayName}` : ""}!</h3>
             <p>
-              You&apos;re working in <strong>{workspaceLabel}</strong>.
+              You&apos;re asking about <strong>{selectedProjectLabel}</strong>.
               {variant === "page"
                 ? " Pick a question below or type your own."
                 : " How can I assist you today?"}
@@ -211,9 +209,9 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
                 <span />
                 <span />
               </span>
-                <p className="ai-loading-text">
-                  Reading your project context… First reply may take up to a minute.
-                </p>
+              <p className="ai-loading-text">
+                Reading your project context… First reply may take up to a minute.
+              </p>
             </div>
           </div>
         ) : null}
@@ -237,12 +235,12 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
                   ? "Generating… click Stop to cancel"
                   : "Ask something about the project…"
             }
-            disabled={!hasWorkspace}
+            disabled={!hasProject}
           />
           <button
             type="submit"
             className={`ai-btn ai-btn--send${loading ? " ai-btn--stop" : ""}`}
-            disabled={!hasWorkspace || (!loading && !input.trim())}
+            disabled={!hasProject || (!loading && !input.trim())}
             aria-label={loading ? "Stop generating" : "Send"}
             title={loading ? "Stop" : "Send"}
           >
