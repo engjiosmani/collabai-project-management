@@ -9,4 +9,5 @@ from .models import Notification
 @receiver(post_save, sender=Notification)
 @receiver(post_delete, sender=Notification)
 def invalidate_notification_caches(sender, **kwargs):
+
     invalidate_after_notification_change()

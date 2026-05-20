@@ -408,3 +408,12 @@ SECURE_BROWSER_XSS_FILTER = True
 if os.environ.get('SECURE_PROXY_SSL_HEADER_ENABLED', 'False').lower() == 'true':
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = os.environ.get("EMAIL_HOST")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
