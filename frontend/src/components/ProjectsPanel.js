@@ -69,7 +69,7 @@ export default function ProjectsPanel({ onSelectProject, selectedProjectId, layo
 
             {!loading && !error && projects.length === 0 ? (
                 <p className="projects-panel-muted">
-                    No projects yet. Use Task Generator to create one, or add a project via the API.
+                    No projects yet. Add a project via the API.
                 </p>
             ) : null}
 

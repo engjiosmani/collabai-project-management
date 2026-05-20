@@ -4,7 +4,6 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AIAssistant from "./pages/AIAssistant";
-import TaskGenerator from "./pages/TaskGenerator";
 import TeamPulse from "./pages/TeamPulse";
 import Projects from "./pages/Projects";
 
@@ -51,15 +50,6 @@ function App() {
                 element={
                     <ProtectedRoute>
                         <AIAssistant />
-                    </ProtectedRoute>
-                }
-            />
-
-            <Route
-                path="/ai/task-generator"
-                element={
-                    <ProtectedRoute>
-                        <TaskGenerator />
                     </ProtectedRoute>
                 }
             />
