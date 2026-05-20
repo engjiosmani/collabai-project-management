@@ -1,7 +1,8 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
+
 from common.models import BaseModel
-from apps.workspaces.models import Workspace, Role
+from apps.organizations.models import Organization
 
 
 User = get_user_model()
@@ -13,15 +14,8 @@ class Profile(BaseModel):
         on_delete=models.CASCADE,
         related_name="profile"
     )
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="profiles"
-    )
-    role = models.ForeignKey(
-        Role,
+    organization = models.ForeignKey(
+        Organization,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

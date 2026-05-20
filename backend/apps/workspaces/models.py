@@ -1,5 +1,5 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 from common.models import BaseModel
 from apps.organizations.models import Organization
@@ -31,23 +31,19 @@ class Workspace(BaseModel):
 
 
 class JobRole(BaseModel):
-    """
-    Job discipline for task assignment (Backend, Frontend, DevOps, etc.).
-    Separate from workspace Role (admin/manager/member permissions).
-    """
-
+ 
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     task_categories = models.JSONField(
         default=list,
         blank=True,
-        help_text='AI task categories this role typically owns (e.g. backend, api, auth).',
+        help_text="AI task categories this role typically owns (e.g. backend, api, auth).",
     )
     is_active = models.BooleanField(default=True)
 
     class Meta:
-        ordering = ('name',)
+        ordering = ("name",)
 
     def __str__(self):
         return self.name
@@ -63,6 +59,7 @@ class Role(BaseModel):
         (MANAGER, "Manager"),
         (MEMBER, "Member"),
     ]
+
     workspace = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
@@ -82,8 +79,8 @@ class Role(BaseModel):
         unique_together = ("workspace", "name")
 
     def __str__(self):
-
         return f"{self.workspace.name} - {self.name}"
+
 
 class TeamMember(BaseModel):
     workspace = models.ForeignKey(
@@ -109,7 +106,7 @@ class TeamMember(BaseModel):
         null=True,
         blank=True,
         related_name="team_members",
-        help_text='Discipline used for AI task assignment (Backend, Frontend, DevOps, …).',
+        help_text="Discipline used for AI task assignment (Backend, Frontend, DevOps, …).",
     )
 
     class Meta:
@@ -117,27 +114,3 @@ class TeamMember(BaseModel):
 
     def __str__(self):
         return f"{self.user} - {self.workspace}"
-
-
-class WorkspaceInvite(BaseModel):
-    workspace = models.ForeignKey(
-        Workspace,
-        on_delete=models.CASCADE,
-        related_name="invites"
-    )
-    email = models.EmailField()
-    role = models.ForeignKey(
-        Role,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="workspace_invites"
-    )
-    token = models.CharField(max_length=255, unique=True)
-    is_accepted = models.BooleanField(default=False)
-
-    class Meta:
-        unique_together = ("workspace", "email")
-
-    def __str__(self):
-        return f"Invite {self.email}"

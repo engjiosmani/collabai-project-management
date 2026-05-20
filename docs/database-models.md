@@ -162,7 +162,7 @@ Additional production models were introduced to support:
 
 ### Workspace Management
 - TeamMember
-- WorkspaceInvite
+- OrganizationInvite
 
 ### Audit System
 - AuditLog
@@ -186,7 +186,7 @@ Unique constraints implemented for:
 - Workspace project names
 - Team memberships
 - Task labels
-- Workspace invites
+- Organization invites
 - Integrations
 
 ---
@@ -203,7 +203,7 @@ Workspace
 │   ├── Members
 │   └── Integrations
 ├── TeamMembers
-├── WorkspaceInvites
+├── OrganizationInvites
 └── Subscription
 
 User

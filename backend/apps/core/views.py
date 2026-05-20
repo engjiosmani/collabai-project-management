@@ -1,7 +1,6 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
-from rest_framework.throttling import ScopedRateThrottle
 from .serializers import (
     AccessTokenResponseSerializer,
     DashboardSummarySerializer,
@@ -34,15 +33,14 @@ from common.cache import (
     set_cached_payload,
 )
 from common.tenant_access import organizations_queryset_for_user
-from apps.comments.models import ActivityLog
-from apps.comments.models import Comment
+from apps.comments.models import ActivityLog, Comment
 from apps.comments.serializers import ActivityLogSerializer
 from apps.notifications.models import Notification
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationInvite
 from apps.projects.models import Project
 from apps.tasks.models import Task
 from apps.tasks.status_utils import completed_task_status_ids
-from apps.workspaces.models import Permission, Role, TeamMember, Workspace, WorkspaceInvite
+from apps.workspaces.models import Permission, Role, TeamMember, Workspace
 
 
 @extend_schema(
@@ -85,6 +83,7 @@ class LoginView(APIView):
 
     def post(self, request, *args, **kwargs):
         from .services.login_service import LoginService
+
         serializer = LoginSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         tokens = LoginService().issue_tokens(user=serializer.validated_data['user'])
@@ -109,6 +108,7 @@ class TokenRefreshView(APIView):
         refresh_token = request.data.get('refresh')
         if not refresh_token:
             return Response({'refresh': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             token = RefreshToken(refresh_token)
             return Response({'access': str(token.access_token)}, status=status.HTTP_200_OK)
@@ -145,14 +145,9 @@ class LogoutView(APIView):
 @extend_schema(
     tags=['Dashboard'],
     responses={200: DashboardSummarySerializer},
-    description='Aggregated counts and recent activity for the current user (workspace-scoped).',
+    description='Aggregated counts and recent activity for the current user, scoped by organization tenant.',
 )
 class DashboardSummaryView(CachedGETMixin, APIView):
-    """Return aggregated workspace-scoped counts and recent activity.
-
-    Optimized to run a small number of DB queries and return cached-friendly,
-    pre-aggregated metrics for dashboard consumption.
-    """
     permission_classes = [IsAuthenticated]
     cache_namespace = NAMESPACE_DASHBOARD
     cache_path_suffix = '/api/v1/dashboard/summary/'
@@ -163,7 +158,6 @@ class DashboardSummaryView(CachedGETMixin, APIView):
             return cached
 
         user = request.user
-
         org_qs = organizations_queryset_for_user(user)
 
         total_projects = Project.objects.filter(organization__in=org_qs).count()
@@ -172,23 +166,15 @@ class DashboardSummaryView(CachedGETMixin, APIView):
         total_tasks = tasks_qs.count()
 
         done_status_ids = completed_task_status_ids()
-        if done_status_ids:
-            completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count()
-        else:
-            completed_tasks = 0
-
+        completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count() if done_status_ids else 0
         pending_tasks = max(total_tasks - completed_tasks, 0)
 
         activity_base_qs = ActivityLog.objects.filter(task__project__organization__in=org_qs)
         total_activity_logs = activity_base_qs.count()
 
-        # Recent activity (limit 10) - fetch with select_related to avoid N+1
-        recent_activity_qs = (
-            activity_base_qs.select_related('task', 'user').order_by('-created_at')[:10]
-        )
+        recent_activity_qs = activity_base_qs.select_related('task', 'user').order_by('-created_at')[:10]
         recent_activity = ActivityLogSerializer(recent_activity_qs, many=True).data
 
-        # Activity aggregated by action (small aggregation)
         activity_by_action_qs = (
             activity_base_qs
             .values('action')
@@ -196,7 +182,8 @@ class DashboardSummaryView(CachedGETMixin, APIView):
             .order_by('-value')[:20]
         )
         activity_by_action = [
-            {'name': a['action'] or 'UNKNOWN', 'value': a['value']} for a in activity_by_action_qs
+            {'name': item['action'] or 'UNKNOWN', 'value': item['value']}
+            for item in activity_by_action_qs
         ]
 
         payload = {
@@ -282,13 +269,14 @@ class MetricsView(APIView):
             'roles': Role.objects.count(),
             'permissions': Permission.objects.count(),
             'team_members': TeamMember.objects.count(),
-            'workspace_invites': WorkspaceInvite.objects.count(),
+            'organization_invites': OrganizationInvite.objects.count(),
             'projects': Project.objects.count(),
             'tasks': Task.objects.count(),
             'comments': Comment.objects.count(),
             'activity_logs': ActivityLog.objects.count(),
             'notifications': Notification.objects.count(),
         }
+
         set_cached_payload(cache_key, payload, timeout=get_metrics_cache_timeout())
         return Response(payload, status=status.HTTP_200_OK)
 
@@ -296,5 +284,3 @@ class MetricsView(APIView):
         from django.contrib.auth import get_user_model
 
         return get_user_model().objects.count()
-
-
