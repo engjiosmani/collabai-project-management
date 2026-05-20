@@ -189,3 +189,103 @@ Returns `groq_configured`, `groq_model`, optional `hint`.
 | `POST` | `/api/v1/ai/team-pulse/run/` |
 
 See Swagger tags `AI / Team Pulse`.
+
+## Verified endpoints (extracted from OpenAPI schema on 2026-05-20)
+
+Summary: the running backend exposes 57 OpenAPI paths and 91 HTTP operations (GET/POST/PUT/PATCH/DELETE).
+
+checklist of the documented REST operations (path — method — tag — summary when available).
+
+- GET `/api/schema/` — schema
+- GET `/api/v1/activity-logs/` — Activity logs — List activity logs
+- GET `/api/v1/activity-logs/{id}/` — Activity logs — Retrieve activity log
+- POST `/api/v1/ai/analyze/` — AI / Text analysis
+- POST `/api/v1/ai/chatbot/` — AI / ChatBot
+- GET `/api/v1/ai/config/` — AI / Task Generator
+- GET `/api/v1/ai/history/` — AI / RAG
+- POST `/api/v1/ai/query/` — AI / RAG
+- POST `/api/v1/ai/reindex/` — AI / RAG
+- POST `/api/v1/ai/search/` — AI / RAG
+- POST `/api/v1/ai/task-generator/plans/` — AI / Task Generator
+- GET `/api/v1/ai/task-generator/plans/{plan_id}/` — AI / Task Generator
+- POST `/api/v1/ai/task-generator/plans/{plan_id}/approve/` — AI / Task Generator
+- GET `/api/v1/ai/task-generator/plans/{plan_id}/preview-markdown/` — AI / Task Generator
+- DELETE `/api/v1/ai/task-generator/plans/{plan_id}/reject/` — AI / Task Generator
+- GET `/api/v1/ai/task-generator/plans/{plan_id}/status/` — AI / Task Generator
+- PATCH `/api/v1/ai/task-generator/plans/{plan_id}/tasks/{task_id}/` — AI / Task Generator
+- POST `/api/v1/ai/task-generator/plans/{plan_id}/tasks/{task_id}/regenerate/` — AI / Task Generator
+- GET `/api/v1/ai/team-pulse/` — AI / Team Pulse
+- GET `/api/v1/ai/team-pulse/github/` — AI / Team Pulse
+- PUT `/api/v1/ai/team-pulse/github/` — AI / Team Pulse
+- POST `/api/v1/ai/team-pulse/run/` — AI / Team Pulse
+- GET `/api/v1/audit/` — Audit logs — List audit logs
+- GET `/api/v1/audit/{id}/` — Audit logs — Retrieve audit log
+- POST `/api/v1/auth/login` — Authentication
+- POST `/api/v1/auth/logout` — Authentication
+- POST `/api/v1/auth/refresh` — Authentication
+- POST `/api/v1/auth/register` — Authentication
+- GET `/api/v1/comments/` — Comments — List comments
+- POST `/api/v1/comments/` — Comments — Create comment
+- GET `/api/v1/comments/{id}/` — Comments — Retrieve comment
+- PUT `/api/v1/comments/{id}/` — Comments — Update comment
+- PATCH `/api/v1/comments/{id}/` — Comments — Partially update comment
+- DELETE `/api/v1/comments/{id}/` — Comments — Delete comment
+- GET `/api/v1/dashboard/summary/` — Dashboard
+- GET `/api/v1/health/` — Operations
+- GET `/api/v1/invites/` — Invites — List workspace invites
+- POST `/api/v1/invites/` — Invites — Create workspace invite
+- GET `/api/v1/invites/{id}/` — Invites — Retrieve workspace invite
+- PUT `/api/v1/invites/{id}/` — Invites — Update workspace invite
+- PATCH `/api/v1/invites/{id}/` — Invites — Partially update workspace invite
+- DELETE `/api/v1/invites/{id}/` — Invites — Delete workspace invite
+- POST `/api/v1/invites/{id}/accept/` — Invites — Accept a workspace invite
+- GET `/api/v1/job-roles/` — Job roles — List job roles for task assignment
+- GET `/api/v1/job-roles/{id}/` — Job roles — Retrieve job role
+- GET `/api/v1/metrics/` — Operations
+- GET `/api/v1/notifications/` — Notifications — List notifications
+- POST `/api/v1/notifications/` — Notifications — Create notification
+- GET `/api/v1/notifications/{id}/` — Notifications — Retrieve notification
+- PUT `/api/v1/notifications/{id}/` — Notifications — Update notification
+- PATCH `/api/v1/notifications/{id}/` — Notifications — Partially update notification
+- DELETE `/api/v1/notifications/{id}/` — Notifications — Delete notification
+- POST `/api/v1/notifications/{id}/mark_read/` — Notifications — Mark notification as read
+- POST `/api/v1/notifications/mark_all_read/` — Notifications — Mark all notifications as read
+- GET `/api/v1/organizations/` — Organizations — List organizations
+- POST `/api/v1/organizations/` — Organizations — Create organization
+- GET `/api/v1/organizations/{id}/` — Organizations — Retrieve organization
+- PUT `/api/v1/organizations/{id}/` — Organizations — Update organization
+- PATCH `/api/v1/organizations/{id}/` — Organizations — Partially update organization
+- DELETE `/api/v1/organizations/{id}/` — Organizations — Delete organization
+- GET `/api/v1/organizations/{id}/members/` — Organizations — List organization members
+- PATCH `/api/v1/organizations/{id}/members/{member_id}/job-role/` — Organizations — Set a member job role
+- GET `/api/v1/permissions/` — Permissions — List permissions
+- POST `/api/v1/permissions/` — Permissions — Create permission
+- GET `/api/v1/permissions/{id}/` — Permissions — Retrieve permission
+- PUT `/api/v1/permissions/{id}/` — Permissions — Update permission
+- PATCH `/api/v1/permissions/{id}/` — Permissions — Partially update permission
+- DELETE `/api/v1/permissions/{id}/` — Permissions — Delete permission
+- GET `/api/v1/projects/` — Projects — List projects
+- POST `/api/v1/projects/` — Projects — Create project
+- GET `/api/v1/projects/{id}/` — Projects — Retrieve project
+- PUT `/api/v1/projects/{id}/` — Projects — Update project
+- PATCH `/api/v1/projects/{id}/` — Projects — Partially update project
+- DELETE `/api/v1/projects/{id}/` — Projects — Delete project
+- GET `/api/v1/roles/` — Roles — List roles
+- POST `/api/v1/roles/` — Roles — Create role
+- GET `/api/v1/roles/{id}/` — Roles — Retrieve role
+- PUT `/api/v1/roles/{id}/` — Roles — Update role
+- PATCH `/api/v1/roles/{id}/` — Roles — Partially update role
+- DELETE `/api/v1/roles/{id}/` — Roles — Delete role
+- GET `/api/v1/task-statuses/` — Task statuses — List task statuses
+- GET `/api/v1/tasks/` — Tasks — List tasks
+- POST `/api/v1/tasks/` — Tasks — Create task
+- GET `/api/v1/tasks/{id}/` — Tasks — Retrieve task
+- PUT `/api/v1/tasks/{id}/` — Tasks — Update task
+- PATCH `/api/v1/tasks/{id}/` — Tasks — Partially update task
+- DELETE `/api/v1/tasks/{id}/` — Tasks — Delete task
+- GET `/api/v1/users/` — Users — List users
+- GET `/api/v1/users/{id}/` — Users — Retrieve user
+- GET `/api/v1/users/me/` — Users — Get or update the current user
+- PATCH `/api/v1/users/me/` — Users — Get or update the current user
+
+
