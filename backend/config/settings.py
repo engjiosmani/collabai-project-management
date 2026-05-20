@@ -169,22 +169,30 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-db_password = os.environ.get("DB_PASSWORD")
-if not db_password:
-    if not DEBUG:
-        raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production (DEBUG=False).")
-    db_password = "12345678"
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "collabai_db"),
-        "USER": os.environ.get("DB_USER", "postgres"),
-        "PASSWORD": db_password,
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+if "test" in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
     }
-}
+else:
+    db_password = os.environ.get("DB_PASSWORD")
+    if not db_password:
+        if not DEBUG:
+            raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production (DEBUG=False).")
+        db_password = "12345678"
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("DB_NAME", "collabai_db"),
+            "USER": os.environ.get("DB_USER", "postgres"),
+            "PASSWORD": db_password,
+            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "PORT": os.environ.get("DB_PORT", "5432"),
+        }
+    }
 
 
 # Cache: Redis when REDIS_URL is set, in-process LocMem otherwise so dev/tests
@@ -363,12 +371,17 @@ RAG_AUTO_INDEX = False if "test" in sys.argv else os.environ.get('RAG_AUTO_INDEX
 RAG_FORCE_MEMORY_STORE = "test" in sys.argv or os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
 
 # --- Celery (optional; eager mode works without a worker) ---
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
-CELERY_TASK_ALWAYS_EAGER = os.environ.get(
-    'CELERY_TASK_ALWAYS_EAGER',
-    'true' if DEBUG else 'false',
-).lower() == 'true'
+if "test" in sys.argv:
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache+memory://'
+    CELERY_TASK_ALWAYS_EAGER = True
+else:
+    CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
+    CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+    CELERY_TASK_ALWAYS_EAGER = os.environ.get(
+        'CELERY_TASK_ALWAYS_EAGER',
+        'true' if DEBUG else 'false',
+    ).lower() == 'true'
 CELERY_TASK_EAGER_PROPAGATES = True
 
 # Celery Beat — Team Pulse daily standup (9:00). Requires: celery -A config beat
