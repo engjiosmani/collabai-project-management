@@ -1,6 +1,7 @@
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
+from rest_framework.throttling import ScopedRateThrottle
 from .serializers import (
     AccessTokenResponseSerializer,
     DashboardSummarySerializer,
@@ -57,6 +58,8 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_scope = 'auth_register'
+
     def get_success_headers(self, data):
         return {}
 
@@ -78,6 +81,7 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_scope = 'auth_login'
 
     def post(self, request, *args, **kwargs):
         from .services.login_service import LoginService
@@ -99,6 +103,7 @@ class LoginView(APIView):
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+    throttle_scope = 'auth_refresh'
 
     def post(self, request, *args, **kwargs):
         refresh_token = request.data.get('refresh')

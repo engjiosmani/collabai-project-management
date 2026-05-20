@@ -316,3 +316,50 @@ class OperationsEndpointsTests(TestCase):
         docs = self.client.get('/api/docs/')
         self.assertEqual(schema.status_code, status.HTTP_200_OK)
         self.assertEqual(docs.status_code, status.HTTP_200_OK)
+
+
+class ExceptionHandlerTests(TestCase):
+    def test_custom_exception_handler_passes_through_drf_errors(self):
+        from common.exceptions import custom_exception_handler
+        from rest_framework.exceptions import ValidationError
+
+        # A ValidationError is a DRF exception and should be processed by the standard handler
+        exc = ValidationError({"field": ["Invalid input."]})
+        context = {}
+        response = custom_exception_handler(exc, context)
+        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["field"], ["Invalid input."])
+
+    @override_settings(DEBUG=True)
+    def test_custom_exception_handler_exposes_message_in_debug_mode(self):
+        from common.exceptions import custom_exception_handler
+
+        # In debug mode (DEBUG=True), unhandled exceptions are still wrapped
+        # in a sanitized JSON 500 response, but the raw exception message is
+        # exposed in the body to aid local troubleshooting.
+        exc = ValueError("Some unexpected error")
+        context = {}
+        response = custom_exception_handler(exc, context)
+        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.data['detail'], 'Some unexpected error')
+        self.assertIn('request_id', response.data)
+        self.assertIn('X-Request-ID', response)
+
+    @override_settings(DEBUG=False)
+    def test_custom_exception_handler_sanitizes_unhandled_errors_in_production(self):
+        from common.exceptions import custom_exception_handler
+
+        # In production (DEBUG=False), unhandled exception should be sanitized
+        # and return HTTP 500 with a clean detail message plus a request_id
+        # for log correlation. The X-Request-ID header is always present.
+        exc = ValueError("Some unexpected database or internal error")
+        context = {}
+        response = custom_exception_handler(exc, context)
+        self.assertIsNotNone(response)
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.data['detail'], 'A server error occurred.')
+        self.assertIn('request_id', response.data)
+        self.assertIn('X-Request-ID', response)
+
