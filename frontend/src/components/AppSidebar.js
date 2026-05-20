@@ -53,7 +53,6 @@ export default function AppSidebar({ onNavigateSection }) {
   const isDashboard = pathname === "/dashboard";
   const isProjects = pathname === "/projects";
   const isAI = pathname === "/ai";
-  const isTaskGen = pathname.startsWith("/ai/task-generator");
   const isTeamPulse = pathname.startsWith("/ai/team-pulse");
 
   const navClass = (active) =>
@@ -144,13 +143,6 @@ export default function AppSidebar({ onNavigateSection }) {
                   style={linkStyle}
                 >
                   AI Assistant
-                </Link>
-                <Link
-                  className={navClass(isTaskGen)}
-                  to="/ai/task-generator"
-                  style={linkStyle}
-                >
-                  Task Generator
                 </Link>
                 <Link
                   className={navClass(isTeamPulse)}

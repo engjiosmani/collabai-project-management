@@ -169,32 +169,22 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-if "test" in sys.argv:
-    # Use in-memory SQLite for test runs to avoid requiring a running Postgres.
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": ":memory:",
-        }
-    }
-else:
-    # Local development / runserver use Postgres
-    db_password = os.environ.get("DB_PASSWORD")
-    if not db_password:
-        if not DEBUG:
-            raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production (DEBUG=False).")
-        db_password = "12345678"
+db_password = os.environ.get("DB_PASSWORD")
+if not db_password:
+    if not DEBUG:
+        raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production (DEBUG=False).")
+    db_password = "12345678"
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "collabai_db"),
-            "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": db_password,
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME", "collabai_db"),
+        "USER": os.environ.get("DB_USER", "postgres"),
+        "PASSWORD": db_password,
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
+}
 
 
 # Cache: Redis when REDIS_URL is set, in-process LocMem otherwise so dev/tests
@@ -368,7 +358,7 @@ RAG_EMBEDDING_MODEL = os.environ.get(
 RAG_EMBEDDING_DIMS = int(os.environ.get('RAG_EMBEDDING_DIMS', '384'))
 RAG_VECTOR_INDEX_NAME = os.environ.get('RAG_VECTOR_INDEX_NAME', 'collabai_rag')
 RAG_TOP_K_DEFAULT = int(os.environ.get('RAG_TOP_K_DEFAULT', '5'))
-RAG_AUTO_INDEX = os.environ.get('RAG_AUTO_INDEX', 'true').lower() == 'true'
+RAG_AUTO_INDEX = False if "test" in sys.argv else os.environ.get('RAG_AUTO_INDEX', 'true').lower() == 'true'
 # Use in-memory vector search when Redis Stack / RediSearch is unavailable.
 RAG_FORCE_MEMORY_STORE = "test" in sys.argv or os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
 

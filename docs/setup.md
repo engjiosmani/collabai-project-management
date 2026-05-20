@@ -17,15 +17,29 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+The backend uses PostgreSQL for local development and tests. Do not use SQLite
+database files. After pulling changes, each developer should install
+requirements and run migrations against PostgreSQL:
+
+```bash
+pip install -r requirements.txt
+python manage.py migrate
+```
+
 Edit `backend/.env`:
 
 | Variable | Purpose |
 |----------|---------|
-| `GROQ_API_KEY` | LLM API key from [console.groq.com](https://console.groq.com) (chatbot, text analysis, task generator, team pulse) |
+| `GROQ_API_KEY` | LLM API key from [console.groq.com](https://console.groq.com) (chatbot, text analysis, team pulse) |
 | `GROQ_MODEL` | Default model (e.g. `llama-3.1-8b-instant`) |
+| `DB_HOST` | PostgreSQL host (default `localhost`) |
+| `DB_PORT` | PostgreSQL port (default `5432`) |
+| `DB_NAME` | PostgreSQL database name (default `collabai_db`) |
+| `DB_USER` | PostgreSQL user (default `postgres`) |
+| `DB_PASSWORD` | PostgreSQL password (default `12345678` in local `DEBUG=True`) |
 | `REDIS_URL` | **Required for production caching** — list/dashboard cache + vector store |
 | `CACHE_DEFAULT_TIMEOUT` | List/dashboard TTL in seconds (default `300`) |
-| `CELERY_BROKER_URL` | Background jobs (reindex, standup, plan generation) |
+| `CELERY_BROKER_URL` | Background jobs (reindex, standup) |
 
 Verify Groq connectivity:
 

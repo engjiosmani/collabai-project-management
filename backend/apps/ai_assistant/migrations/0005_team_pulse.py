@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ('workspaces', '0006_alter_jobrole_task_categories'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ('ai_assistant', '0004_alter_projectplandraft_target_project'),
+        ('ai_assistant', '0001_initial'),
     ]
 
     operations = [
@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('access_token', models.CharField(blank=True, max_length=255)),
                 ('repos', models.JSONField(blank=True, default=list, help_text='List of "owner/repo" strings.')),
-                ('member_github_logins', models.JSONField(blank=True, default=dict, help_text='Map of user_id (str) → GitHub username.')),
+                ('member_github_logins', models.JSONField(blank=True, default=dict, help_text='Map of user_id (str) -> GitHub username.')),
                 ('is_enabled', models.BooleanField(default=False)),
                 ('workspace', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='github_config', to='workspaces.workspace')),
             ],

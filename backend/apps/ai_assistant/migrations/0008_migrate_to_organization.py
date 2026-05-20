@@ -3,14 +3,9 @@ from django.db import migrations, models
 
 
 def workspace_fk_to_organization(apps, schema_editor):
-    ProjectPlanDraft = apps.get_model('ai_assistant', 'ProjectPlanDraft')
     TeamPulseAlert = apps.get_model('ai_assistant', 'TeamPulseAlert')
     TeamPulseReport = apps.get_model('ai_assistant', 'TeamPulseReport')
     GitHubWorkspaceConfig = apps.get_model('ai_assistant', 'GitHubWorkspaceConfig')
-
-    for draft in ProjectPlanDraft.objects.select_related('workspace').iterator():
-        draft.organization_id = draft.workspace.organization_id
-        draft.save(update_fields=['organization_id'])
 
     for alert in TeamPulseAlert.objects.select_related('workspace').iterator():
         alert.organization_id = alert.workspace.organization_id
@@ -34,16 +29,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='projectplandraft',
-            name='organization',
-            field=models.ForeignKey(
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name='project_plan_drafts',
-                to='organizations.organization',
-            ),
-        ),
         migrations.AddField(
             model_name='teampulsealert',
             name='organization',
@@ -83,19 +68,9 @@ class Migration(migrations.Migration):
             model_name='teampulsealert',
             name='ai_assistan_workspa_4c9e1a_idx',
         ),
-        migrations.RemoveField(model_name='projectplandraft', name='workspace'),
         migrations.RemoveField(model_name='teampulsealert', name='workspace'),
         migrations.RemoveField(model_name='teampulsereport', name='workspace'),
         migrations.RemoveField(model_name='githubworkspaceconfig', name='workspace'),
-        migrations.AlterField(
-            model_name='projectplandraft',
-            name='organization',
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name='project_plan_drafts',
-                to='organizations.organization',
-            ),
-        ),
         migrations.AlterField(
             model_name='teampulsealert',
             name='organization',

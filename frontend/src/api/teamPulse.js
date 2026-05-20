@@ -1,5 +1,10 @@
 import API, { getApiErrorMessage } from "./api";
 
+export async function fetchOrganizationMembers(organizationId) {
+  const { data } = await API.get(`/organizations/${organizationId}/members/`);
+  return Array.isArray(data) ? data : data.results ?? [];
+}
+
 export async function fetchTeamPulseOverview(organizationId) {
   const { data } = await API.get("/ai/team-pulse/", {
     params: { organization_id: organizationId },

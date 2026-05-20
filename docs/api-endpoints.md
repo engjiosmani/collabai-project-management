@@ -161,24 +161,6 @@ Body: `workspace_id`. **Success:** `202 Accepted` with Celery `task_id`.
 
 Returns last 50 `AIRequest` rows for the authenticated user.
 
-### LLM config (diagnostics)
-
-| Method | Full URL |
-|--------|----------|
-| `GET` | `/api/v1/ai/config/` |
-
-Returns `groq_configured`, `groq_model`, optional `hint`.
-
-### Task generator
-
-| Method | Full URL |
-|--------|----------|
-| `POST` | `/api/v1/ai/task-generator/plans/` |
-| `GET` | `/api/v1/ai/task-generator/plans/<id>/` |
-| `GET` | `/api/v1/ai/task-generator/plans/<id>/status/` |
-| `POST` | `/api/v1/ai/task-generator/plans/<id>/approve/` |
-| `POST` | `/api/v1/ai/task-generator/plans/<id>/reject/` |
-| … | See Swagger `AI / Task Generator` |
 
 ### Team Pulse
 
@@ -201,19 +183,10 @@ checklist of the documented REST operations (path — method — tag — summary
 - GET `/api/v1/activity-logs/{id}/` — Activity logs — Retrieve activity log
 - POST `/api/v1/ai/analyze/` — AI / Text analysis
 - POST `/api/v1/ai/chatbot/` — AI / ChatBot
-- GET `/api/v1/ai/config/` — AI / Task Generator
 - GET `/api/v1/ai/history/` — AI / RAG
 - POST `/api/v1/ai/query/` — AI / RAG
 - POST `/api/v1/ai/reindex/` — AI / RAG
 - POST `/api/v1/ai/search/` — AI / RAG
-- POST `/api/v1/ai/task-generator/plans/` — AI / Task Generator
-- GET `/api/v1/ai/task-generator/plans/{plan_id}/` — AI / Task Generator
-- POST `/api/v1/ai/task-generator/plans/{plan_id}/approve/` — AI / Task Generator
-- GET `/api/v1/ai/task-generator/plans/{plan_id}/preview-markdown/` — AI / Task Generator
-- DELETE `/api/v1/ai/task-generator/plans/{plan_id}/reject/` — AI / Task Generator
-- GET `/api/v1/ai/task-generator/plans/{plan_id}/status/` — AI / Task Generator
-- PATCH `/api/v1/ai/task-generator/plans/{plan_id}/tasks/{task_id}/` — AI / Task Generator
-- POST `/api/v1/ai/task-generator/plans/{plan_id}/tasks/{task_id}/regenerate/` — AI / Task Generator
 - GET `/api/v1/ai/team-pulse/` — AI / Team Pulse
 - GET `/api/v1/ai/team-pulse/github/` — AI / Team Pulse
 - PUT `/api/v1/ai/team-pulse/github/` — AI / Team Pulse

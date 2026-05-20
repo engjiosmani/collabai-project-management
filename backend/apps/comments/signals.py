@@ -30,7 +30,9 @@ def comment_notification(sender, instance, created, **kwargs):
     if not created:
         return
 
-    task_owner = instance.task.created_by
+    task_owner = instance.task.assigned_to
+    if task_owner is None:
+        return
 
     # mos i dergo email vetes
     if instance.author == task_owner:

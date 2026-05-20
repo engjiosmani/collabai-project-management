@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { fetchProjects } from "../api/projects";
-import { fetchOrganizationMembers } from "../api/taskGenerator";
 import {
+  fetchOrganizationMembers,
   fetchTeamPulseOverview,
   getApiErrorMessage,
   runTeamPulse,
@@ -18,23 +18,6 @@ import "./Dashboard.css";
 import "./AIAssistant.css";
 import "./TeamPulse.css";
 
-const FEATURES = [
-  {
-    icon: "📋",
-    title: "Daily standup",
-    desc: "Every morning at 9:00: tasks (24h), comments, GitHub commits → yesterday / today / blockers per member.",
-    run: "standup",
-    runLabel: "Generate standup",
-  },
-  {
-    icon: "🔗",
-    title: "GitHub commits",
-    desc: "Optional. Pulls recent commits into standups when you connect a token and repos below.",
-    run: null,
-    runLabel: null,
-  },
-];
-
 function TeamPulse() {
   const [projects, setProjects] = useState([]);
   const [projectId, setProjectId] = useState("");
@@ -47,6 +30,7 @@ function TeamPulse() {
   const [githubEnabled, setGithubEnabled] = useState(false);
   const [members, setMembers] = useState([]);
   const [githubLogins, setGithubLogins] = useState({});
+  const [showGitHubSettings, setShowGitHubSettings] = useState(false);
 
   const selectedProject = useMemo(
     () => projects.find((p) => String(p.id) === projectId),
@@ -100,6 +84,12 @@ function TeamPulse() {
     load();
   }, [load]);
 
+  const standup = overview?.latest_standup;
+  const repos = githubRepos
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const mappedMembers = members.filter((m) => (githubLogins[String(m.user)] || "").trim()).length;
   const githubStatus = getGitHubSetupStatus({
     overview,
     githubRepos,
@@ -107,16 +97,20 @@ function TeamPulse() {
     githubLogins,
     members,
   });
+  const lastRun = standup?.created_at
+    ? new Intl.DateTimeFormat(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(standup.created_at))
+    : "Not run";
 
   const handleSaveGitHub = async (e) => {
     e.preventDefault();
     if (!organizationId) return;
     setError("");
     try {
-      const repos = githubRepos
-        .split(/[\n,]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
       await saveGitHubConfig({
         organization_id: Number(organizationId),
         access_token: githubToken || undefined,
@@ -126,6 +120,7 @@ function TeamPulse() {
       });
       setGithubToken("");
       await load();
+      setShowGitHubSettings(false);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not save GitHub settings."));
     }
@@ -145,7 +140,7 @@ function TeamPulse() {
     }
   };
 
-  const standup = overview?.latest_standup;
+  const shouldShowSettings = showGitHubSettings || githubStatus.level !== "ready";
 
   return (
     <div className="dashboard-shell dashboard-shell--viewport">
@@ -155,10 +150,7 @@ function TeamPulse() {
         <header className="tp-page-header">
           <div className="tp-page-header__intro">
             <h2 className="tp-page-title">Team Pulse</h2>
-            <p className="tp-lead">
-              Autonomous daily standup: what each teammate did yesterday, plans for today, and
-              blockers — from tasks, comments, and optional GitHub commits.
-            </p>
+            <p className="tp-lead">Daily standup, blockers, and commit activity.</p>
           </div>
           <div className="tp-page-header__controls">
             <label className="tp-workspace-field">
@@ -186,9 +178,8 @@ function TeamPulse() {
               className="dashboard-button dashboard-button--primary tp-run-all-btn"
               disabled={running || !projectId}
               onClick={handleRunStandup}
-              title="Generate today's standup now"
             >
-              {running ? "Running…" : "Generate standup"}
+              {running ? "Running..." : "Generate"}
             </button>
           </div>
         </header>
@@ -199,71 +190,69 @@ function TeamPulse() {
           </div>
         ) : null}
 
-        <section className="tp-features" aria-label="What Team Pulse does">
-          {FEATURES.map((f) => (
-            <article key={f.title} className="tp-feature-card">
-              <span className="tp-feature-icon" aria-hidden>
-                {f.icon}
-              </span>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-              {f.run ? (
-                <button
-                  type="button"
-                  className="dashboard-button dashboard-button--ghost tp-feature-btn"
-                  disabled={running || !projectId}
-                  onClick={handleRunStandup}
-                >
-                  {running ? "…" : f.runLabel}
-                </button>
-              ) : (
-                <span className="tp-feature-meta">
-                  {githubStatus.level === "ready" ? "Configured" : "Set up below"}
-                </span>
-              )}
-            </article>
-          ))}
+        <section className="tp-snapshot" aria-label="Team Pulse status">
+          <article className="tp-snapshot-card">
+            <span className="tp-snapshot-label">Last run</span>
+            <strong>{lastRun}</strong>
+          </article>
+          <article className="tp-snapshot-card">
+            <span className="tp-snapshot-label">GitHub</span>
+            <strong>{githubStatus.level === "ready" ? "Connected" : "Needs setup"}</strong>
+          </article>
+          <article className="tp-snapshot-card">
+            <span className="tp-snapshot-label">Members</span>
+            <strong>{members.length ? `${mappedMembers}/${members.length} mapped` : "No members"}</strong>
+          </article>
         </section>
 
-        <p className="tp-schedule-note">
-          <strong>Automatic run:</strong> standup around 9:00 AM (server time). Use the button above
-          anytime for an immediate refresh. Reports appear below in the app.
-        </p>
-
-        <form className="tp-github-form" onSubmit={handleSaveGitHub}>
-          <TeamPulseGitHubSetup
-            overview={overview}
-            githubToken={githubToken}
-            setGithubToken={setGithubToken}
-            githubRepos={githubRepos}
-            setGithubRepos={setGithubRepos}
-            githubEnabled={githubEnabled}
-            setGithubEnabled={setGithubEnabled}
-            githubLogins={githubLogins}
-            setGithubLogins={setGithubLogins}
-            members={members}
-          />
-          <div className="tp-github-form-footer">
-            <p className="tp-hint">
-              Save after each step. Your token is stored securely for this project&apos;s team.
-            </p>
-            <button type="submit" className="dashboard-button dashboard-button--primary">
-              Save GitHub settings
-            </button>
+        <section className="tp-setup-strip" aria-label="GitHub setup summary">
+          <div className="tp-setup-strip__main">
+            <span className={`tp-status-dot tp-status-dot--${githubStatus.level}`} aria-hidden />
+            <div>
+              <strong>GitHub commits</strong>
+              <span>
+                {repos.length} repo{repos.length === 1 ? "" : "s"} -{" "}
+                {githubEnabled ? "sync on" : "sync off"}
+              </span>
+            </div>
           </div>
-        </form>
+          <button
+            type="button"
+            className="dashboard-button dashboard-button--ghost"
+            onClick={() => setShowGitHubSettings((value) => !value)}
+          >
+            {shouldShowSettings ? "Hide settings" : "Settings"}
+          </button>
+        </section>
 
-        {loading ? <p className="tp-muted">Loading reports…</p> : null}
+        {shouldShowSettings ? (
+          <form className="tp-github-form" onSubmit={handleSaveGitHub}>
+            <TeamPulseGitHubSetup
+              overview={overview}
+              githubToken={githubToken}
+              setGithubToken={setGithubToken}
+              githubRepos={githubRepos}
+              setGithubRepos={setGithubRepos}
+              githubEnabled={githubEnabled}
+              setGithubEnabled={setGithubEnabled}
+              githubLogins={githubLogins}
+              setGithubLogins={setGithubLogins}
+              members={members}
+            />
+            <div className="tp-github-form-footer">
+              <button type="submit" className="dashboard-button dashboard-button--primary">
+                Save settings
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {loading ? <p className="tp-muted">Loading...</p> : null}
 
         {!loading ? (
           <section className="tp-card tp-standup-card">
             <div className="tp-card-head">
-              <div>
-                <h3 className="tp-card-title">Daily standup</h3>
-                <p className="tp-card-desc tp-card-desc--tight">
-                  Yesterday / today / blockers from tasks{githubEnabled ? " and GitHub" : ""}.
-                </p>
-              </div>
+              <h3 className="tp-card-title">Daily standup</h3>
               <button
                 type="button"
                 className="dashboard-button dashboard-button--ghost"
@@ -276,10 +265,17 @@ function TeamPulse() {
             {standup ? (
               <StandupMarkdown text={standup.summary_markdown} />
             ) : (
-              <p className="tp-muted">
-                No standup yet. Connect GitHub above (optional), then click Generate or wait for the
-                9:00 AM run.
-              </p>
+              <div className="tp-empty-state">
+                <strong>No standup yet</strong>
+                <button
+                  type="button"
+                  className="dashboard-button dashboard-button--primary"
+                  disabled={running || !projectId}
+                  onClick={handleRunStandup}
+                >
+                  Generate now
+                </button>
+              </div>
             )}
           </section>
         ) : null}
