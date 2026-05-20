@@ -30,26 +30,46 @@ except ImportError:
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8t*fq43cq-ipc=c4ez68qk5)1l%f)h-*b$i3w-8w%*#f+*l!i9'
+# SECRET_KEY is read from the environment. In production (DEBUG=False), we enforce that it is set.
+from django.core.exceptions import ImproperlyConfigured
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = os.environ.get('SECRET_KEY')
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured("SECRET_KEY environment variable is required in production (DEBUG=False).")
+    SECRET_KEY = 'django-insecure-8t-fq43cq-ipc-c4ez68qk5-1l-f-h-b-i3w-8w-f-l-i9'
+
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
 
 
 # CORS Configuration: Allow frontend origins
-# In development, CORS_ALLOW_ALL_ORIGINS=True is the safest option to debug.
-# In production, specify exact origins. We support both modes via environment variable.
-CORS_ALLOW_ALL_ORIGINS = DEBUG or os.environ.get('CORS_ALLOW_ALL_ORIGINS', '').lower() == 'true'
+CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True' if DEBUG else 'False').lower() == 'true'
 
 # Fallback to explicit origins if CORS_ALLOW_ALL_ORIGINS is False
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3001',
-]
+cors_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS')
+if cors_origins_env:
+    CORS_ALLOWED_ORIGINS = cors_origins_env.split(',')
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3001',
+    ]
+
+# CSRF configuration: Trusted origins for state-changing requests
+csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = csrf_origins_env.split(',')
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3001',
+    ]
 
 # CORS additional headers: allow credentials with credentials=true requests
 CORS_ALLOW_CREDENTIALS = True
@@ -159,12 +179,18 @@ if "test" in sys.argv:
     }
 else:
     # Local development / runserver use Postgres
+    db_password = os.environ.get("DB_PASSWORD")
+    if not db_password:
+        if not DEBUG:
+            raise ImproperlyConfigured("DB_PASSWORD environment variable is required in production (DEBUG=False).")
+        db_password = "12345678"
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": os.environ.get("DB_NAME", "collabai_db"),
             "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "12345678"),
+            "PASSWORD": db_password,
             "HOST": os.environ.get("DB_HOST", "localhost"),
             "PORT": os.environ.get("DB_PORT", "5432"),
         }
@@ -174,6 +200,9 @@ else:
 # Cache: Redis when REDIS_URL is set, in-process LocMem otherwise so dev/tests
 # work without a running Redis. Default cache TTL is 5 min for list endpoints.
 REDIS_URL = os.environ.get('REDIS_URL')
+if "test" in sys.argv:
+    # Disable external Redis dependencies during unit testing
+    REDIS_URL = None
 CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_DEFAULT_TIMEOUT', 300))
 METRICS_CACHE_TIMEOUT = int(os.environ.get('METRICS_CACHE_TIMEOUT', 60))
 
@@ -251,6 +280,23 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    # During ``manage.py test`` runs, lift all throttle ceilings to effectively
+    # disable rate limiting so tests that hit ``/auth/*`` repeatedly aren't
+    # blocked by shared LocMem cache state. Production rates apply otherwise.
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_ANON_RATE', '60/minute'),
+        'user': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_USER_RATE', '1000/hour'),
+        # Per-endpoint brute-force protection (ScopedRateThrottle)
+        'auth_login': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_LOGIN_RATE', '5/minute'),
+        'auth_register': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_REGISTER_RATE', '3/minute'),
+        'auth_refresh': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_REFRESH_RATE', '10/minute'),
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -277,10 +323,10 @@ SPECTACULAR_SETTINGS = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('JWT_REFRESH_TOKEN_LIFETIME_DAYS', 7))),
+    'ROTATE_REFRESH_TOKENS': os.environ.get('JWT_ROTATE_REFRESH_TOKENS', 'True').lower() == 'true',
+    'BLACKLIST_AFTER_ROTATION': os.environ.get('JWT_BLACKLIST_AFTER_ROTATION', 'True').lower() == 'true',
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -324,7 +370,7 @@ RAG_VECTOR_INDEX_NAME = os.environ.get('RAG_VECTOR_INDEX_NAME', 'collabai_rag')
 RAG_TOP_K_DEFAULT = int(os.environ.get('RAG_TOP_K_DEFAULT', '5'))
 RAG_AUTO_INDEX = os.environ.get('RAG_AUTO_INDEX', 'true').lower() == 'true'
 # Use in-memory vector search when Redis Stack / RediSearch is unavailable.
-RAG_FORCE_MEMORY_STORE = os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
+RAG_FORCE_MEMORY_STORE = "test" in sys.argv or os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
 
 # --- Celery (optional; eager mode works without a worker) ---
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
@@ -346,3 +392,19 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=TEAM_PULSE_STANDUP_HOUR, minute=0),
     },
 }
+
+# --- Production Security Hardening Headers ---
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.environ.get('SECURE_HSTS_INCLUDE_SUBDOMAINS', 'False').lower() == 'true'
+SECURE_HSTS_PRELOAD = os.environ.get('SECURE_HSTS_PRELOAD', 'False').lower() == 'true'
+
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True' if not DEBUG else 'False').lower() == 'true'
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True' if not DEBUG else 'False').lower() == 'true'
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
+
+if os.environ.get('SECURE_PROXY_SSL_HEADER_ENABLED', 'False').lower() == 'true':
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
