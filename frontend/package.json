@@ -11,8 +11,8 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
+    "react-scripts": "^0.0.0",
     "recharts": "^2.15.4",
-    "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -44,8 +44,8 @@
     ]
   },
   "devDependencies": {
+    "cypress": "^13.14.2",
     "eslint": "^8.57.0",
-    "eslint-config-react-app": "^7.0.1",
-    "cypress": "^13.14.2"
+    "eslint-config-react-app": "^7.0.1"
   }
 }
