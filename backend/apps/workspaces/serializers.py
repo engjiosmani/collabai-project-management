@@ -3,52 +3,9 @@ from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
-from common.workspace_access import user_can_access_workspace
+from common.tenant_access import user_can_access_organization
 
-from .models import JobRole, Permission, Role, TeamMember, Workspace
-
-
-class PermissionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Permission
-        fields = ('id', 'code', 'name', 'description', 'created_at', 'updated_at')
-        read_only_fields = ('created_at', 'updated_at')
-
-    def validate_code(self, value: str):
-        text = (value or '').strip().lower()
-        if not text:
-            raise serializers.ValidationError('This field may not be blank.')
-
-        qs = Permission.objects.filter(code__iexact=text)
-        if self.instance is not None:
-            qs = qs.exclude(pk=self.instance.pk)
-
-        if qs.exists():
-            raise serializers.ValidationError('A permission with this code already exists.')
-
-        return text
-
-    def validate_name(self, value: str):
-        text = (value or '').strip()
-        if not text:
-            raise serializers.ValidationError('This field may not be blank.')
-        return text
-
-    def create(self, validated_data):
-        try:
-            return super().create(validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError({
-                'code': 'A permission with this code already exists.'
-            })
-
-    def update(self, instance, validated_data):
-        try:
-            return super().update(instance, validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError({
-                'code': 'A permission with this code already exists.'
-            })
+from .models import JobRole, TeamMember, Workspace
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):
@@ -57,7 +14,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         read_only=True
     )
     member_count = serializers.IntegerField(read_only=True)
-    role_count = serializers.IntegerField(read_only=True)
     project_count = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -69,22 +25,29 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             'name',
             'is_active',
             'member_count',
-            'role_count',
             'project_count',
             'created_at',
             'updated_at',
         )
         read_only_fields = (
             'member_count',
-            'role_count',
             'project_count',
             'created_at',
             'updated_at',
         )
 
     def validate_organization(self, value: Organization):
+        """Validate user has access to the selected organization."""
         if value is None:
             raise serializers.ValidationError('This field is required.')
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None) if request else None
+
+        if user and not user_can_access_organization(user, value):
+            raise serializers.ValidationError(
+                'Invalid organization or you are not a member of this organization.'
+            )
         return value
 
     def validate_name(self, value: str):
@@ -128,7 +91,8 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         if request and getattr(request, 'user', None) and request.user.is_authenticated:
             TeamMember.objects.get_or_create(
                 workspace=workspace,
-                user=request.user
+                user=request.user,
+                defaults={'role': TeamMember.MEMBER}
             )
 
         return workspace
@@ -140,97 +104,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'name': 'A workspace with this name already exists in the organization.'
             })
-
-
-class RoleSerializer(serializers.ModelSerializer):
-    permissions = serializers.PrimaryKeyRelatedField(
-        many=True,
-        queryset=Permission.objects.all(),
-        required=False,
-        default=list,
-    )
-    permission_codes = serializers.SerializerMethodField(read_only=True)
-
-    class Meta:
-        model = Role
-        fields = (
-            'id',
-            'workspace',
-            'name',
-            'permissions',
-            'permission_codes',
-            'created_at',
-            'updated_at',
-        )
-        read_only_fields = ('created_at', 'updated_at')
-
-    def get_permission_codes(self, obj) -> list[str]:
-        return [permission.code for permission in obj.permissions.all()]
-
-    def validate_workspace(self, value):
-        request = self.context.get('request')
-        user = getattr(request, 'user', None)
-
-        if not user_can_access_workspace(user, value):
-            raise serializers.ValidationError(
-                'Invalid workspace or you are not a member of this workspace.'
-            )
-
-        return value
-
-    def validate_name(self, value):
-        text = (value or '').strip()
-        if not text:
-            raise serializers.ValidationError('This field may not be blank.')
-        return text
-
-    def validate(self, attrs):
-        workspace = attrs.get('workspace') or getattr(self.instance, 'workspace', None)
-        name = attrs.get('name') or getattr(self.instance, 'name', None)
-
-        if workspace and name:
-            qs = Role.objects.filter(
-                workspace=workspace,
-                name__iexact=name
-            )
-
-            if self.instance is not None:
-                qs = qs.exclude(pk=self.instance.pk)
-
-            if qs.exists():
-                raise serializers.ValidationError({
-                    'name': 'A role with this name already exists in the workspace.'
-                })
-
-        return attrs
-
-    def create(self, validated_data):
-        permissions = validated_data.pop('permissions', [])
-
-        try:
-            role = super().create(validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError({
-                'name': 'A role with this name already exists in the workspace.'
-            })
-
-        role.permissions.set(permissions)
-        return role
-
-    def update(self, instance, validated_data):
-        permissions = validated_data.pop('permissions', None)
-
-        try:
-            role = super().update(instance, validated_data)
-        except IntegrityError:
-            raise serializers.ValidationError({
-                'name': 'A role with this name already exists in the workspace.'
-            })
-
-        if permissions is not None:
-            role.permissions.set(permissions)
-
-        return role
 
 
 class JobRoleSerializer(serializers.ModelSerializer):
@@ -250,7 +123,6 @@ class JobRoleSerializer(serializers.ModelSerializer):
 @extend_schema_serializer(component_name='WorkspaceTeamMember')
 class TeamMemberSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source='user.email', read_only=True)
-    role_name = serializers.CharField(source='role.name', read_only=True)
     job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
     job_role_code = serializers.CharField(source='job_role.code', read_only=True, allow_null=True)
     task_categories = serializers.SerializerMethodField()
@@ -270,7 +142,6 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             'user',
             'user_email',
             'role',
-            'role_name',
             'job_role',
             'job_role_name',
             'job_role_code',
@@ -278,7 +149,18 @@ class TeamMemberSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = fields
+        read_only_fields = (
+            'id',
+            'workspace',
+            'workspace_name',
+            'user',
+            'user_email',
+            'job_role_name',
+            'job_role_code',
+            'task_categories',
+            'created_at',
+            'updated_at',
+        )
 
 
 class TeamMemberJobRoleUpdateSerializer(serializers.Serializer):

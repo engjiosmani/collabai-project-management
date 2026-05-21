@@ -1,8 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from apps.workspaces.models import Role, Workspace
-from common.workspace_access import user_can_access_workspace
+from apps.organizations.models import Organization
+from common.tenant_access import user_can_access_organization
 
 from .models import Profile
 
@@ -10,24 +10,26 @@ User = get_user_model()
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    workspace_name = serializers.CharField(source='workspace.name', read_only=True)
-    role_name = serializers.CharField(source='role.name', read_only=True)
+    organization_name = serializers.CharField(source='organization.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Profile
         fields = (
             'id',
-            'workspace',
-            'workspace_name',
-            'role',
-            'role_name',
+            'organization',
+            'organization_name',
             'bio',
             'phone_number',
             'avatar',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('created_at', 'updated_at')
+        read_only_fields = (
+            'id',
+            'organization_name',
+            'created_at',
+            'updated_at',
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -60,46 +62,32 @@ class UserSerializer(serializers.ModelSerializer):
 class UserMeSerializer(serializers.ModelSerializer):
     bio = serializers.CharField(required=False, allow_blank=True)
     phone_number = serializers.CharField(required=False, allow_blank=True)
-    workspace = serializers.PrimaryKeyRelatedField(required=False, allow_null=True, queryset=Workspace.objects.all())
-    role = serializers.PrimaryKeyRelatedField(required=False, allow_null=True, queryset=Role.objects.all())
+    organization = serializers.PrimaryKeyRelatedField(
+        required=False,
+        allow_null=True,
+        queryset=Organization.objects.all()
+    )
 
     class Meta:
         model = User
-        fields = ('email', 'first_name', 'last_name', 'bio', 'phone_number', 'workspace', 'role')
+        fields = ('email', 'first_name', 'last_name', 'bio', 'phone_number', 'organization')
 
-    def validate_workspace(self, value: Workspace):
+    def validate_organization(self, value: Organization):
+        """Validate user has access to the selected organization."""
         user = self.instance or getattr(self.context.get('request'), 'user', None)
-        if value is not None and not user_can_access_workspace(user, value):
-            raise serializers.ValidationError('Invalid workspace or you are not a member of this workspace.')
+        if value is not None and not user_can_access_organization(user, value):
+            raise serializers.ValidationError('Invalid organization or you are not a member of this organization.')
         return value
 
-    def validate(self, attrs):
-        workspace = attrs.get('workspace')
-        role = attrs.get('role')
-        try:
-            existing_profile = self.instance.profile
-        except Profile.DoesNotExist:
-            existing_profile = None
-        if role is not None and workspace is None:
-            workspace = getattr(existing_profile, 'workspace', None)
-        if role is not None and workspace is None:
-            raise serializers.ValidationError({'workspace': 'Workspace is required when selecting a role.'})
-        if role is not None and workspace is not None and role.workspace_id != workspace.id:
-            raise serializers.ValidationError({'role': 'Role must belong to the selected workspace.'})
-        return attrs
-
     def update(self, instance, validated_data):
+        """Update user and profile data."""
         profile, _ = Profile.objects.get_or_create(user=instance)
         for attr in ('email', 'first_name', 'last_name'):
             if attr in validated_data:
                 setattr(instance, attr, validated_data.pop(attr))
-        for attr in ('bio', 'phone_number', 'workspace', 'role'):
+        for attr in ('bio', 'phone_number', 'organization'):
             if attr in validated_data:
                 setattr(profile, attr, validated_data.pop(attr))
         instance.save()
         profile.save()
         return instance
-
-
-
-
