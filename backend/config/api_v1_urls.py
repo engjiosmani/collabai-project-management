@@ -21,10 +21,4 @@ urlpatterns = [
     path('health/', HealthView.as_view()),
     path('metrics/', MetricsView.as_view()),
     path('task-statuses/', TaskStatusViewSet.as_view({'get': 'list'}), name='task-statuses'),
-<<<<<<< Updated upstream
 ]
-=======
-    path('invites/my/', MyInvitesView.as_view(), name='my-invites'),
-    path('invites/<str:token>/accept/', AcceptInviteView.as_view(), name='accept-invite'),
-]
->>>>>>> Stashed changes
