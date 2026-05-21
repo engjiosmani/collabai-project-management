@@ -5,11 +5,13 @@ from .serializers import (
     AccessTokenResponseSerializer,
     DashboardSummarySerializer,
     DetailResponseSerializer,
+    ForgotPasswordSerializer,
     HealthResponseSerializer,
     LoginSerializer,
     LogoutRequestSerializer,
     MetricsResponseSerializer,
     RegisterSerializer,
+    ResetPasswordSerializer,
     TokenRefreshRequestSerializer,
     TokenResponseSerializer,
 )
@@ -21,6 +23,9 @@ from django.core.cache import cache
 from django.db.models import Count
 from django.db import connection
 from django.utils import timezone
+
+from datetime import timedelta
+from django.contrib.auth import get_user_model
 
 from common.cache import (
     CachedGETMixin,
@@ -282,3 +287,76 @@ class MetricsView(APIView):
         from django.contrib.auth import get_user_model
 
         return get_user_model().objects.count()
+
+@extend_schema(
+    tags=['Authentication'],
+    request=ForgotPasswordSerializer,
+    responses={200: DetailResponseSerializer},
+    description='Request password reset. Always returns 200 regardless of whether the email exists (prevents user enumeration).',
+)
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    def post(self, request, *args, **kwargs):
+        from apps.user_profiles.models import PasswordResetToken
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email'].lower().strip()
+        User = get_user_model()
+        try:
+            user = User.objects.get(email__iexact=email)
+            PasswordResetToken.objects.create(
+                user=user,
+                expires_at=timezone.now() + timedelta(hours=1),
+            )
+            # ASYNC-02: send_reset_password_email.delay(user.pk)
+        except User.DoesNotExist:
+            pass  # Silently ignore — prevents user enumeration
+        return Response(
+            {'detail': 'If that email is registered, a reset link has been sent.'},
+            status=status.HTTP_200_OK,
+        )
+
+@extend_schema(
+    tags=['Authentication'],
+    request=ResetPasswordSerializer,
+    responses={
+        200: DetailResponseSerializer,
+        400: DetailResponseSerializer,
+    },
+    description='Reset password using a valid token. Token is immediately invalidated after use.',
+)
+class ResetPasswordView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    def post(self, request, *args, **kwargs):
+        from apps.user_profiles.models import PasswordResetToken
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token_value = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+        try:
+            reset_token = PasswordResetToken.objects.select_related('user').get(token=token_value)
+        except (PasswordResetToken.DoesNotExist, ValueError):
+            return Response(
+                {'detail': 'Invalid or expired token.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if reset_token.is_used:
+            return Response(
+                {'detail': 'Token already used.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if reset_token.is_expired:
+            return Response(
+                {'detail': 'Token has expired.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        reset_token.user.set_password(new_password)
+        reset_token.user.save()
+        reset_token.is_used = True
+        reset_token.save()
+        return Response(
+            {'detail': 'Password has been reset successfully.'},
+            status=status.HTTP_200_OK,
+        )

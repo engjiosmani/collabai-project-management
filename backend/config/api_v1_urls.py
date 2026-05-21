@@ -1,5 +1,4 @@
 from django.urls import include, path
-
 from apps.core.views import DashboardSummaryView, HealthView, MetricsView
 from apps.organizations.views import AcceptInviteView, MyInvitesView
 from apps.tasks.views import TaskStatusViewSet
@@ -21,6 +20,7 @@ urlpatterns = [
     path('ai/', include('apps.ai_assistant.urls')),
     path('audit/', include('apps.audit_logs.urls')),
     path('users/', include('apps.user_profiles.urls')),
+    path('profile/', include('apps.user_profiles.profile_urls')),
     path('health/', HealthView.as_view()),
     path('metrics/', MetricsView.as_view()),
     path(
