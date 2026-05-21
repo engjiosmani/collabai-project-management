@@ -71,7 +71,6 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
             .select_related('organization')
             .annotate(
                 member_count=Count('team_members', distinct=True),
-                project_count=Count('projects', distinct=True),
             )
             .order_by('name')
         )
