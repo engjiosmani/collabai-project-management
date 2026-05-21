@@ -125,3 +125,12 @@ class MetricsResponseSerializer(serializers.Serializer):
     comments = serializers.IntegerField()
     activity_logs = serializers.IntegerField()
     notifications = serializers.IntegerField()
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8, write_only=True)
