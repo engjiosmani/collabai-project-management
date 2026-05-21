@@ -297,38 +297,21 @@ class MetricsView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
-
     def post(self, request, *args, **kwargs):
         from apps.user_profiles.models import PasswordResetToken
-
         serializer = ForgotPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email'].lower().strip()
         User = get_user_model()
         try:
             user = User.objects.get(email__iexact=email)
-
-            # Create the password reset token record
-            prt = PasswordResetToken.objects.create(
+            PasswordResetToken.objects.create(
                 user=user,
                 expires_at=timezone.now() + timedelta(hours=1),
             )
-
-            # Queue the password reset email task. Import here to avoid circular import problems.
-            try:
-                from apps.core.tasks import send_password_reset_email
-                # pass the user id and token value (string) to the task
-                send_password_reset_email.delay(user.pk, str(prt.token))
-            except Exception:
-                import logging
-                logging.getLogger(__name__).exception(
-                    "Failed to queue send_password_reset_email task for user %s", user.pk
-                )
-
+            # ASYNC-02: send_reset_password_email.delay(user.pk)
         except User.DoesNotExist:
-            # Silently ignore — prevents user enumeration
-            pass
-
+            pass  # Silently ignore — prevents user enumeration
         return Response(
             {'detail': 'If that email is registered, a reset link has been sent.'},
             status=status.HTTP_200_OK,

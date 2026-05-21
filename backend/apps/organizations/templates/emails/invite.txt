@@ -1,8 +1,0 @@
-You have been invited to join {{ organization_name }}.
-
-Click the link to accept the invite:
-{{ frontend_url }}/accept-invite/{{ token }}
-
-This invite expires on {{ expires_at }}.
-
-If you did not expect this invitation, ignore this email.

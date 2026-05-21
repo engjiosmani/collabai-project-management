@@ -237,20 +237,11 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 'expires_at': timezone.now() + timedelta(days=7),
             },
         )
-        # Queue send_invite_email asynchronously. Import inside the function to avoid startup ordering issues.
-        try:
-            # import here to avoid circular import during app startup
-            from apps.organizations.tasks import send_invite_email
-            send_invite_email.delay(invite.id)
-        except Exception:
-            import logging
-            logging.getLogger(__name__).exception("Failed to queue send_invite_email task for invite %s", invite.id)
-
+        # ASYNC-02 will wire in: send_invite_email.delay(invite.id)
         return Response(
             OrganizationInviteSerializer(invite).data,
             status=status.HTTP_201_CREATED,
         )
-
     # ── Workspaces ────────────────────────────────────────────────────────────
     @extend_schema(
         methods=['get'],
