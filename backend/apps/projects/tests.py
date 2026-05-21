@@ -28,14 +28,12 @@ class ProjectModelsTest(TestCase):
             name="CollabAI Project",
             description="Project management system",
         )
-
         self.assertEqual(project.organization, self.org)
         self.assertEqual(project.name, "CollabAI Project")
 
     def test_create_project_member(self):
         project = Project.objects.create(organization=self.org, name="Project A")
         member = ProjectMember.objects.create(project=project, user=self.user)
-
         self.assertEqual(member.project, project)
         self.assertEqual(member.user, self.user)
 
@@ -44,7 +42,6 @@ class ProjectModelsTest(TestCase):
             organization=self.org,
             plan_name="Free",
         )
-
         self.assertEqual(subscription.organization, self.org)
         self.assertTrue(subscription.is_active)
 
@@ -54,7 +51,6 @@ class ProjectModelsTest(TestCase):
             name="GitHub",
             provider="github",
         )
-
         self.assertEqual(integration.organization, self.org)
         self.assertEqual(integration.provider, "github")
 
@@ -82,12 +78,12 @@ class ProjectCRUDAPITest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.member,
-            role=OrganizationMember.MANAGER,
+            role=OrganizationMember.MEMBER,
         )
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.admin_user,
-            role=OrganizationMember.ADMIN,
+            role=OrganizationMember.ORG_ADMIN,
         )
 
         self.project = Project.objects.create(
@@ -186,10 +182,7 @@ class ProjectCRUDAPITest(APITestCase):
 
     def test_search_matches_organization_name(self):
         res = self.client.get(
-            (
-                f'/api/v1/projects/?organization={self.org.pk}'
-                f'&search=crud&ordering=name&page_size=1'
-            ),
+            f'/api/v1/projects/?organization={self.org.pk}&search=crud&ordering=name&page_size=1',
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 200)
@@ -202,18 +195,13 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_outsider_does_not_see_foreign_projects_in_list(self):
-        res = self.client.get(
-            '/api/v1/projects/',
-            **_jwt_header(self.outsider),
-        )
+        res = self.client.get('/api/v1/projects/', **_jwt_header(self.outsider))
         self.assertEqual(res.status_code, 200)
         results = res.data.get('results', res.data)
         self.assertEqual(len(results), 0)
 
 
 class ProjectLoginJWTAuthTest(APITestCase):
-    """Ensures real JWT from login works with project endpoints."""
-
     def setUp(self):
         self.user = User.objects.create_user(
             username='jwt@example.com',
@@ -244,8 +232,6 @@ class ProjectLoginJWTAuthTest(APITestCase):
     'LOCATION': 'projects-cache-tests',
 }})
 class ProjectListCacheTest(APITestCase):
-    """Verifies that GET /api/v1/projects/ is cached and invalidated on writes."""
-
     def setUp(self):
         cache.clear()
         self.member = User.objects.create_user(
@@ -259,7 +245,7 @@ class ProjectListCacheTest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.member,
-            role=OrganizationMember.ADMIN,
+            role=OrganizationMember.ORG_ADMIN,
         )
         OrganizationMember.objects.create(
             organization=self.org,
@@ -284,7 +270,6 @@ class ProjectListCacheTest(APITestCase):
         self.assertLess(
             len(second_ctx.captured_queries),
             len(first_ctx.captured_queries),
-            'Cached list call should issue strictly fewer DB queries than the first call',
         )
 
     def test_create_invalidates_cache(self):

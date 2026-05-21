@@ -69,7 +69,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         OrganizationMember.objects.get_or_create(
             organization=organization,
             user=self.request.user,
-            defaults={'role': OrganizationMember.ADMIN},
+            defaults={'role': OrganizationMember.ORG_ADMIN},
         )
 
     @action(detail=True, methods=['get'])

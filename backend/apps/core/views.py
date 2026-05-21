@@ -40,7 +40,7 @@ from apps.organizations.models import Organization, OrganizationInvite
 from apps.projects.models import Project
 from apps.tasks.models import Task
 from apps.tasks.status_utils import completed_task_status_ids
-from apps.workspaces.models import Permission, Role, TeamMember, Workspace
+from apps.workspaces.models import TeamMember, Workspace
 
 
 @extend_schema(
@@ -266,8 +266,6 @@ class MetricsView(APIView):
             'users': self._count_users(),
             'organizations': Organization.objects.count(),
             'workspaces': Workspace.objects.count(),
-            'roles': Role.objects.count(),
-            'permissions': Permission.objects.count(),
             'team_members': TeamMember.objects.count(),
             'organization_invites': OrganizationInvite.objects.count(),
             'projects': Project.objects.count(),

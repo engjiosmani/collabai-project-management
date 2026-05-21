@@ -81,7 +81,7 @@ class TaskCRUDAPITest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.member,
-            role=OrganizationMember.MANAGER,
+            role=OrganizationMember.MEMBER,
         )
         OrganizationMember.objects.create(
             organization=self.org,
@@ -278,7 +278,7 @@ class TaskPermissionsAPITest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.user,
-            role=OrganizationMember.MANAGER,
+            role=OrganizationMember.MEMBER,
         )
         self.project = Project.objects.create(organization=self.org, name='TP')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
@@ -314,7 +314,7 @@ class TaskListCacheTest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.member,
-            role=OrganizationMember.MANAGER,
+            role=OrganizationMember.MEMBER,
         )
         OrganizationMember.objects.create(
             organization=self.org,
