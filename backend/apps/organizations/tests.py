@@ -18,6 +18,25 @@ class OrganizationModelTest(TestCase):
         self.assertEqual(org.name, "Test Org")
 
 
+class OrganizationMemberRoleChoicesTest(TestCase):
+    def test_role_choices_count(self):
+        self.assertEqual(len(OrganizationMember.ROLE_CHOICES), 2)
+
+    def test_role_choice_values(self):
+        values = [v for v, _ in OrganizationMember.ROLE_CHOICES]
+        self.assertIn('org_admin', values)
+        self.assertIn('member', values)
+        self.assertNotIn('owner', values)
+        self.assertNotIn('admin', values)
+        self.assertNotIn('manager', values)
+
+    def test_org_admin_constant(self):
+        self.assertEqual(OrganizationMember.ORG_ADMIN, 'org_admin')
+
+    def test_member_constant(self):
+        self.assertEqual(OrganizationMember.MEMBER, 'member')
+
+
 class OrganizationAPITest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='org@example.com', email='org@example.com', password='x')
@@ -25,7 +44,7 @@ class OrganizationAPITest(APITestCase):
         OrganizationMember.objects.create(
             organization=self.org,
             user=self.user,
-            role=OrganizationMember.ADMIN,
+            role=OrganizationMember.ORG_ADMIN,
         )
 
     def test_auth_required(self):
@@ -65,4 +84,3 @@ class OrganizationAPITest(APITestCase):
         self.assertEqual(res.status_code, 200)
         names = [item['name'] for item in res.data.get('results', res.data)]
         self.assertGreaterEqual(names[0], names[-1])
-

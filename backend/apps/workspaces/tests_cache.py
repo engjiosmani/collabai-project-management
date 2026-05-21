@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.organizations.models import Organization
-from apps.workspaces.models import Role, TeamMember, Workspace
+from apps.workspaces.models import TeamMember, Workspace
 from django.core.cache import cache
 
 from common.cache import NAMESPACE_WORKSPACES, make_list_key
@@ -36,8 +36,7 @@ class WorkspaceListCacheTests(TestCase):
         )
         self.org = Organization.objects.create(name='WS Cache Org')
         self.workspace = Workspace.objects.create(name='Cached WS', organization=self.org)
-        role = Role.objects.create(workspace=self.workspace, name=Role.MEMBER)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=role)
+        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=TeamMember.MEMBER)
         self.client = APIClient()
         self.client.credentials(**_jwt_header(self.user))
 
@@ -45,7 +44,6 @@ class WorkspaceListCacheTests(TestCase):
         with CaptureQueriesContext(connection) as first_ctx:
             first = self.client.get('/api/v1/workspaces/')
         self.assertEqual(first.status_code, 200)
-
         with CaptureQueriesContext(connection) as second_ctx:
             second = self.client.get('/api/v1/workspaces/')
         self.assertEqual(second.status_code, 200)

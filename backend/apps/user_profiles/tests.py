@@ -5,8 +5,8 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.organizations.models import Organization
-from apps.workspaces.models import Role, TeamMember, Workspace
+from apps.organizations.models import Organization, OrganizationMember
+from apps.workspaces.models import TeamMember, Workspace
 from .models import Profile
 
 User = get_user_model()
@@ -20,12 +20,7 @@ class ProfileModelTest(TestCase):
     def test_profile_creation(self):
         user = User.objects.create(username="testuser")
         org = Organization.objects.create(name="Org")
-
-        profile = Profile.objects.create(
-            user=user,
-            organization=org,
-        )
-
+        profile = Profile.objects.create(user=user, organization=org)
         self.assertEqual(profile.user, user)
         self.assertEqual(profile.organization, org)
 
@@ -33,61 +28,33 @@ class ProfileModelTest(TestCase):
 @unittest.skip('Workspace-scoped user/profile API pending migration to organization-centric model.')
 class UserProfileApiTest(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            username='u1@example.com',
-            email='u1@example.com',
-            password='x'
-        )
-        self.other = User.objects.create_user(
-            username='u2@example.com',
-            email='u2@example.com',
-            password='x'
-        )
-        self.third = User.objects.create_user(
-            username='u3@example.com',
-            email='u3@example.com',
-            password='x'
-        )
-
+        self.user = User.objects.create_user(username='u1@example.com', email='u1@example.com', password='x')
+        self.other = User.objects.create_user(username='u2@example.com', email='u2@example.com', password='x')
+        self.third = User.objects.create_user(username='u3@example.com', email='u3@example.com', password='x')
         self.org = Organization.objects.create(name='Users Org')
         self.ws = Workspace.objects.create(name='Users WS', organization=self.org)
-        self.role = Role.objects.create(workspace=self.ws, name=Role.MEMBER)
-
-        TeamMember.objects.create(workspace=self.ws, user=self.user, role=self.role)
-        TeamMember.objects.create(workspace=self.ws, user=self.other, role=self.role)
+        TeamMember.objects.create(workspace=self.ws, user=self.user, role=TeamMember.MEMBER)
+        TeamMember.objects.create(workspace=self.ws, user=self.other, role=TeamMember.MEMBER)
 
     def test_workspace_scoped_user_listing(self):
-        res = self.client.get(
-            '/api/v1/users/?search=u2@example.com',
-            **_jwt_header(self.user)
-        )
+        res = self.client.get('/api/v1/users/?search=u2@example.com', **_jwt_header(self.user))
         self.assertEqual(res.status_code, 200)
-
         emails = [item['email'] for item in res.data.get('results', res.data)]
         self.assertIn('u2@example.com', emails)
         self.assertNotIn('u3@example.com', emails)
 
     def test_me_endpoint_get_and_patch(self):
-        get_res = self.client.get(
-            '/api/v1/users/me/',
-            **_jwt_header(self.user)
-        )
+        get_res = self.client.get('/api/v1/users/me/', **_jwt_header(self.user))
         self.assertEqual(get_res.status_code, 200)
         self.assertEqual(get_res.data['email'], 'u1@example.com')
-
         patch_res = self.client.patch(
             '/api/v1/users/me/',
-            {
-                'first_name': 'Updated',
-                'bio': 'Developer',
-                'organization': self.org.pk,
-            },
+            {'first_name': 'Updated', 'bio': 'Developer', 'organization': self.org.pk},
             format='json',
             **_jwt_header(self.user),
         )
         self.assertEqual(patch_res.status_code, 200, patch_res.data)
         self.assertEqual(patch_res.data['first_name'], 'Updated')
-        self.assertEqual(patch_res.data['profile']['organization'], self.org.pk)
 
     def test_me_role_requires_workspace(self):
         res = self.client.patch(
