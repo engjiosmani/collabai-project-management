@@ -6,14 +6,12 @@ from rest_framework.response import Response
 
 from common.cache import CachedListMixin, NAMESPACE_WORKSPACES
 from common.permissions import IsAuthenticatedReadOnly, IsWorkspaceTeamMember
-from common.workspace_access import workspaces_queryset_for_user
+from common.tenant_access import organizations_queryset_for_user
 
-from .filters import PermissionFilter, RoleFilter, WorkspaceFilter
-from .models import JobRole, Permission, Role, TeamMember, Workspace
+from .filters import WorkspaceFilter
+from .models import JobRole, TeamMember, Workspace
 from .serializers import (
     JobRoleSerializer,
-    PermissionSerializer,
-    RoleSerializer,
     TeamMemberJobRoleUpdateSerializer,
     TeamMemberSerializer,
     WorkspaceSerializer,
@@ -54,19 +52,25 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
     ordering = ('name',)
 
     def get_queryset(self) -> QuerySet[Workspace]:
+        """
+        Get workspaces that belong to organizations the user is a member of.
+
+        For superusers: all workspaces
+        For regular users: workspaces in user's organizations
+        """
         if getattr(self, 'swagger_fake_view', False):
             return Workspace.objects.none()
 
-        workspace_ids = workspaces_queryset_for_user(
+        # Get organization IDs the user belongs to
+        org_ids = organizations_queryset_for_user(
             self.request.user
         ).values_list('pk', flat=True)
 
         return (
-            Workspace.objects.filter(pk__in=workspace_ids)
+            Workspace.objects.filter(organization_id__in=org_ids)
             .select_related('organization')
             .annotate(
                 member_count=Count('team_members', distinct=True),
-                role_count=Count('roles', distinct=True),
                 project_count=Count('projects', distinct=True),
             )
             .order_by('name')
@@ -81,7 +85,6 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
             workspace=workspace
         ).select_related(
             'user',
-            'role',
             'job_role',
             'workspace',
         )
@@ -138,7 +141,6 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
 
         member = TeamMember.objects.select_related(
             'user',
-            'role',
             'job_role',
             'workspace',
         ).get(pk=member.pk)
@@ -157,56 +159,3 @@ class JobRoleViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ('name', 'code', 'description')
     ordering_fields = ('name', 'code')
     ordering = ('name',)
-
-
-@extend_schema_view(
-    list=extend_schema(tags=['Roles'], summary='List roles'),
-    retrieve=extend_schema(tags=['Roles'], summary='Retrieve role'),
-    create=extend_schema(tags=['Roles'], summary='Create role'),
-    update=extend_schema(tags=['Roles'], summary='Update role'),
-    partial_update=extend_schema(tags=['Roles'], summary='Partially update role'),
-    destroy=extend_schema(tags=['Roles'], summary='Delete role'),
-)
-class RoleViewSet(viewsets.ModelViewSet):
-    serializer_class = RoleSerializer
-    permission_classes = [IsWorkspaceTeamMember]
-    filterset_class = RoleFilter
-    search_fields = ('name', 'workspace__name')
-    ordering_fields = ('created_at', 'updated_at', 'name')
-    ordering = ('name',)
-
-    def get_queryset(self) -> QuerySet[Role]:
-        if getattr(self, 'swagger_fake_view', False):
-            return Role.objects.none()
-
-        workspace_ids = workspaces_queryset_for_user(
-            self.request.user
-        ).values_list('pk', flat=True)
-
-        return Role.objects.filter(
-            workspace_id__in=workspace_ids
-        ).select_related(
-            'workspace'
-        ).prefetch_related(
-            'permissions'
-        )
-
-
-@extend_schema_view(
-    list=extend_schema(tags=['Permissions'], summary='List permissions'),
-    retrieve=extend_schema(tags=['Permissions'], summary='Retrieve permission'),
-    create=extend_schema(tags=['Permissions'], summary='Create permission'),
-    update=extend_schema(tags=['Permissions'], summary='Update permission'),
-    partial_update=extend_schema(tags=['Permissions'], summary='Partially update permission'),
-    destroy=extend_schema(tags=['Permissions'], summary='Delete permission'),
-)
-class PermissionViewSet(viewsets.ModelViewSet):
-    serializer_class = PermissionSerializer
-    permission_classes = [IsAuthenticatedReadOnly]
-    filterset_class = PermissionFilter
-    search_fields = ('code', 'name', 'description')
-    ordering_fields = ('created_at', 'updated_at', 'code', 'name')
-    ordering = ('code',)
-
-    def get_queryset(self) -> QuerySet[Permission]:
-        return Permission.objects.all().order_by('code')

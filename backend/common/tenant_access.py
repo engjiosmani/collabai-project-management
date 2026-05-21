@@ -7,6 +7,16 @@ from apps.organizations.models import Organization, OrganizationMember
 
 
 def resolve_organization(obj):
+    """Resolve organization from an object.
+
+    Supports:
+    - Direct organization field
+    - Project -> workspace -> organization
+    - Task -> related objects -> organization
+
+    NOTE: Does NOT support workspace -> organization fallback.
+    Use workspace.organization directly if needed.
+    """
     if obj is None:
         return None
 
@@ -17,11 +27,6 @@ def resolve_organization(obj):
     organization = getattr(obj, 'organization', None)
     if organization is not None:
         return organization
-
-    # workspace -> organization
-    workspace = getattr(obj, 'workspace', None)
-    if workspace is not None:
-        return getattr(workspace, 'organization', None)
 
     # project relation
     project = getattr(obj, 'project', None)
@@ -37,6 +42,7 @@ def resolve_organization(obj):
 
 
 def organizations_queryset_for_user(user) -> QuerySet[Organization]:
+    """Get all organizations the user is a member of."""
     if not user or not user.is_authenticated:
         return Organization.objects.none()
 
@@ -49,6 +55,10 @@ def organizations_queryset_for_user(user) -> QuerySet[Organization]:
 
 
 def user_can_access_organization(user, organization) -> bool:
+    """Check if user has access to an organization.
+
+    Access is determined by OrganizationMember status.
+    """
     if not user or not user.is_authenticated:
         return False
 
@@ -68,8 +78,3 @@ def user_can_access_organization(user, organization) -> bool:
         organization=organization,
         user=user,
     ).exists()
-
-
-resolve_workspace = resolve_organization
-workspaces_queryset_for_user = organizations_queryset_for_user
-user_can_access_workspace = user_can_access_organization
