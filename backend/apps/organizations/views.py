@@ -242,6 +242,68 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             OrganizationInviteSerializer(invite).data,
             status=status.HTTP_201_CREATED,
         )
+    @extend_schema(
+        tags=['Organizations'],
+        summary='List pending organization invitations',
+        responses={200: OrganizationInviteSerializer(many=True)},
+    )
+    @action(detail=True, methods=['get'], url_path='invites')
+    def invites(self, request, pk=None):
+        organization = self.get_object()
+        if not _is_org_admin(request.user, organization.pk):
+            return Response(
+                {'detail': 'Only organization admins can view invitations.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        invites = (
+            OrganizationInvite.objects.filter(
+                organization=organization,
+                is_accepted=False,
+            )
+            .select_related('organization', 'workspace')
+            .order_by('-created_at')
+        )
+
+        return Response(
+            OrganizationInviteSerializer(invites, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @extend_schema(
+        tags=['Organizations'],
+        summary='Delete pending organization invitation',
+        responses={204: None},
+        parameters=[OpenApiParameter('invite_id', OpenApiTypes.INT, OpenApiParameter.PATH)],
+    )
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path=r'invites/(?P<invite_id>[^/.]+)',
+    )
+    def invite_detail(self, request, pk=None, invite_id=None):
+        organization = self.get_object()
+
+        if not _is_org_admin(request.user, organization.pk):
+            return Response(
+                {'detail': 'Only organization admins can delete invitations.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        invite = OrganizationInvite.objects.filter(
+            organization=organization,
+            pk=invite_id,
+            is_accepted=False,
+        ).first()
+
+        if invite is None:
+            return Response(
+                {'detail': 'Invitation not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        invite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
     # ── Workspaces ────────────────────────────────────────────────────────────
     @extend_schema(
         methods=['get'],
@@ -519,3 +581,29 @@ class AcceptInviteView(APIView):
         invite.save(update_fields=['is_accepted', 'updated_at'])
         member = OrganizationMember.objects.select_related('user', 'job_role', 'organization').get(pk=member.pk)
         return Response(OrganizationMemberSerializer(member).data, status=status.HTTP_200_OK)
+   
+class MyInvitesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['Organizations'],
+        summary='List my pending invitations',
+        responses={200: OrganizationInviteSerializer(many=True)},
+    )
+    def get(self, request):
+        email = (request.user.email or "").strip().lower()
+
+        invites = (
+            OrganizationInvite.objects.filter(
+                email__iexact=email,
+                is_accepted=False,
+                expires_at__gt=timezone.now(),
+            )
+            .select_related('organization', 'workspace')
+            .order_by('-created_at')
+        )
+
+        return Response(
+            OrganizationInviteSerializer(invites, many=True).data,
+            status=status.HTTP_200_OK,
+        )

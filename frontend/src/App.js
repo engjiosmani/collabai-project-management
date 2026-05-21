@@ -6,7 +6,8 @@ import Dashboard from "./pages/Dashboard";
 import AIAssistant from "./pages/AIAssistant";
 import TeamPulse from "./pages/TeamPulse";
 import Projects from "./pages/Projects";
-
+import Organizations from "./pages/Organizations";
+import Invitations from "./pages/Invitations";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
@@ -53,6 +54,23 @@ function App() {
                     </ProtectedRoute>
                 }
             />
+            <Route
+    path="/organizations"
+    element={
+        <ProtectedRoute>
+            <Organizations />
+        </ProtectedRoute>
+    }
+/>
+
+<Route
+    path="/invitations"
+    element={
+        <ProtectedRoute>
+            <Invitations />
+        </ProtectedRoute>
+    }
+/>
 
             <Route
                 path="/ai/team-pulse"
@@ -63,6 +81,9 @@ function App() {
                 }
             />
         </Routes>
+        
+
+        
     );
 }
 

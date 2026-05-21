@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
+import { useOrganization } from "../context/OrganizationContext";
 
 const STORAGE_KEY = "collabai-sidebar-collapsed";
 
@@ -15,16 +16,17 @@ function HamburgerIcon() {
   );
 }
 
-/** @typedef {'tasks' | 'activity'} DashboardSection */
-
-/**
- * Shared left nav (Dashboard look) + collapsible rail (hamburger only when collapsed).
- * @param {{ onNavigateSection?: (section: DashboardSection) => void }} props
- */
 export default function AppSidebar({ onNavigateSection }) {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  const {
+    organizations,
+    activeOrganization,
+    changeOrganization,
+    loadingOrganizations,
+  } = useOrganization();
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -37,10 +39,10 @@ export default function AppSidebar({ onNavigateSection }) {
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
+    } catch {}
+
     document.documentElement.dataset.sidebarCollapsed = collapsed ? "1" : "0";
+
     return () => {
       delete document.documentElement.dataset.sidebarCollapsed;
     };
@@ -52,6 +54,8 @@ export default function AppSidebar({ onNavigateSection }) {
 
   const isDashboard = pathname === "/dashboard";
   const isProjects = pathname === "/projects";
+  const isOrganizations = pathname === "/organizations";
+  const isInvitations = pathname === "/invitations";
   const isAI = pathname === "/ai";
   const isTeamPulse = pathname.startsWith("/ai/team-pulse");
 
@@ -89,6 +93,16 @@ export default function AppSidebar({ onNavigateSection }) {
     );
   };
 
+  const handleOrganizationChange = (event) => {
+    const selected = organizations.find(
+      (org) => String(org.id) === String(event.target.value)
+    );
+
+    if (selected) {
+      changeOrganization(selected);
+    }
+  };
+
   return (
     <aside
       className={`dashboard-sidebar${collapsed ? " dashboard-sidebar--collapsed" : ""}`}
@@ -117,6 +131,27 @@ export default function AppSidebar({ onNavigateSection }) {
                 </div>
               </div>
 
+              <div style={styles.orgSwitcher}>
+                <label style={styles.orgLabel}>Organization</label>
+
+                <select
+                  style={styles.orgSelect}
+                  value={activeOrganization?.id || ""}
+                  disabled={loadingOrganizations || organizations.length === 0}
+                  onChange={handleOrganizationChange}
+                >
+                  {organizations.length === 0 ? (
+                    <option value="">No organizations</option>
+                  ) : (
+                    organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
               <nav className="dashboard-nav dashboard-sidebar-nav" aria-label="App sections">
                 <Link
                   className={navClass(isDashboard)}
@@ -126,6 +161,7 @@ export default function AppSidebar({ onNavigateSection }) {
                 >
                   Overview
                 </Link>
+
                 <Link
                   className={navClass(isProjects)}
                   data-cy="dashboard-nav-projects"
@@ -134,8 +170,26 @@ export default function AppSidebar({ onNavigateSection }) {
                 >
                   Projects
                 </Link>
+
+                <Link
+                  className={navClass(isOrganizations)}
+                  to="/organizations"
+                  style={linkStyle}
+                >
+                  Organizations
+                </Link>
+
+                <Link
+                  className={navClass(isInvitations)}
+                  to="/invitations"
+                  style={linkStyle}
+                >
+                  Invitations
+                </Link>
+
                 {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks")}
                 {renderSectionLink("activity", "Activity", "dashboard-nav-activity")}
+
                 <Link
                   className={navClass(isAI)}
                   data-cy="dashboard-nav-ai"
@@ -144,6 +198,7 @@ export default function AppSidebar({ onNavigateSection }) {
                 >
                   AI Assistant
                 </Link>
+
                 <Link
                   className={navClass(isTeamPulse)}
                   to="/ai/team-pulse"
@@ -161,6 +216,7 @@ export default function AppSidebar({ onNavigateSection }) {
             <p className="dashboard-sidebar-note" data-cy="dashboard-sidebar-note">
               Connected securely over REST using JWT authentication and the shared CollabAI API client.
             </p>
+
             <button
               className="dashboard-button dashboard-button--ghost"
               data-cy="dashboard-logout"
@@ -178,3 +234,31 @@ export default function AppSidebar({ onNavigateSection }) {
     </aside>
   );
 }
+
+const styles = {
+  orgSwitcher: {
+    margin: "14px 0",
+    padding: "10px",
+    borderRadius: "12px",
+    background: "rgba(255, 255, 255, 0.06)",
+  },
+  orgLabel: {
+    display: "block",
+    fontSize: "11px",
+    color: "#94a3b8",
+    marginBottom: "6px",
+    textTransform: "uppercase",
+    letterSpacing: "0.04em",
+    fontWeight: 700,
+  },
+  orgSelect: {
+    width: "100%",
+    border: "1px solid rgba(148, 163, 184, 0.35)",
+    borderRadius: "10px",
+    padding: "9px 10px",
+    background: "#111827",
+    color: "#ffffff",
+    fontSize: "13px",
+    outline: "none",
+  },
+};
