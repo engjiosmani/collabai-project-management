@@ -14,7 +14,6 @@ class WorkspaceSerializer(serializers.ModelSerializer):
         read_only=True
     )
     member_count = serializers.IntegerField(read_only=True)
-    project_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Workspace
@@ -25,13 +24,11 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             'name',
             'is_active',
             'member_count',
-            'project_count',
             'created_at',
             'updated_at',
         )
         read_only_fields = (
             'member_count',
-            'project_count',
             'created_at',
             'updated_at',
         )
