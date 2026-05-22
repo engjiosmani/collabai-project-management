@@ -9,6 +9,7 @@ from .views import (
 )
 from .views_chatbot import ChatBotView
 from .views_team_pulse import (
+    AIConfigView,
     GitHubConfigView,
     TeamPulseOverviewView,
     TeamPulseRunView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path('query/', RAGQueryView.as_view(), name='ai-rag-query'),
     path('reindex/', RAGReindexView.as_view(), name='ai-rag-reindex'),
     path('history/', AIRequestHistoryView.as_view(), name='ai-request-history'),
+    path('config/', AIConfigView.as_view(), name='ai-config'),
     # Team Pulse: daily standup agent, GitHub commits
     path('team-pulse/', TeamPulseOverviewView.as_view(), name='ai-team-pulse'),
     path('team-pulse/github/', GitHubConfigView.as_view(), name='ai-team-pulse-github'),

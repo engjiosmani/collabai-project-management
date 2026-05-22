@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import timedelta
+import redis
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,18 +31,21 @@ except ImportError:
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# SECRET_KEY is read from the environment. In production (DEBUG=False), we enforce that it is set.
 from django.core.exceptions import ImproperlyConfigured
 
-SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+SECRET_KEY = os.environ.get('SECRET_KEY', '').strip()
 
 if not SECRET_KEY:
-    if not DEBUG:
-        raise ImproperlyConfigured("SECRET_KEY environment variable is required in production (DEBUG=False).")
-    SECRET_KEY = 'django-insecure-8t-fq43cq-ipc-c4ez68qk5-1l-f-h-b-i3w-8w-f-l-i9'
+    raise ImproperlyConfigured("SECRET_KEY environment variable is required.")
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
+    if host.strip()
+]
+if not DEBUG and any('*' in host or host.startswith('.') for host in ALLOWED_HOSTS):
+    raise ImproperlyConfigured("ALLOWED_HOSTS must not contain wildcards when DEBUG=False.")
 
 
 # CORS Configuration: Allow frontend origins
@@ -125,7 +129,7 @@ INSTALLED_APPS = [
     'apps.tasks',
     'apps.comments',
     'apps.notifications',
-    'apps.ai_assistant',
+    'apps.ai_assistant.apps.AiAssistantConfig',
     'apps.audit_logs',
     'apps.user_profiles',
     'rest_framework_simplejwt',
@@ -198,13 +202,23 @@ else:
 # Cache: Redis when REDIS_URL is set, in-process LocMem otherwise so dev/tests
 # work without a running Redis. Default cache TTL is 5 min for list endpoints.
 REDIS_URL = os.environ.get('REDIS_URL')
+REDIS_AVAILABLE = False
+
+if REDIS_URL:
+    try:
+        redis_client = redis.from_url(REDIS_URL)
+        redis_client.ping()
+        REDIS_AVAILABLE = True
+    except Exception:
+        REDIS_AVAILABLE = False
 if "test" in sys.argv:
     # Disable external Redis dependencies during unit testing
     REDIS_URL = None
+    REDIS_AVAILABLE = False
 CACHE_DEFAULT_TIMEOUT = int(os.environ.get('CACHE_DEFAULT_TIMEOUT', 300))
 METRICS_CACHE_TIMEOUT = int(os.environ.get('METRICS_CACHE_TIMEOUT', 60))
 
-if REDIS_URL:
+if REDIS_AVAILABLE:
     CACHES = {
         'default': {
             'BACKEND': 'django_redis.cache.RedisCache',
@@ -368,13 +382,15 @@ RAG_VECTOR_INDEX_NAME = os.environ.get('RAG_VECTOR_INDEX_NAME', 'collabai_rag')
 RAG_TOP_K_DEFAULT = int(os.environ.get('RAG_TOP_K_DEFAULT', '5'))
 RAG_AUTO_INDEX = False if "test" in sys.argv else os.environ.get('RAG_AUTO_INDEX', 'true').lower() == 'true'
 # Use in-memory vector search when Redis Stack / RediSearch is unavailable.
-RAG_FORCE_MEMORY_STORE = "test" in sys.argv or os.environ.get('RAG_FORCE_MEMORY_STORE', '').lower() == 'true'
-
+RAG_FORCE_MEMORY_STORE = (
+    "test" in sys.argv
+    or not REDIS_AVAILABLE
+)
 # --- Celery (optional; eager mode works without a worker) ---
 if "test" in sys.argv:
     CELERY_BROKER_URL = 'memory://'
     CELERY_RESULT_BACKEND = 'cache+memory://'
-    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_ALWAYS_EAGER = False
 else:
     CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
     CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)

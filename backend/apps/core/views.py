@@ -23,6 +23,7 @@ from django.core.cache import cache
 from django.db.models import Count
 from django.db import connection
 from django.utils import timezone
+from django.conf import settings
 
 from datetime import timedelta
 from django.contrib.auth import get_user_model
@@ -240,13 +241,20 @@ class HealthView(APIView):
             cache_ok = cache.get('health:ping') == '1'
         except Exception:
             cache_ok = False
+        use_memory = getattr(settings, "RAG_FORCE_MEMORY_STORE", False)
 
         return Response(
             {
                 'status': 'ok' if db_ok else 'degraded',
                 'timestamp': timezone.now().isoformat(),
                 'database': 'ok' if db_ok else 'unavailable',
-                'cache': cache_backend_label() if cache_ok else 'unavailable',
+                'cache': 'locmem' if use_memory else (
+    'redis' if settings.REDIS_AVAILABLE else 'locmem'
+),
+
+'vector_store': 'memory' if use_memory else (
+    'redis' if settings.REDIS_AVAILABLE else 'memory'
+),
                 'groq_configured': groq_ok,
             },
             status=status.HTTP_200_OK if db_ok else status.HTTP_503_SERVICE_UNAVAILABLE,

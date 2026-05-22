@@ -10,26 +10,6 @@ const ROLE_WEIGHTS = {
 
 export const AuthContext = createContext();
 
-const extractApiErrorMessage = (data, fallback) => {
-    if (!data) {
-        return fallback;
-    }
-
-    if (typeof data === "string") {
-        return data;
-    }
-
-    if (data.detail) {
-        return data.detail;
-    }
-
-    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0) {
-        return data.non_field_errors[0];
-    }
-
-    return fallback;
-};
-
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [memberships, setMemberships] = useState([]);
@@ -69,8 +49,8 @@ export const AuthProvider = ({ children }) => {
 
         syncFromStorage();
 
-        const onTokenRefreshed = (event) => {
-            const access = event.detail?.access;
+        const onTokenRefreshed = () => {
+            const access = localStorage.getItem("access");
             if (access) {
                 setAccessToken(access);
             }
@@ -202,10 +182,7 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             return {
                 success: false,
-                message: extractApiErrorMessage(
-                    error.response?.data,
-                    "Invalid credentials"
-                ),
+                message: getApiErrorMessage(error, "Invalid credentials"),
             };
         }
     };

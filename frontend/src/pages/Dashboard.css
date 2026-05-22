@@ -507,6 +507,13 @@ a.dashboard-nav-item {
     line-height: 1.6;
 }
 
+.dashboard-inline-error {
+    margin: 0 0 16px;
+    color: #dc2626;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
 .dashboard-skeleton-grid {
     display: grid;
     gap: 16px;

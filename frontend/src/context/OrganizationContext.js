@@ -51,7 +51,9 @@ export function OrganizationProvider({ children }) {
         emitOrganizationChange(null);
       }
     } catch (err) {
-      console.error("Failed to load organizations", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Failed to load organizations", err?.friendlyMessage || err?.message);
+      }
     } finally {
       setLoadingOrganizations(false);
     }
