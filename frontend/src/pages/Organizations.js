@@ -68,6 +68,22 @@ export default function Organizations() {
     setSuccess("");
   };
 
+  const emitWorkspaceChange = (workspaceId) => {
+    window.dispatchEvent(
+      new CustomEvent("workspace:changed", {
+        detail: { workspaceId },
+      })
+    );
+  };
+
+  const emitOrganizationChange = (organizationId) => {
+    window.dispatchEvent(
+      new CustomEvent("organization:changed", {
+        detail: { organizationId },
+      })
+    );
+  };
+
   const loadMembers = async (organizationId) => {
     const data = await getOrganizationMembers(organizationId);
     setMembers(data);
@@ -90,10 +106,12 @@ export default function Organizations() {
 
     if (selected) {
       localStorage.setItem("active_workspace_id", String(selected.id));
+      emitWorkspaceChange(String(selected.id));
       const wsMembers = await getWorkspaceMembers(organizationId, selected.id);
       setWorkspaceMembers(wsMembers);
     } else {
       localStorage.removeItem("active_workspace_id");
+      emitWorkspaceChange(null);
       setWorkspaceMembers([]);
     }
   };
@@ -121,6 +139,7 @@ export default function Organizations() {
         : data[0];
 
       setActiveOrg(selected || null);
+      emitOrganizationChange(selected?.id ? String(selected.id) : null);
       setForm({
         name: selected?.name || "",
         description: selected?.description || "",
@@ -146,8 +165,11 @@ export default function Organizations() {
     setForm({ name: org.name || "", description: org.description || "" });
     setActiveWorkspace(null);
     localStorage.removeItem("active_workspace_id");
+    emitWorkspaceChange(null);
     setWorkspaceMembers([]);
     clearMessages();
+
+    emitOrganizationChange(String(org.id));
 
     try {
       await loadOrganizationData(org.id);
@@ -161,6 +183,7 @@ export default function Organizations() {
 
     setActiveWorkspace(workspace);
     localStorage.setItem("active_workspace_id", String(workspace.id));
+    emitWorkspaceChange(String(workspace.id));
     clearMessages();
 
     try {

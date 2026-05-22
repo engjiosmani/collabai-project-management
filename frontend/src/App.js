@@ -56,22 +56,22 @@ function App() {
                 }
             />
             <Route
-    path="/organizations"
-    element={
-        <ProtectedRoute>
-            <Organizations />
-        </ProtectedRoute>
-    }
-/>
+                path="/organizations"
+                element={
+                    <ProtectedRoute requiredRole="org_admin">
+                        <Organizations />
+                    </ProtectedRoute>
+                }
+            />
 
 <Route
     path="/invitations"
     element={
-        <ProtectedRoute>
-            <Invitations />
-        </ProtectedRoute>
-    }
-/>
+                    <ProtectedRoute requiredRole="org_admin">
+                        <Invitations />
+                    </ProtectedRoute>
+                }
+            />
 
             <Route
                 path="/ai/team-pulse"

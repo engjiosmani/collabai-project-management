@@ -11,7 +11,7 @@ const ROLE_WEIGHTS = {
 
 export function useRole() {
     const { memberships } = useContext(AuthContext);
-    const { activeOrganization } = useOrganization() || {};
+    const { activeOrganization, loadingOrganizations } = useOrganization() || {};
     const activeWorkspaceId =
         typeof window !== "undefined" ? localStorage.getItem("active_workspace_id") : null;
 
@@ -57,6 +57,7 @@ export function useRole() {
         orgRole,
         workspaceRole,
         workspaceRoles,
+        loadingOrganizations: !!loadingOrganizations,
         isOrgAdmin,
         isWorkspaceAdminOrAbove,
         isManagerOrAbove,
