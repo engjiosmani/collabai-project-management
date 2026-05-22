@@ -22,6 +22,24 @@ describe("Critical workflows", () => {
     }).as("summaryRequest");
   };
 
+  const stubAuth = () => {
+    cy.intercept("GET", "**/api/v1/organizations/", {
+      statusCode: 200,
+      body: [{ id: 1, name: "Test Org" }],
+    }).as("organizationsRequest");
+
+    cy.intercept("GET", "**/api/v1/profile/memberships/", {
+      statusCode: 200,
+      body: [
+        {
+          organization: { id: 1, name: "Test Org" },
+          role: "manager",
+          workspaces: [],
+        },
+      ],
+    }).as("membershipsRequest");
+  };
+
   const stubBoard = () => {
     cy.intercept("GET", "**/api/v1/tasks/", {
       statusCode: 200,
@@ -58,6 +76,7 @@ describe("Critical workflows", () => {
       },
     }).as("loginRequest");
 
+    stubAuth();
     stubDashboardSummary();
     stubBoard();
 
@@ -86,6 +105,7 @@ describe("Critical workflows", () => {
   });
 
   it("shows the dashboard flow for an already authenticated user", () => {
+    stubAuth();
     stubDashboardSummary();
     stubBoard();
 
@@ -107,6 +127,7 @@ describe("Critical workflows", () => {
   });
 
   it("creates a task from the kanban board", () => {
+    stubAuth();
     stubDashboardSummary();
     stubBoard();
 
@@ -134,6 +155,7 @@ describe("Critical workflows", () => {
       onBeforeLoad(win) {
         win.localStorage.setItem("access", "test-access-token");
         win.localStorage.setItem("user_email", email);
+        win.localStorage.setItem("active_organization_id", "1");
       },
     });
 
