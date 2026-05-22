@@ -48,6 +48,8 @@ export const clearAuthStorage = () => {
   localStorage.removeItem("access");
   localStorage.removeItem("refresh");
   localStorage.removeItem("user_email");
+  localStorage.removeItem("active_organization_id");
+  localStorage.removeItem("active_workspace_id");
   window.dispatchEvent(new Event("auth:logout"));
 };
 

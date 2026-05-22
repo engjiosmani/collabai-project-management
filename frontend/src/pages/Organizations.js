@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppSidebar from "../components/AppSidebar";
+import RoleGate from "../components/RoleGate";
 import {
   createOrganization,
   getOrganizations,
@@ -88,9 +89,11 @@ export default function Organizations() {
     setActiveWorkspace(selected || null);
 
     if (selected) {
+      localStorage.setItem("active_workspace_id", String(selected.id));
       const wsMembers = await getWorkspaceMembers(organizationId, selected.id);
       setWorkspaceMembers(wsMembers);
     } else {
+      localStorage.removeItem("active_workspace_id");
       setWorkspaceMembers([]);
     }
   };
@@ -142,6 +145,7 @@ export default function Organizations() {
     setActiveOrg(org);
     setForm({ name: org.name || "", description: org.description || "" });
     setActiveWorkspace(null);
+    localStorage.removeItem("active_workspace_id");
     setWorkspaceMembers([]);
     clearMessages();
 
@@ -156,6 +160,7 @@ export default function Organizations() {
     if (!activeOrg) return;
 
     setActiveWorkspace(workspace);
+    localStorage.setItem("active_workspace_id", String(workspace.id));
     clearMessages();
 
     try {
@@ -524,61 +529,65 @@ export default function Organizations() {
                           }
                         />
 
-                        <button
-                          className="dashboard-button dashboard-button--primary"
-                          type="submit"
-                          disabled={saving}
-                        >
-                          {saving ? "Saving..." : "Save Organization"}
-                        </button>
+                        <RoleGate requiredRole="org_admin">
+                          <button
+                            className="dashboard-button dashboard-button--primary"
+                            type="submit"
+                            disabled={saving}
+                          >
+                            {saving ? "Saving..." : "Save Organization"}
+                          </button>
+                        </RoleGate>
                       </form>
                     </section>
                   )}
 
                   {tab === "members" && (
                     <>
-                      <section className="dashboard-card">
-                        <h2 style={styles.cardTitle}>Invite Member</h2>
+                      <RoleGate requiredRole="org_admin">
+                        <section className="dashboard-card">
+                          <h2 style={styles.cardTitle}>Invite Member</h2>
 
-                        <form onSubmit={handleInviteMember} style={styles.inlineForm}>
-                          <input
-                            style={styles.input}
-                            placeholder="member@example.com"
-                            value={inviteForm.email}
-                            onChange={(e) =>
-                              setInviteForm((prev) => ({
-                                ...prev,
-                                email: e.target.value,
-                              }))
-                            }
-                          />
+                          <form onSubmit={handleInviteMember} style={styles.inlineForm}>
+                            <input
+                              style={styles.input}
+                              placeholder="member@example.com"
+                              value={inviteForm.email}
+                              onChange={(e) =>
+                                setInviteForm((prev) => ({
+                                  ...prev,
+                                  email: e.target.value,
+                                }))
+                              }
+                            />
 
-                          <select
-                            style={styles.select}
-                            value={inviteForm.role}
-                            onChange={(e) =>
-                              setInviteForm((prev) => ({
-                                ...prev,
-                                role: e.target.value,
-                              }))
-                            }
-                          >
-                            {ORG_ROLES.map((role) => (
-                              <option key={role.value} value={role.value}>
-                                {role.label}
-                              </option>
-                            ))}
-                          </select>
+                            <select
+                              style={styles.select}
+                              value={inviteForm.role}
+                              onChange={(e) =>
+                                setInviteForm((prev) => ({
+                                  ...prev,
+                                  role: e.target.value,
+                                }))
+                              }
+                            >
+                              {ORG_ROLES.map((role) => (
+                                <option key={role.value} value={role.value}>
+                                  {role.label}
+                                </option>
+                              ))}
+                            </select>
 
-                          <button
-                            className="dashboard-button dashboard-button--primary"
-                            type="submit"
-                            disabled={inviting}
-                          >
-                            {inviting ? "Inviting..." : "Invite"}
-                          </button>
-                        </form>
-                      </section>
+                            <button
+                              className="dashboard-button dashboard-button--primary"
+                              type="submit"
+                              disabled={inviting}
+                            >
+                              {inviting ? "Inviting..." : "Invite"}
+                            </button>
+                          </form>
+                        </section>
+                      </RoleGate>
 
                       <section className="dashboard-card">
                         <h2 style={styles.cardTitle}>Members</h2>
@@ -597,29 +606,31 @@ export default function Organizations() {
                                   </p>
                                 </div>
 
-                                <div style={styles.actions}>
-                                  <select
-                                    style={styles.select}
-                                    value={member.role}
-                                    onChange={(e) =>
-                                      handleChangeMemberRole(member, e.target.value)
-                                    }
-                                  >
-                                    {ORG_ROLES.map((role) => (
-                                      <option key={role.value} value={role.value}>
-                                        {role.label}
-                                      </option>
-                                    ))}
-                                  </select>
+                                <RoleGate requiredRole="org_admin">
+                                  <div style={styles.actions}>
+                                    <select
+                                      style={styles.select}
+                                      value={member.role}
+                                      onChange={(e) =>
+                                        handleChangeMemberRole(member, e.target.value)
+                                      }
+                                    >
+                                      {ORG_ROLES.map((role) => (
+                                        <option key={role.value} value={role.value}>
+                                          {role.label}
+                                        </option>
+                                      ))}
+                                    </select>
 
-                                  <button
-                                    type="button"
-                                    style={styles.dangerButton}
-                                    onClick={() => handleRemoveMember(member)}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
+                                    <button
+                                      type="button"
+                                      style={styles.dangerButton}
+                                      onClick={() => handleRemoveMember(member)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </RoleGate>
                               </div>
                             ))}
                           </div>
@@ -651,13 +662,15 @@ export default function Organizations() {
                                 </p>
                               </div>
 
-                              <button
-                                type="button"
-                                style={styles.dangerButton}
-                                onClick={() => handleRemoveInvite(invite)}
-                              >
-                                Remove Request
-                              </button>
+                              <RoleGate requiredRole="org_admin">
+                                <button
+                                  type="button"
+                                  style={styles.dangerButton}
+                                  onClick={() => handleRemoveInvite(invite)}
+                                >
+                                  Remove Request
+                                </button>
+                              </RoleGate>
                             </div>
                           ))}
                         </div>
@@ -670,22 +683,24 @@ export default function Organizations() {
                       <section className="dashboard-card">
                         <h2 style={styles.cardTitle}>Workspaces</h2>
 
-                        <form onSubmit={handleCreateWorkspace} style={styles.formBlockCompact}>
-                          <input
-                            style={styles.input}
-                            placeholder="New workspace name"
-                            value={workspaceName}
-                            onChange={(e) => setWorkspaceName(e.target.value)}
-                          />
+                        <RoleGate requiredRole="workspace_admin">
+                          <form onSubmit={handleCreateWorkspace} style={styles.formBlockCompact}>
+                            <input
+                              style={styles.input}
+                              placeholder="New workspace name"
+                              value={workspaceName}
+                              onChange={(e) => setWorkspaceName(e.target.value)}
+                            />
 
-                          <button
-                            className="dashboard-button dashboard-button--primary"
-                            type="submit"
-                            disabled={creatingWorkspace}
-                          >
-                            {creatingWorkspace ? "Creating..." : "Create Workspace"}
-                          </button>
-                        </form>
+                            <button
+                              className="dashboard-button dashboard-button--primary"
+                              type="submit"
+                              disabled={creatingWorkspace}
+                            >
+                              {creatingWorkspace ? "Creating..." : "Create Workspace"}
+                            </button>
+                          </form>
+                        </RoleGate>
 
                         <div style={styles.orgList}>
                           {workspaces.map((workspace) => (
@@ -717,50 +732,52 @@ export default function Organizations() {
                           <p style={styles.muted}>Select a workspace first.</p>
                         ) : (
                           <>
-                            <form onSubmit={handleAddWorkspaceMember} style={styles.inlineForm}>
-                              <select
-                                style={styles.select}
-                                value={workspaceMemberForm.user_id}
-                                onChange={(e) =>
-                                  setWorkspaceMemberForm((prev) => ({
-                                    ...prev,
-                                    user_id: e.target.value,
-                                  }))
-                                }
-                              >
-                                <option value="">Choose org member</option>
-                                {members.map((member) => (
-                                  <option key={member.user_id} value={member.user_id}>
-                                    {member.email}
-                                  </option>
-                                ))}
-                              </select>
+                            <RoleGate requiredRole="workspace_admin">
+                              <form onSubmit={handleAddWorkspaceMember} style={styles.inlineForm}>
+                                <select
+                                  style={styles.select}
+                                  value={workspaceMemberForm.user_id}
+                                  onChange={(e) =>
+                                    setWorkspaceMemberForm((prev) => ({
+                                      ...prev,
+                                      user_id: e.target.value,
+                                    }))
+                                  }
+                                >
+                                  <option value="">Choose org member</option>
+                                  {members.map((member) => (
+                                    <option key={member.user_id} value={member.user_id}>
+                                      {member.email}
+                                    </option>
+                                  ))}
+                                </select>
 
-                              <select
-                                style={styles.select}
-                                value={workspaceMemberForm.role}
-                                onChange={(e) =>
-                                  setWorkspaceMemberForm((prev) => ({
-                                    ...prev,
-                                    role: e.target.value,
-                                  }))
-                                }
-                              >
-                                {WORKSPACE_ROLES.map((role) => (
-                                  <option key={role.value} value={role.value}>
-                                    {role.label}
-                                  </option>
-                                ))}
-                              </select>
+                                <select
+                                  style={styles.select}
+                                  value={workspaceMemberForm.role}
+                                  onChange={(e) =>
+                                    setWorkspaceMemberForm((prev) => ({
+                                      ...prev,
+                                      role: e.target.value,
+                                    }))
+                                  }
+                                >
+                                  {WORKSPACE_ROLES.map((role) => (
+                                    <option key={role.value} value={role.value}>
+                                      {role.label}
+                                    </option>
+                                  ))}
+                                </select>
 
-                              <button
-                                className="dashboard-button dashboard-button--primary"
-                                type="submit"
-                                disabled={addingWorkspaceMember}
-                              >
-                                {addingWorkspaceMember ? "Adding..." : "Add Member"}
-                              </button>
-                            </form>
+                                <button
+                                  className="dashboard-button dashboard-button--primary"
+                                  type="submit"
+                                  disabled={addingWorkspaceMember}
+                                >
+                                  {addingWorkspaceMember ? "Adding..." : "Add Member"}
+                                </button>
+                              </form>
+                            </RoleGate>
 
                             {workspaceMembers.length === 0 ? (
                               <p style={styles.muted}>No workspace members yet.</p>
@@ -773,29 +790,31 @@ export default function Organizations() {
                                       <p style={styles.subText}>{member.email}</p>
                                     </div>
 
-                                    <div style={styles.actions}>
-                                      <select
-                                        style={styles.select}
-                                        value={member.role}
-                                        onChange={(e) =>
-                                          handleChangeWorkspaceRole(member, e.target.value)
-                                        }
-                                      >
-                                        {WORKSPACE_ROLES.map((role) => (
-                                          <option key={role.value} value={role.value}>
-                                            {role.label}
-                                          </option>
-                                        ))}
-                                      </select>
+                                    <RoleGate requiredRole="workspace_admin">
+                                      <div style={styles.actions}>
+                                        <select
+                                          style={styles.select}
+                                          value={member.role}
+                                          onChange={(e) =>
+                                            handleChangeWorkspaceRole(member, e.target.value)
+                                          }
+                                        >
+                                          {WORKSPACE_ROLES.map((role) => (
+                                            <option key={role.value} value={role.value}>
+                                              {role.label}
+                                            </option>
+                                          ))}
+                                        </select>
 
-                                      <button
-                                        type="button"
-                                        style={styles.dangerButton}
-                                        onClick={() => handleRemoveWorkspaceMember(member)}
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
+                                        <button
+                                          type="button"
+                                          style={styles.dangerButton}
+                                          onClick={() => handleRemoveWorkspaceMember(member)}
+                                        >
+                                          Remove
+                                        </button>
+                                      </div>
+                                    </RoleGate>
                                   </div>
                                 ))}
                               </div>

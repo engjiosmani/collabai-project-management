@@ -8,6 +8,7 @@ import TeamPulse from "./pages/TeamPulse";
 import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
 import Invitations from "./pages/Invitations";
+import Unauthorized from "./pages/Unauthorized";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
@@ -80,6 +81,8 @@ function App() {
                     </ProtectedRoute>
                 }
             />
+
+            <Route path="/unauthorized" element={<Unauthorized />} />
         </Routes>
         
 

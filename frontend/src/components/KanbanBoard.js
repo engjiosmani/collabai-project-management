@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import API from "../api/api";
+import { getOrganizationMembers } from "../api/organizations";
+import RoleGate from "./RoleGate";
 import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
 import "./KanbanBoard.css";
 
@@ -141,13 +143,15 @@ function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName 
                     )}
                 </div>
 
-                <button
-                    className="kb-btn kb-btn--ghost kb-btn--sm"
-                    onClick={() => onEdit(task)}
-                    type="button"
-                >
-                    Edit
-                </button>
+                <RoleGate requiredRole="manager">
+                    <button
+                        className="kb-btn kb-btn--ghost kb-btn--sm"
+                        onClick={() => onEdit(task)}
+                        type="button"
+                    >
+                        Edit
+                    </button>
+                </RoleGate>
             </div>
         </div>
     );
@@ -198,14 +202,16 @@ function TaskDetailModal({ task, statuses, onClose, onEdit }) {
                     <button className="kb-btn kb-btn--ghost" onClick={onClose} type="button">
                         Close
                     </button>
-                    <button
-                        className="kb-btn kb-btn--primary"
-                        onClick={() => onEdit(task)}
-                        type="button"
-                        data-cy="task-detail-edit"
-                    >
-                        Edit task
-                    </button>
+                    <RoleGate requiredRole="manager">
+                        <button
+                            className="kb-btn kb-btn--primary"
+                            onClick={() => onEdit(task)}
+                            type="button"
+                            data-cy="task-detail-edit"
+                        >
+                            Edit task
+                        </button>
+                    </RoleGate>
                 </div>
             </div>
         </div>
@@ -260,11 +266,19 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
         status: task?.status ?? (statuses[0]?.id ?? ""),
         due_date: task?.due_date ?? "",
         project: task?.project ?? defaultProjectId ?? "",
+        assigned_to: task?.assigned_to ?? "",
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [projects, setProjects] = useState([]);
     const [projectsLoading, setProjectsLoading] = useState(true);
+    const [organizationMembers, setOrganizationMembers] = useState([]);
+    const [membersLoading, setMembersLoading] = useState(false);
+
+    const selectedProject = useMemo(
+        () => projects.find((project) => String(project.id) === String(form.project)) || null,
+        [form.project, projects]
+    );
 
     const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -316,6 +330,41 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
         };
     }, [task?.project, defaultProjectId]);
 
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadMembers = async () => {
+            if (!selectedProject?.organization) {
+                setOrganizationMembers([]);
+                return;
+            }
+
+            setMembersLoading(true);
+
+            try {
+                const data = await getOrganizationMembers(selectedProject.organization);
+
+                if (!cancelled) {
+                    setOrganizationMembers(data);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setOrganizationMembers([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setMembersLoading(false);
+                }
+            }
+        };
+
+        loadMembers();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedProject?.organization]);
+
     const handleSubmit = async () => {
         if (!form.title.trim()) { setError("Title is required."); return; }
         if (!form.project) { setError("Project selection is required."); return; }
@@ -328,6 +377,7 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
                 status: form.status || null,
                 due_date: form.due_date || null,
                 project: Number(form.project),
+                assigned_to: form.assigned_to ? Number(form.assigned_to) : null,
             };
             let saved;
             if (isNew) {
@@ -392,6 +442,33 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
                     </select>
                     {!projectsLoading && projects.length === 0 ? (
                         <p className="kb-modal-error">No accessible projects found. Create or join a project first.</p>
+                    ) : null}
+                </label>
+
+                <label className="kb-label">
+                    Assignee
+                    <select
+                        className="kb-input"
+                        data-cy="task-assignee"
+                        value={form.assigned_to}
+                        onChange={set("assigned_to")}
+                        disabled={!selectedProject || membersLoading || organizationMembers.length === 0}
+                    >
+                        <option value="">
+                            {membersLoading
+                                ? "Loading assignees..."
+                                : selectedProject
+                                ? "Unassigned"
+                                : "Select a project first"}
+                        </option>
+                        {organizationMembers.map((member) => (
+                            <option key={member.id} value={member.id}>
+                                {member.username || member.email}
+                            </option>
+                        ))}
+                    </select>
+                    {!membersLoading && selectedProject && organizationMembers.length === 0 ? (
+                        <p className="kb-modal-error">No organization members found for this project.</p>
                     ) : null}
                 </label>
 
@@ -577,15 +654,17 @@ export default function KanbanBoard({
                             ))}
                         </select>
                     </label>
-                    <button
-                        className="kb-btn kb-btn--primary"
-                        data-cy="new-task-button"
-                        onClick={() => setEditingTask(null)}
-                        type="button"
-                        disabled={projects.length === 0}
-                    >
-                        + New task
-                    </button>
+                    <RoleGate requiredRole="manager">
+                        <button
+                            className="kb-btn kb-btn--primary"
+                            data-cy="new-task-button"
+                            onClick={() => setEditingTask(null)}
+                            type="button"
+                            disabled={projects.length === 0}
+                        >
+                            + New task
+                        </button>
+                    </RoleGate>
                 </div>
             </header>
 

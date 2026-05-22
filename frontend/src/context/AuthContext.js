@@ -25,6 +25,7 @@ const extractApiErrorMessage = (data, fallback) => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
+    const [memberships, setMemberships] = useState([]);
 
     const [accessToken, setAccessToken] = useState(
         localStorage.getItem("access") || null
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }) => {
         const onLogout = () => {
             setAccessToken(null);
             setUser(null);
+            setMemberships([]);
         };
 
         window.addEventListener("auth:token-refreshed", onTokenRefreshed);
@@ -69,6 +71,20 @@ export const AuthProvider = ({ children }) => {
             window.removeEventListener("auth:logout", onLogout);
         };
     }, []);
+
+    useEffect(() => {
+        if (!accessToken) {
+            setMemberships([]);
+            return;
+        }
+        API.get("/profile/memberships/")
+            .then((res) => {
+                setMemberships(Array.isArray(res.data) ? res.data : res.data?.results || []);
+            })
+            .catch(() => {
+                setMemberships([]);
+            });
+    }, [accessToken]);
 
     const login = async (email, password) => {
         try {
@@ -109,6 +125,7 @@ export const AuthProvider = ({ children }) => {
         clearAuthStorage();
         setAccessToken(null);
         setUser(null);
+        setMemberships([]);
     };
 
     return (
@@ -116,6 +133,7 @@ export const AuthProvider = ({ children }) => {
             value={{
                 user,
                 accessToken,
+                memberships,
                 login,
                 logout,
             }}
