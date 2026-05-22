@@ -1,5 +1,5 @@
 import { createContext, useEffect, useMemo, useState } from "react";
-import API, { clearAuthStorage } from "../api/api";
+import API, { clearAuthStorage, getApiErrorMessage } from "../api/api";
 
 const ROLE_WEIGHTS = {
     org_admin: 4,
@@ -9,6 +9,8 @@ const ROLE_WEIGHTS = {
 };
 
 export const AuthContext = createContext();
+
+// Use centralized API error helper from `api.js` (getApiErrorMessage)
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
