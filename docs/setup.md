@@ -37,6 +37,7 @@ Edit `backend/.env`:
 | `DB_NAME` | PostgreSQL database name (default `collabai_db`) |
 | `DB_USER` | PostgreSQL user (default `postgres`) |
 | `DB_PASSWORD` | PostgreSQL password (default `12345678` in local `DEBUG=True`) |
+| `SECRET_KEY` | Required for every backend start, including local development. Generate one with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
 | `REDIS_URL` | **Required for production caching** — list/dashboard cache + vector store |
 | `CACHE_DEFAULT_TIMEOUT` | List/dashboard TTL in seconds (default `300`) |
 | `CELERY_BROKER_URL` | Background jobs (reindex, standup) |
@@ -54,6 +55,11 @@ python manage.py check_redis
 ```
 
 Start Redis Stack locally, then set `REDIS_URL=redis://127.0.0.1:6379/0` in `backend/.env`.
+
+**Windows (slow login / `check_redis` fails):** Hyper-V may reserve port **6379**, so Docker cannot publish it and Django waits ~10–15s per request on cache/throttle timeouts. Either:
+
+- Comment out `REDIS_URL` in `backend/.env` (uses fast in-memory cache for local dev), or
+- Use a free host port, e.g. in project root `.env`: `REDIS_PUBLISH_PORT=16379`, then in `backend/.env`: `REDIS_URL=redis://127.0.0.1:16379/0`, and run `docker compose up redis -d --force-recreate`.
 
 Run migrations and server:
 

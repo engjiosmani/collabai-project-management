@@ -129,24 +129,44 @@ function DashboardScreen() {
         (String(error).toLowerCase().includes("token") ||
             String(error).toLowerCase().includes("session"));
 
-    const errorStateProps = {
-        message: error,
-        onRetry: handleRefresh,
-        isAuthError,
-        onLogin: () => {
-            logout();
-            navigate("/login");
-        },
-    };
-
     if (loading && !summary.hasData) {
         return <DashboardSkeleton />;
     }
 
     if (error && !summary.hasData) {
         return (
-            <div className="dashboard-main" style={{ minHeight: "100vh" }}>
-                <ErrorState {...errorStateProps} />
+            <div className="dashboard-shell">
+                <AppSidebar onNavigateSection={() => {}} />
+
+                <main className="dashboard-main">
+                    <header className="dashboard-topbar">
+                        <div>
+                            <h2 className="dashboard-heading">Welcome back</h2>
+                        </div>
+                        <div className="dashboard-actions">
+                            <button
+                                className="dashboard-button dashboard-button--ghost"
+                                type="button"
+                                onClick={handleRefresh}
+                            >
+                                Retry
+                            </button>
+                            {isAuthError ? (
+                                <button
+                                    className="dashboard-button dashboard-button--primary"
+                                    type="button"
+                                    onClick={() => {
+                                        logout();
+                                        navigate("/login");
+                                    }}
+                                >
+                                    Sign in again
+                                </button>
+                            ) : null}
+                        </div>
+                    </header>
+                    <ErrorState message={error} />
+                </main>
             </div>
         );
     }
@@ -183,7 +203,7 @@ function DashboardScreen() {
                     </div>
                 </header>
 
-                {error ? <ErrorState {...errorStateProps} /> : null}
+                {error ? <ErrorState message={error} /> : null}
 
                 <section className="dashboard-section dashboard-stat-grid" data-cy="dashboard-stats" aria-label="Workspace statistics">
                     <StatCard label="Total projects" value={summary.totalProjects} hint="All projects visible to your workspace access" tone="default" />

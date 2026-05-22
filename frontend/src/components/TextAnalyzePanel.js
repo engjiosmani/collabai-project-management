@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { getApiErrorMessage } from "../api/api";
 import { analyzeText } from "../api/ai";
 
 const MODES = [
@@ -27,11 +28,7 @@ function TextAnalyzePanel() {
       const data = await analyzeText({ text: trimmed, mode });
       setResult(data.result || "");
     } catch (err) {
-      const detail =
-        err.response?.data?.detail ||
-        err.message ||
-        "Analysis failed. Check GROQ_API_KEY in backend/.env.";
-      setError(typeof detail === "string" ? detail : JSON.stringify(detail));
+      setError(getApiErrorMessage(err, "Analysis failed. Check GROQ_API_KEY in backend/.env."));
     } finally {
       setLoading(false);
     }

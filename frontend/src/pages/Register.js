@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import API from "../api/api";
+import API, { getApiErrorMessage } from "../api/api";
 
 const extractApiErrorMessage = (data, fallback) => {
     if (!data) {
@@ -63,9 +63,12 @@ function Register() {
             navigate("/login");
         } catch (error) {
             setError(
-                extractApiErrorMessage(
-                    error.response?.data,
-                    "Registration failed"
+                getApiErrorMessage(
+                    error,
+                    extractApiErrorMessage(
+                        error.response?.data,
+                        "Registration failed"
+                    )
                 )
             );
         }

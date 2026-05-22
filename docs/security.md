@@ -13,7 +13,7 @@ All sensitive settings and environment-specific parameters are decoupled from th
 | Variable | Description | Default / Development Value | Enforcement / Policy |
 | :--- | :--- | :--- | :--- |
 | `DEBUG` | Enables/disables verbose Django debug/error screens. | `True` | **Must** be set to `False` in production. |
-| `SECRET_KEY` | The secret key used to provide cryptographic signing. | (Django dev default) | **Enforced**: Will raise `ImproperlyConfigured` on startup in production if missing. |
+| `SECRET_KEY` | The secret key used to provide cryptographic signing. | No code fallback; generate a unique local value. | **Enforced**: Will raise `ImproperlyConfigured` on startup in every environment if missing. |
 | `DB_PASSWORD` | PostgreSQL database user credential password. | `12345678` | **Enforced**: Will raise `ImproperlyConfigured` on startup in production if missing or default. |
 | `ALLOWED_HOSTS` | Comma-separated list of host names authorized to serve the API. | `localhost,127.0.0.1,testserver` | Filters incoming headers against host header attacks. |
 
@@ -166,7 +166,7 @@ Before promoting any build to production, **every** variable below must be expli
 | Variable | Dev Value | Production Value | Why |
 | :--- | :--- | :--- | :--- |
 | `DEBUG` | `True` | `False` | Hides tracebacks; activates security-header defaults. |
-| `SECRET_KEY` | Django dev key | **Unique, 50+ random chars** | Cryptographic signing key for sessions & JWT. Must never be reused across environments. |
+| `SECRET_KEY` | Unique local key | **Unique, 50+ random chars** | Cryptographic signing key for sessions & JWT. Must never be reused across environments. |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1,testserver` | Your actual domain(s), e.g. `api.collabai.io` | Host-header attack mitigation. |
 | `DB_PASSWORD` | `12345678` (dev fallback) | **Strong unique password** | Enforced by `ImproperlyConfigured` when `DEBUG=False`. |
 | `CORS_ALLOW_ALL_ORIGINS` | `True` | `False` | Restricts cross-origin browser requests. |

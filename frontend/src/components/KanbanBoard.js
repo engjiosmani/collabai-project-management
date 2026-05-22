@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import API from "../api/api";
+import API, { getApiErrorMessage } from "../api/api";
 import { getOrganizationMembers } from "../api/organizations";
 import RoleGate from "./RoleGate";
 import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
@@ -314,7 +314,7 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
                 });
             } catch (err) {
                 if (!cancelled) {
-                    setError(err.response?.data?.detail ?? "Failed to load projects.");
+                    setError(getApiErrorMessage(err, "Failed to load projects."));
                 }
             } finally {
                 if (!cancelled) {
@@ -389,8 +389,7 @@ function TaskModal({ task, statuses, onClose, onSaved, defaultProjectId }) {
             }
             onSaved(saved, isNew);
         } catch (err) {
-            const data = err.response?.data;
-            setError(data ? JSON.stringify(data) : "Save failed.");
+            setError(getApiErrorMessage(err, "Save failed."));
         } finally {
             setSaving(false);
         }
@@ -544,7 +543,7 @@ export default function KanbanBoard({
             setProjects(projectList);
         } catch (err) {
             if (err.name === "CanceledError" || err.name === "AbortError") return;
-            setError(err.response?.data?.detail ?? "Failed to load board.");
+            setError(getApiErrorMessage(err, "Failed to load board."));
         } finally {
             setLoading(false);
         }

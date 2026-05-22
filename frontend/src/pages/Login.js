@@ -13,6 +13,7 @@ function Login() {
     });
 
     const [error, setError] = useState("");
+    const [submitting, setSubmitting] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -25,16 +26,21 @@ function Login() {
         e.preventDefault();
 
         setError("");
+        setSubmitting(true);
 
-        const result = await login(
-            formData.email,
-            formData.password
-        );
+        try {
+            const result = await login(
+                formData.email,
+                formData.password
+            );
 
-        if (result.success) {
-            navigate("/dashboard");
-        } else {
-            setError(result.message);
+            if (result.success) {
+                navigate("/dashboard");
+            } else {
+                setError(result.message || "Login failed. Please try again.");
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -74,8 +80,9 @@ function Login() {
                         type="submit"
                         data-cy="login-submit"
                         style={styles.button}
+                        disabled={submitting}
                     >
-                        Login
+                        {submitting ? "Logging in…" : "Login"}
                     </button>
                 </form>
 
