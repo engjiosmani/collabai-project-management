@@ -1,9 +1,10 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
-from rest_framework import status
+from rest_framework import status
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 
 from .models import GitHubOrganizationConfig, TeamPulseReport
 from .serializers_team_pulse import (
@@ -25,6 +26,37 @@ from .tasks_team_pulse import generate_organization_standup
 from .views import OrganizationRAGMixin
 
 
+class IsStaffOrOrgAdmin(IsAdminUser):
+    """Allow Django staff/superusers or org_admin for the requested organization."""
+
+    message = 'Only staff users or organization admins can access AI configuration.'
+
+    def has_permission(self, request, view):
+        if super().has_permission(request, view):
+            return True
+
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+
+        organization_id = request.query_params.get('organization_id')
+        if not organization_id and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            organization_id = request.data.get('organization_id')
+        if not organization_id:
+            return False
+
+        try:
+            organization_id = int(organization_id)
+        except (TypeError, ValueError):
+            return False
+
+        return OrganizationMember.objects.filter(
+            organization_id=organization_id,
+            user=user,
+            role=OrganizationMember.ORG_ADMIN,
+        ).exists()
+
+
 @extend_schema(
     tags=['AI / Team Pulse'],
     parameters=[
@@ -96,7 +128,9 @@ class TeamPulseOverviewView(OrganizationRAGMixin, APIView):
     },
 )
 class GitHubConfigView(OrganizationRAGMixin, APIView):
-    def get(self, request):
+    permission_classes = [IsStaffOrOrgAdmin]
+
+    def get(self, request):
         organization_id = request.query_params.get('organization_id')
         if not organization_id:
             return Response({'detail': 'organization_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -141,6 +175,12 @@ class GitHubConfigView(OrganizationRAGMixin, APIView):
         return Response(GitHubOrganizationConfigSerializer(config).data)
 
 
+class AIConfigView(GitHubConfigView):
+    """Backward-compatible AI config endpoint with admin-only access."""
+
+    pass
+
+
 @extend_schema(
     tags=['AI / Team Pulse'],
     request=TeamPulseRunSerializer,

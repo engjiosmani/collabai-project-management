@@ -31,9 +31,32 @@ class TeamPulseAPITest(APITestCase):
             password='x',
         )
         self.org = Organization.objects.create(name='API Org')
-        OrganizationMember.objects.create(organization=self.org, user=self.user)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.ORG_ADMIN,
+        )
+        self.member = User.objects.create_user(
+            username='member@example.com',
+            email='member@example.com',
+            password='x',
+        )
+        OrganizationMember.objects.create(organization=self.org, user=self.member)
         self.project = Project.objects.create(organization=self.org, name='API Proj')
         self.status, _ = TaskStatus.objects.get_or_create(name='To Do')
+
+    def test_ai_config_rejects_non_admin_user(self):
+        res = self.client.get(
+            '/api/v1/ai/config/',
+            **_jwt(self.member),
+        )
+        self.assertEqual(res.status_code, 403, res.data)
+
+        res = self.client.get(
+            f'/api/v1/ai/config/?organization_id={self.org.pk}',
+            **_jwt(self.member),
+        )
+        self.assertEqual(res.status_code, 403, res.data)
 
     def test_github_config_and_run(self):
         res = self.client.put(

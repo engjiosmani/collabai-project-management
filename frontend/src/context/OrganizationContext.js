@@ -38,7 +38,9 @@ export function OrganizationProvider({ children }) {
         localStorage.setItem("active_organization_id", String(selected.id));
       }
     } catch (err) {
-      console.error("Failed to load organizations", err);
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Failed to load organizations", err?.friendlyMessage || err?.message);
+      }
     } finally {
       setLoadingOrganizations(false);
     }

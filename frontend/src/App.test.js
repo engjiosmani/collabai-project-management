@@ -4,13 +4,22 @@ import { AuthProvider } from "./context/AuthContext";
 
 jest.mock(
   "react-router-dom",
-  () => ({
-    Routes: ({ children }) => <>{children}</>,
-    Route: ({ element }) => <>{element}</>,
-    Navigate: () => null,
-    Link: ({ children, to }) => <a href={to}>{children}</a>,
-    useNavigate: () => jest.fn(),
-  }),
+  () => {
+    const React = require("react");
+
+    return {
+      Routes: ({ children }) => {
+        const loginRoute = React.Children.toArray(children).find(
+          (child) => child.props.path === "/login"
+        );
+        return loginRoute?.props.element ?? null;
+      },
+      Route: () => null,
+      Navigate: () => null,
+      Link: ({ children, to }) => <a href={to}>{children}</a>,
+      useNavigate: () => jest.fn(),
+    };
+  },
   { virtual: true }
 );
 

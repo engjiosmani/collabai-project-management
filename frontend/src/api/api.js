@@ -4,10 +4,52 @@ const baseURL = (
   process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1"
 ).replace(/\/$/, "");
 
-const API = axios.create({ baseURL });
+const API = axios.create({
+  baseURL,
+  // Local dashboard queries can exceed 15s on a cold DB; avoid false "unreachable" errors.
+  timeout: 60000,
+});
 
 let isRefreshing = false;
 let refreshWaitQueue = [];
+
+const RATE_LIMIT_MESSAGE =
+  "Too many requests — please wait a moment before trying again.";
+const NETWORK_ERROR_MESSAGE =
+  "Cannot reach the backend. Please check your connection and try again.";
+const TIMEOUT_MESSAGE =
+  "The server is taking too long to respond. Please try again in a moment.";
+
+let lastGlobalErrorMessage = "";
+let lastGlobalErrorAt = 0;
+
+const isTimeoutError = (err) =>
+  err?.code === "ECONNABORTED" || err?.message?.toLowerCase().includes("timeout");
+
+const transportErrorMessage = (err) =>
+  isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_ERROR_MESSAGE;
+
+const showGlobalApiError = (message) => {
+  if (typeof window === "undefined" || !message) return;
+
+  const now = Date.now();
+  if (message === lastGlobalErrorMessage && now - lastGlobalErrorAt < 3000) {
+    return;
+  }
+
+  lastGlobalErrorMessage = message;
+  lastGlobalErrorAt = now;
+
+  const event = new CustomEvent("api:friendly-error", {
+    detail: { message },
+    cancelable: true,
+  });
+
+  const shouldUseFallbackAlert = window.dispatchEvent(event);
+  if (shouldUseFallbackAlert && typeof window.alert === "function") {
+    window.alert(message);
+  }
+};
 
 const processRefreshQueue = (error, accessToken = null) => {
   refreshWaitQueue.forEach(({ resolve, reject }) => {
@@ -19,9 +61,13 @@ const processRefreshQueue = (error, accessToken = null) => {
 
 /** Extract a human-readable message from a DRF/axios error. */
 export function getApiErrorMessage(err, fallback = "Something went wrong.") {
-  if (!err?.response) {
-    return err?.message || "Cannot reach the backend. Is runserver running on port 8000?";
+  if (err?.friendlyMessage) {
+    return err.friendlyMessage;
   }
+  if (!err?.response) {
+    return transportErrorMessage(err);
+  }
+  if (err.response.status === 429) return RATE_LIMIT_MESSAGE;
   const data = err.response.data;
   if (!data) return fallback;
   if (typeof data === "string") {
@@ -88,6 +134,17 @@ API.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
 
+    if (!error.response) {
+      error.friendlyMessage = transportErrorMessage(error);
+      return Promise.reject(error);
+    }
+
+    if (status === 429) {
+      error.friendlyMessage = RATE_LIMIT_MESSAGE;
+      showGlobalApiError(RATE_LIMIT_MESSAGE);
+      return Promise.reject(error);
+    }
+
     if (
       !originalRequest ||
       status !== 401 ||
@@ -124,9 +181,7 @@ API.interceptors.response.use(
 
       const newAccess = data.access;
       localStorage.setItem("access", newAccess);
-      window.dispatchEvent(
-        new CustomEvent("auth:token-refreshed", { detail: { access: newAccess } })
-      );
+      window.dispatchEvent(new Event("auth:token-refreshed"));
 
       processRefreshQueue(null, newAccess);
       originalRequest.headers.Authorization = `Bearer ${newAccess}`;

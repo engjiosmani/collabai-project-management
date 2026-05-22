@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import API from "../api/api";
+import API, { getApiErrorMessage } from "../api/api";
 import { AuthContext } from "./AuthContext";
 
 export const DashboardContext = createContext(null);
@@ -102,11 +102,10 @@ export const DashboardProvider = ({ children }) => {
                     return;
                 }
 
-                const detail =
-                    requestError.response?.data?.detail ||
-                    requestError.response?.data?.message ||
-                    requestError.message ||
-                    "Unable to load dashboard data.";
+                const detail = getApiErrorMessage(
+                    requestError,
+                    "Unable to load dashboard data."
+                );
 
                 const isAuthError =
                     requestError.response?.status === 401 ||
