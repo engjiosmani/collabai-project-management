@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.organizations.models import Organization, OrganizationMember
 from apps.projects.models import Project
 from apps.tasks.models import Task, TaskPriority, TaskStatus
+from apps.workspaces.models import TeamMember, Workspace
 from common.cache import NAMESPACE_DASHBOARD, bump_version, get_version, make_list_key
 
 
@@ -62,6 +63,12 @@ class DashboardSummaryCacheTests(TestCase):
             user=self.user,
             role=OrganizationMember.MEMBER,
         )
+        workspace = Workspace.objects.create(organization=self.org, name='Dash WS')
+        TeamMember.objects.create(
+            workspace=workspace,
+            user=self.user,
+            role=TeamMember.MANAGER,
+        )
         self.client = APIClient()
         self.client.credentials(**_jwt_header(self.user))
 
@@ -82,7 +89,7 @@ class DashboardSummaryCacheTests(TestCase):
         project = Project.objects.create(organization=self.org, name='P')
         status_obj = TaskStatus.objects.create(name='Open')
         priority = TaskPriority.objects.create(name='High', level=1)
-        self.client.post(
+        created = self.client.post(
             '/api/v1/tasks/',
             {
                 'project': project.pk,
@@ -92,5 +99,6 @@ class DashboardSummaryCacheTests(TestCase):
             },
             format='json',
         )
+        self.assertEqual(created.status_code, 201)
         after = self.client.get(url)
         self.assertEqual(after.data['total_tasks'], 1)

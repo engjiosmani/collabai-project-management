@@ -28,6 +28,15 @@ describe("Critical workflows", () => {
       body: [{ id: 1, name: "Test Org" }],
     }).as("organizationsRequest");
 
+    cy.intercept("GET", "**/api/v1/profile/", {
+      statusCode: 200,
+      body: {
+        id: 1,
+        email,
+        username: "user",
+      },
+    }).as("profileRequest");
+
     cy.intercept("GET", "**/api/v1/profile/memberships/", {
       statusCode: 200,
       body: [
@@ -38,6 +47,13 @@ describe("Critical workflows", () => {
         },
       ],
     }).as("membershipsRequest");
+
+    cy.intercept("POST", "**/api/v1/auth/refresh", {
+      statusCode: 200,
+      body: {
+        access: "test-access-token",
+      },
+    }).as("refreshRequest");
   };
 
   const stubBoard = () => {
@@ -93,9 +109,10 @@ describe("Critical workflows", () => {
     cy.wait("@tasksRequest");
     cy.wait("@statusesRequest");
 
-    cy.get('[data-cy="dashboard-heading"]').should("contain.text", email);
+    cy.get('[data-cy="dashboard-heading"]').should("contain.text", "Delivery overview");
+    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.get('[data-cy="dashboard-stats"]').within(() => {
-      cy.get('[data-cy="stat-card-total-projects"]').should("contain.text", "Total projects").and("contain.text", "3");
+      cy.get('[data-cy="stat-card-projects"]').should("contain.text", "Projects").and("contain.text", "3");
       cy.get('[data-cy="stat-card-total-tasks"]').should("contain.text", "Total tasks").and("contain.text", "8");
       cy.get('[data-cy="stat-card-completed-tasks"]').should("contain.text", "Completed tasks").and("contain.text", "5");
       cy.get('[data-cy="stat-card-pending-tasks"]').should("contain.text", "Pending tasks").and("contain.text", "3");
@@ -120,7 +137,8 @@ describe("Critical workflows", () => {
     cy.wait("@tasksRequest");
     cy.wait("@statusesRequest");
 
-    cy.get('[data-cy="dashboard-heading"]').should("contain.text", email);
+    cy.get('[data-cy="dashboard-heading"]').should("contain.text", "Delivery overview");
+    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.contains("Kanban task board").should("be.visible");
     cy.contains("Recent activity logs").should("be.visible");
     cy.contains("Task completion").should("be.visible");
