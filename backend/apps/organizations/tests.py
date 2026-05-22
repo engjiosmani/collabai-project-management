@@ -258,7 +258,7 @@ class OrgInviteTest(BaseOrgAPI):
             **_jwt(self.admin),
         )
         self.assertEqual(res.status_code, 400)
-# ── Accept invite ─────────────────────────────────────────────────────────────
+# ── Accept invite.txt ─────────────────────────────────────────────────────────────
 class AcceptInviteTest(BaseOrgAPI):
     def _make_invite(self, email, role='member', expired=False):
         return OrganizationInvite.objects.create(

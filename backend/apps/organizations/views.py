@@ -237,7 +237,14 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 'expires_at': timezone.now() + timedelta(days=7),
             },
         )
-        # ASYNC-02 will wire in: send_invite_email.delay(invite.id)
+        try:
+            from .tasks import send_invite_email
+            send_invite_email.delay(invite.id)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error(
+                "invite: failed to queue send_invite_email", invite.id, exc
+            )
         return Response(
             OrganizationInviteSerializer(invite).data,
             status=status.HTTP_201_CREATED,
@@ -564,7 +571,7 @@ class AcceptInviteView(APIView):
             user=request.user,
             defaults={'role': org_role},
         )
-        # If invite targeted a specific workspace, also add there
+        # If invite.txt targeted a specific workspace, also add there
         if invite.workspace:
             ws_role_map = {
                 OrganizationInvite.WORKSPACE_ADMIN: TeamMember.WORKSPACE_ADMIN,
@@ -581,7 +588,6 @@ class AcceptInviteView(APIView):
         invite.save(update_fields=['is_accepted', 'updated_at'])
         member = OrganizationMember.objects.select_related('user', 'job_role', 'organization').get(pk=member.pk)
         return Response(OrganizationMemberSerializer(member).data, status=status.HTTP_200_OK)
-   
 class MyInvitesView(APIView):
     permission_classes = [IsAuthenticated]
 
