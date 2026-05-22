@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { getOrganizations } from "../api/organizations";
 
 export const OrganizationContext = createContext(null);
@@ -8,17 +8,27 @@ export function OrganizationProvider({ children }) {
   const [activeOrganization, setActiveOrganizationState] = useState(null);
   const [loadingOrganizations, setLoadingOrganizations] = useState(false);
 
+  const emitOrganizationChange = (organizationId) => {
+    window.dispatchEvent(
+      new CustomEvent("organization:changed", {
+        detail: { organizationId },
+      })
+    );
+  };
+
   const changeOrganization = (org) => {
     setActiveOrganizationState(org);
 
     if (org?.id) {
       localStorage.setItem("active_organization_id", String(org.id));
+      emitOrganizationChange(String(org.id));
     } else {
       localStorage.removeItem("active_organization_id");
+      emitOrganizationChange(null);
     }
   };
 
-  const refreshOrganizations = async () => {
+  const refreshOrganizations = useCallback(async () => {
     setLoadingOrganizations(true);
 
     try {
@@ -36,6 +46,9 @@ export function OrganizationProvider({ children }) {
 
       if (selected?.id) {
         localStorage.setItem("active_organization_id", String(selected.id));
+        emitOrganizationChange(String(selected.id));
+      } else {
+        emitOrganizationChange(null);
       }
     } catch (err) {
       if (process.env.NODE_ENV !== "production") {
@@ -44,13 +57,13 @@ export function OrganizationProvider({ children }) {
     } finally {
       setLoadingOrganizations(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (localStorage.getItem("access")) {
       refreshOrganizations();
     }
-  }, []);
+  }, [refreshOrganizations]);
 
   return (
     <OrganizationContext.Provider

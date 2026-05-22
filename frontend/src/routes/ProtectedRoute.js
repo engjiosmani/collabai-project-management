@@ -6,11 +6,15 @@ import { AuthContext } from "../context/AuthContext";
 import { useRole } from "../hooks/useRole";
 
 function ProtectedRoute({ children, requiredRole }) {
-    const { accessToken } = useContext(AuthContext);
-    const { isOrgAdmin, isWorkspaceAdminOrAbove, isManagerOrAbove } = useRole();
+    const { accessToken, loadingMemberships } = useContext(AuthContext);
+    const { isOrgAdmin, isWorkspaceAdminOrAbove, isManagerOrAbove, loadingOrganizations } = useRole();
 
     if (!accessToken) {
         return <Navigate to="/login" />;
+    }
+
+    if (requiredRole && (loadingMemberships || loadingOrganizations)) {
+        return null;
     }
 
     if (requiredRole) {
