@@ -288,6 +288,7 @@ class MetricsView(APIView):
 
         return get_user_model().objects.count()
 
+
 @extend_schema(
     tags=['Authentication'],
     request=ForgotPasswordSerializer,
@@ -297,6 +298,7 @@ class MetricsView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+
     def post(self, request, *args, **kwargs):
         from apps.user_profiles.models import PasswordResetToken
         serializer = ForgotPasswordSerializer(data=request.data)
@@ -305,17 +307,25 @@ class ForgotPasswordView(APIView):
         User = get_user_model()
         try:
             user = User.objects.get(email__iexact=email)
-            PasswordResetToken.objects.create(
+            reset_token = PasswordResetToken.objects.create(
                 user=user,
                 expires_at=timezone.now() + timedelta(hours=1),
             )
-            # ASYNC-02: send_reset_password_email.delay(user.pk)
+            try:
+                from apps.core.tasks import send_password_reset_email
+                send_password_reset_email.delay(user.pk, str(reset_token.token))
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).error(
+                    "forgot-password: failed to queue send_password_reset_email for user %s — %s", user.pk, exc
+                )
         except User.DoesNotExist:
             pass  # Silently ignore — prevents user enumeration
         return Response(
             {'detail': 'If that email is registered, a reset link has been sent.'},
             status=status.HTTP_200_OK,
         )
+
 
 @extend_schema(
     tags=['Authentication'],
@@ -329,6 +339,7 @@ class ForgotPasswordView(APIView):
 class ResetPasswordView(APIView):
     permission_classes = [AllowAny]
     authentication_classes = []
+
     def post(self, request, *args, **kwargs):
         from apps.user_profiles.models import PasswordResetToken
         serializer = ResetPasswordSerializer(data=request.data)
