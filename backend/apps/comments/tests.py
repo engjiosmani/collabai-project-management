@@ -6,7 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import timedelta
 
 from apps.organizations.models import Organization, OrganizationMember
-from apps.projects.models import Project
+from apps.projects.models import Project, ProjectMember
 from apps.tasks.models import Task, TaskStatus, TaskPriority
 from .models import Comment, ActivityLog
 
@@ -63,6 +63,8 @@ class CommentCRUDAPITest(APITestCase):
         OrganizationMember.objects.create(organization=self.org, user=self.author)
         OrganizationMember.objects.create(organization=self.org, user=self.other_member)
         self.project = Project.objects.create(organization=self.org, name='Com Proj')
+        ProjectMember.objects.create(project=self.project, user=self.author)
+        ProjectMember.objects.create(project=self.project, user=self.other_member)
         self.status = TaskStatus.objects.create(name='S')
         self.priority = TaskPriority.objects.create(name='P', level=1)
         self.task = Task.objects.create(project=self.project, title='Com Task', status=self.status, priority=self.priority)
@@ -164,6 +166,7 @@ class ActivityLogReadOnlyAPITest(APITestCase):
         self.org = Organization.objects.create(name='AL Org')
         OrganizationMember.objects.create(organization=self.org, user=self.member)
         self.project = Project.objects.create(organization=self.org, name='AL Proj')
+        ProjectMember.objects.create(project=self.project, user=self.member)
         self.status = TaskStatus.objects.create(name='S2')
         self.priority = TaskPriority.objects.create(name='P2', level=2)
         self.task = Task.objects.create(project=self.project, title='AL Task', status=self.status, priority=self.priority)

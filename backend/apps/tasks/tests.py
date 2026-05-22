@@ -6,7 +6,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 from apps.organizations.models import Organization, OrganizationMember
-from apps.projects.models import Project
+from apps.projects.models import Project, ProjectMember
+from apps.workspaces.models import TeamMember, Workspace
 from common.cache import NAMESPACE_TASKS, make_list_key
 from apps.comments.models import ActivityLog
 
@@ -87,6 +88,20 @@ class TaskCRUDAPITest(APITestCase):
             organization=self.org,
             user=self.assignee,
             role=OrganizationMember.MEMBER,
+        )
+        self.workspace = Workspace.objects.create(
+            organization=self.org,
+            name='Task API Workspace',
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=TeamMember.MANAGER,
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.assignee,
+            role=TeamMember.MEMBER,
         )
         self.project = Project.objects.create(organization=self.org, name='Task API Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
@@ -252,6 +267,36 @@ class TaskCRUDAPITest(APITestCase):
         )
         self.assertEqual(res.status_code, 400)
 
+    def test_assigned_member_can_update_status_but_not_assign_or_delete(self):
+        ProjectMember.objects.create(project=self.project, user=self.assignee)
+        task = Task.objects.create(
+            project=self.project,
+            title='Assigned Member Task',
+            status=self.status,
+            priority=self.priority,
+            assigned_to=self.assignee,
+        )
+        done_status, _ = TaskStatus.objects.get_or_create(name='Done')
+
+        res = self.client.patch(
+            f'/api/v1/tasks/{task.pk}/',
+            {'status': done_status.pk},
+            format='json',
+            **_jwt_header(self.assignee),
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+
+        res = self.client.patch(
+            f'/api/v1/tasks/{task.pk}/',
+            {'assigned_to': self.member.pk},
+            format='json',
+            **_jwt_header(self.assignee),
+        )
+        self.assertEqual(res.status_code, 403)
+
+        res = self.client.delete(f'/api/v1/tasks/{task.pk}/', **_jwt_header(self.assignee))
+        self.assertEqual(res.status_code, 403)
+
 
 class TaskStatusAPITest(APITestCase):
     def setUp(self):
@@ -279,6 +324,15 @@ class TaskPermissionsAPITest(APITestCase):
             organization=self.org,
             user=self.user,
             role=OrganizationMember.MEMBER,
+        )
+        self.workspace = Workspace.objects.create(
+            organization=self.org,
+            name='TP Workspace',
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.user,
+            role=TeamMember.MANAGER,
         )
         self.project = Project.objects.create(organization=self.org, name='TP')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
@@ -320,6 +374,15 @@ class TaskListCacheTest(APITestCase):
             organization=self.org,
             user=self.other,
             role=OrganizationMember.MEMBER,
+        )
+        self.workspace = Workspace.objects.create(
+            organization=self.org,
+            name='Task Cache Workspace',
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=TeamMember.MANAGER,
         )
         self.project = Project.objects.create(organization=self.org, name='Cache Project')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')

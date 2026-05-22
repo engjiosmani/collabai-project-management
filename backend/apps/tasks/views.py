@@ -3,11 +3,19 @@ from copy import copy
 from django.db.models import Case, IntegerField, QuerySet, Value, When
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
+from rest_framework.exceptions import PermissionDenied
 
 from apps.comments.services.activity import log_task_created, log_task_deleted, log_task_updated
+from apps.projects.models import ProjectMember
 from common.cache import CachedListMixin, NAMESPACE_TASKS
 from common.cache_signals import invalidate_after_task_change
 from common.permissions import IsWorkspaceTeamMember
+from common.role_permissions import (
+    task_visibility_q,
+    user_can_assign_task,
+    user_can_update_task,
+    user_is_manager_or_above,
+)
 from .filters import TaskFilter
 from .models import Task, TaskStatus
 from .serializers import TaskSerializer, TaskStatusSerializer
@@ -96,7 +104,11 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         org_ids = getattr(self.request, 'organization_ids', [])
 
         return (
-            Task.objects.filter(project__organization_id__in=org_ids)
+            Task.objects.filter(
+                task_visibility_q(self.request.user, org_ids),
+                project__is_active=True,
+            )
+            .distinct()
             .select_related(
                 'project',
                 'project__organization',
@@ -117,19 +129,50 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         self.invalidate_list_cache_for_request()
         invalidate_after_task_change()
 
+    def _require_manager_or_above(self, project) -> None:
+        if not user_is_manager_or_above(self.request.user, project.organization):
+            raise PermissionDenied('You must be a manager or above to modify tasks.')
+
+    def _validate_task_update_permissions(self, instance, validated_data) -> None:
+        project = validated_data.get('project') or instance.project
+        if user_is_manager_or_above(self.request.user, project.organization):
+            return
+
+        if not user_can_update_task(self.request.user, instance):
+            raise PermissionDenied('You can only update tasks assigned to you.')
+
+        allowed_member_fields = {'status', 'description'}
+        requested_fields = set(validated_data.keys())
+        if not requested_fields.issubset(allowed_member_fields):
+            raise PermissionDenied(
+                'Members can only update status and description on assigned tasks.'
+            )
+
     def destroy(self, request, *args, **kwargs):
+        self._require_manager_or_above(self.get_object().project)
         response = super().destroy(request, *args, **kwargs)
         if response.status_code == 204:
             self._invalidate_task_list_cache()
         return response
 
     def perform_create(self, serializer):
+        self._require_manager_or_above(serializer.validated_data['project'])
+        assigned_to = serializer.validated_data.get('assigned_to')
+        if assigned_to and not user_can_assign_task(
+            self.request.user,
+            serializer.validated_data['project'].organization,
+        ):
+            raise PermissionDenied('You do not have permission to assign tasks.')
         task = serializer.save()
+        if task.assigned_to_id:
+            ProjectMember.objects.get_or_create(project=task.project, user=task.assigned_to)
         log_task_created(task=task, user=self.request.user)
         self._invalidate_task_list_cache()
 
     def perform_update(self, serializer):
         instance = serializer.instance
+        project = serializer.validated_data.get('project') or instance.project
+        self._validate_task_update_permissions(instance, serializer.validated_data)
         previous = copy(instance)
         if previous.status_id:
             previous.status  # populate cache
@@ -138,6 +181,8 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         if previous.assigned_to_id:
             previous.assigned_to
         task = serializer.save()
+        if task.assigned_to_id:
+            ProjectMember.objects.get_or_create(project=task.project, user=task.assigned_to)
         log_task_updated(task=task, user=self.request.user, previous=previous)
         self._invalidate_task_list_cache()
 

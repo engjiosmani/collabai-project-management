@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import AppSidebar from "../components/AppSidebar";
 import RoleGate from "../components/RoleGate";
 import {
@@ -19,6 +19,8 @@ import {
   removeWorkspaceMember,
 } from "../api/organizations";
 import { getApiErrorMessage } from "../api/api";
+import { AuthContext } from "../context/AuthContext";
+import { useOrganization } from "../context/OrganizationContext";
 import "./Dashboard.css";
 
 const ORG_ROLES = [
@@ -32,7 +34,18 @@ const WORKSPACE_ROLES = [
   { value: "workspace_admin", label: "Workspace Admin" },
 ];
 
+const ROLE_LABELS = {
+  org_admin: "Organization Admin",
+  workspace_admin: "Workspace Admin",
+  manager: "Manager",
+  member: "Member",
+};
+
+const roleLabel = (role) => ROLE_LABELS[role] || "Member";
+
 export default function Organizations() {
+  const { user, loadMemberships } = useContext(AuthContext);
+  const organizationContext = useOrganization();
   const [tab, setTab] = useState("settings");
 
   const [organizations, setOrganizations] = useState([]);
@@ -77,11 +90,26 @@ export default function Organizations() {
   };
 
   const emitOrganizationChange = (organizationId) => {
+    if (organizationId) {
+      localStorage.setItem("active_organization_id", String(organizationId));
+    } else {
+      localStorage.removeItem("active_organization_id");
+    }
+
     window.dispatchEvent(
       new CustomEvent("organization:changed", {
         detail: { organizationId },
       })
     );
+
+    if (organizationId) {
+      const selected = organizations.find(
+        (org) => String(org.id) === String(organizationId)
+      );
+      if (selected) {
+        organizationContext?.changeOrganization?.(selected);
+      }
+    }
   };
 
   const loadMembers = async (organizationId) => {
@@ -119,11 +147,22 @@ export default function Organizations() {
   const loadOrganizationData = async (organizationId) => {
     if (!organizationId) return;
 
-    await Promise.all([
-      loadMembers(organizationId),
-      loadInvites(organizationId),
-      loadWorkspaces(organizationId),
-    ]);
+    const memberData = await getOrganizationMembers(organizationId);
+    setMembers(memberData);
+
+    const currentMember = memberData.find(
+      (member) =>
+        String(member.user_id) === String(user?.id) ||
+        String(member.email || "").toLowerCase() === String(user?.email || "").toLowerCase()
+    );
+
+    if (currentMember?.role === "org_admin") {
+      await loadInvites(organizationId);
+    } else {
+      setInvites([]);
+    }
+
+    await loadWorkspaces(organizationId);
   };
 
   const loadOrganizations = async () => {
@@ -133,10 +172,12 @@ export default function Organizations() {
     try {
       const data = await getOrganizations();
       setOrganizations(data);
+      const savedOrgId = localStorage.getItem("active_organization_id");
+      const savedOrg = data.find((org) => String(org.id) === String(savedOrgId));
 
       const selected = activeOrg
         ? data.find((org) => org.id === activeOrg.id) || data[0]
-        : data[0];
+        : savedOrg || data[0];
 
       setActiveOrg(selected || null);
       emitOrganizationChange(selected?.id ? String(selected.id) : null);
@@ -217,6 +258,9 @@ export default function Organizations() {
       const updatedList = await getOrganizations();
       setOrganizations(updatedList);
       await selectOrganization(created);
+      await loadMemberships?.();
+      await organizationContext?.refreshOrganizations?.();
+      setTab("workspaces");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to create organization."));
     } finally {
@@ -411,6 +455,35 @@ export default function Organizations() {
     }
   };
 
+  const currentOrgMember = members.find(
+    (member) =>
+      String(member.user_id) === String(user?.id) ||
+      String(member.email || "").toLowerCase() === String(user?.email || "").toLowerCase()
+  );
+  const currentWorkspaceMember = workspaceMembers.find(
+    (member) =>
+      String(member.user_id) === String(user?.id) ||
+      String(member.email || "").toLowerCase() === String(user?.email || "").toLowerCase()
+  );
+  const canManageOrganization = currentOrgMember?.role === "org_admin";
+  const canManageWorkspace =
+    canManageOrganization || currentWorkspaceMember?.role === "workspace_admin";
+  const visibleTabs = useMemo(
+    () => [
+      ["settings", "Settings"],
+      ["members", "Members"],
+      ...(canManageOrganization ? [["requests", `Requests (${invites.length})`]] : []),
+      ["workspaces", "Workspaces"],
+    ],
+    [canManageOrganization, invites.length]
+  );
+
+  useEffect(() => {
+    if (!visibleTabs.some(([value]) => value === tab)) {
+      setTab("settings");
+    }
+  }, [tab, visibleTabs]);
+
   return (
     <div className="dashboard-shell">
       <AppSidebar />
@@ -500,12 +573,7 @@ export default function Organizations() {
 
             <section style={styles.mainPanel}>
               <div style={styles.tabBar}>
-                {[
-                  ["settings", "Settings"],
-                  ["members", "Members"],
-                  ["requests", `Requests (${invites.length})`],
-                  ["workspaces", "Workspaces"],
-                ].map(([value, label]) => (
+                {visibleTabs.map(([value, label]) => (
                   <button
                     key={value}
                     type="button"
@@ -624,6 +692,7 @@ export default function Organizations() {
                                 <div>
                                   <strong>{member.username || member.email}</strong>
                                   <p style={styles.subText}>{member.email}</p>
+                                  <span style={styles.roleBadge}>{roleLabel(member.role)}</span>
                                   <p style={styles.subText}>
                                     Job role: {member.job_role_name || member.job_role || "Not assigned"}
                                   </p>
@@ -706,7 +775,7 @@ export default function Organizations() {
                       <section className="dashboard-card">
                         <h2 style={styles.cardTitle}>Workspaces</h2>
 
-                        <RoleGate requiredRole="workspace_admin">
+                        {canManageOrganization ? (
                           <form onSubmit={handleCreateWorkspace} style={styles.formBlockCompact}>
                             <input
                               style={styles.input}
@@ -723,10 +792,18 @@ export default function Organizations() {
                               {creatingWorkspace ? "Creating..." : "Create Workspace"}
                             </button>
                           </form>
-                        </RoleGate>
+                        ) : (
+                          <p style={styles.muted}>
+                            Only organization admins can create workspaces.
+                          </p>
+                        )}
 
                         <div style={styles.orgList}>
-                          {workspaces.map((workspace) => (
+                          {workspaces.length === 0 ? (
+                            <p style={styles.muted}>
+                              No workspaces yet. Organization admins can create the first workspace here.
+                            </p>
+                          ) : workspaces.map((workspace) => (
                             <button
                               key={workspace.id}
                               type="button"
@@ -755,7 +832,7 @@ export default function Organizations() {
                           <p style={styles.muted}>Select a workspace first.</p>
                         ) : (
                           <>
-                            <RoleGate requiredRole="workspace_admin">
+                            {canManageWorkspace ? (
                               <form onSubmit={handleAddWorkspaceMember} style={styles.inlineForm}>
                                 <select
                                   style={styles.select}
@@ -800,7 +877,7 @@ export default function Organizations() {
                                   {addingWorkspaceMember ? "Adding..." : "Add Member"}
                                 </button>
                               </form>
-                            </RoleGate>
+                            ) : null}
 
                             {workspaceMembers.length === 0 ? (
                               <p style={styles.muted}>No workspace members yet.</p>
@@ -811,9 +888,10 @@ export default function Organizations() {
                                     <div>
                                       <strong>{member.username || member.email}</strong>
                                       <p style={styles.subText}>{member.email}</p>
+                                      <span style={styles.roleBadge}>{roleLabel(member.role)}</span>
                                     </div>
 
-                                    <RoleGate requiredRole="workspace_admin">
+                                    {canManageWorkspace ? (
                                       <div style={styles.actions}>
                                         <select
                                           style={styles.select}
@@ -837,7 +915,7 @@ export default function Organizations() {
                                           Remove
                                         </button>
                                       </div>
-                                    </RoleGate>
+                                    ) : null}
                                   </div>
                                 ))}
                               </div>
@@ -860,19 +938,26 @@ export default function Organizations() {
 const styles = {
   layout: {
     display: "grid",
-    gridTemplateColumns: "320px 1fr",
+    gridTemplateColumns: "minmax(min(100%, 300px), 320px) minmax(0, 1fr)",
     gap: "24px",
     alignItems: "start",
+    width: "100%",
+    maxWidth: "100%",
+    minWidth: 0,
   },
 
   leftPanel: {
     position: "sticky",
     top: "20px",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   mainPanel: {
     display: "grid",
     gap: "20px",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   activePill: {
@@ -894,6 +979,7 @@ const styles = {
     border: "1px solid #e5e7eb",
     borderRadius: "16px",
     padding: "8px",
+    minWidth: 0,
   },
 
   tabButton: {
@@ -914,9 +1000,11 @@ const styles = {
 
   workspaceLayout: {
     display: "grid",
-    gridTemplateColumns: "380px 1fr",
+    gridTemplateColumns: "minmax(min(100%, 300px), 360px) minmax(0, 1fr)",
     gap: "20px",
     alignItems: "start",
+    minWidth: 0,
+    maxWidth: "100%",
   },
 
   cardTitle: {
@@ -972,10 +1060,11 @@ const styles = {
 
   inlineForm: {
     display: "grid",
-    gridTemplateColumns: "1fr 200px auto",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))",
     gap: "10px",
     alignItems: "center",
     marginBottom: "16px",
+    minWidth: 0,
   },
 
   label: {
@@ -1014,7 +1103,9 @@ const styles = {
     padding: "12px 14px",
     fontSize: "14px",
     background: "#ffffff",
-    minWidth: "160px",
+    minWidth: 0,
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   list: {
@@ -1025,6 +1116,7 @@ const styles = {
   row: {
     display: "flex",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: "14px",
     alignItems: "center",
     border: "1px solid #e5e7eb",
@@ -1036,6 +1128,7 @@ const styles = {
   requestRow: {
     display: "flex",
     justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: "14px",
     alignItems: "center",
     border: "1px solid #fde68a",
@@ -1050,10 +1143,25 @@ const styles = {
     fontSize: "13px",
   },
 
+  roleBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    width: "fit-content",
+    marginTop: "8px",
+    padding: "5px 9px",
+    borderRadius: "999px",
+    background: "#eef2ff",
+    color: "#3730a3",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+
   actions: {
     display: "flex",
+    flexWrap: "wrap",
     gap: "10px",
     alignItems: "center",
+    maxWidth: "100%",
   },
 
   dangerButton: {

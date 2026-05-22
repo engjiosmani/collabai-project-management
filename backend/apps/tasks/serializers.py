@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.projects.models import Project
+from common.role_permissions import user_has_project_access, user_is_manager_or_above
 from common.tenant_access import user_can_access_organization
 
 from .models import Task, TaskStatus
@@ -39,7 +40,12 @@ class TaskSerializer(serializers.ModelSerializer):
     def validate_project(self, value: Project):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        if not user_can_access_organization(user, value.organization):
+        if not value.is_active:
+            raise serializers.ValidationError('Invalid project or access denied.')
+        if not user_has_project_access(user, value) and not user_is_manager_or_above(
+            user,
+            value.organization,
+        ):
             raise serializers.ValidationError('Invalid project or access denied.')
         return value
 

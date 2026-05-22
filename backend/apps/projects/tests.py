@@ -7,6 +7,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.organizations.models import Organization, OrganizationMember
+from apps.workspaces.models import TeamMember, Workspace
 
 from common.cache import NAMESPACE_PROJECTS, make_list_key
 from .models import Project, ProjectMember, Subscription, Integration
@@ -84,6 +85,15 @@ class ProjectCRUDAPITest(APITestCase):
             organization=self.org,
             user=self.admin_user,
             role=OrganizationMember.ORG_ADMIN,
+        )
+        self.workspace = Workspace.objects.create(
+            organization=self.org,
+            name='CRUD Workspace',
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.member,
+            role=TeamMember.MANAGER,
         )
 
         self.project = Project.objects.create(
@@ -199,6 +209,25 @@ class ProjectCRUDAPITest(APITestCase):
         self.assertEqual(res.status_code, 200)
         results = res.data.get('results', res.data)
         self.assertEqual(len(results), 0)
+
+    def test_regular_member_needs_project_membership_to_see_project(self):
+        regular = User.objects.create_user(
+            username='regular@example.com',
+            email='regular@example.com',
+            password='x',
+        )
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=regular,
+            role=OrganizationMember.MEMBER,
+        )
+
+        res = self.client.get(f'/api/v1/projects/{self.project.pk}/', **_jwt_header(regular))
+        self.assertEqual(res.status_code, 404)
+
+        ProjectMember.objects.create(project=self.project, user=regular)
+        res = self.client.get(f'/api/v1/projects/{self.project.pk}/', **_jwt_header(regular))
+        self.assertEqual(res.status_code, 200)
 
 
 class ProjectLoginJWTAuthTest(APITestCase):

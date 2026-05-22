@@ -2,11 +2,18 @@ from django.db.models import Count, QuerySet
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from common.cache import CachedListMixin, NAMESPACE_WORKSPACES
 from common.permissions import IsAuthenticatedReadOnly, IsWorkspaceTeamMember
+from common.role_permissions import (
+    can_workspace_admin_assign_role,
+    user_is_org_admin,
+    user_is_workspace_admin_or_org_admin,
+)
 from common.tenant_access import organizations_queryset_for_user
+from apps.audit_logs.services import write_audit_log
 
 from .filters import WorkspaceFilter
 from .models import JobRole, TeamMember, Workspace
@@ -67,12 +74,45 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
         ).values_list('pk', flat=True)
 
         return (
-            Workspace.objects.filter(organization_id__in=org_ids)
+            Workspace.objects.filter(organization_id__in=org_ids, is_active=True)
             .select_related('organization')
             .annotate(
                 member_count=Count('team_members', distinct=True),
             )
             .order_by('name')
+        )
+
+    def perform_create(self, serializer):
+        organization = serializer.validated_data['organization']
+        if not user_is_org_admin(self.request.user, organization):
+            raise PermissionDenied('Only organization admins can create workspaces.')
+        serializer.save()
+
+    def perform_update(self, serializer):
+        workspace = serializer.instance
+        organization = serializer.validated_data.get(
+            'organization',
+            workspace.organization,
+        )
+        if not user_is_workspace_admin_or_org_admin(
+            self.request.user,
+            organization,
+            workspace,
+        ):
+            raise PermissionDenied('Only org admins or workspace admins can update workspaces.')
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if not user_is_org_admin(self.request.user, instance.organization):
+            raise PermissionDenied('Only organization admins can delete workspaces.')
+        instance.is_active = False
+        instance.save(update_fields=['is_active', 'updated_at'])
+        write_audit_log(
+            self.request.user,
+            'WORKSPACE_SOFT_DELETED',
+            'Workspace',
+            instance.pk,
+            {'organization_id': instance.organization_id, 'name': instance.name},
         )
 
     @action(detail=True, methods=['get'])
@@ -114,6 +154,13 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     def set_member_job_role(self, request, pk=None, member_id=None):
         workspace = self.get_object()
+
+        if not user_is_workspace_admin_or_org_admin(
+            request.user,
+            workspace.organization,
+            workspace,
+        ):
+            raise PermissionDenied('Only org admins or workspace admins can update workspace members.')
 
         member = TeamMember.objects.filter(
             pk=member_id,

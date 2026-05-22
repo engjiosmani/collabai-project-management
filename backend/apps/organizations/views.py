@@ -10,8 +10,10 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from apps.audit_logs.services import write_audit_log
 from common.cache import CachedListMixin, NAMESPACE_ORGANIZATIONS
 from common.permissions import IsOrganizationMember
+from common.role_permissions import can_workspace_admin_assign_role
 from common.tenant_access import organizations_queryset_for_user
 from apps.workspaces.models import JobRole, TeamMember, Workspace
 from .models import Organization, OrganizationInvite, OrganizationMember
@@ -46,6 +48,13 @@ def _is_workspace_admin_or_org_admin(user, workspace_id, organization_id):
         user=user,
         role=TeamMember.WORKSPACE_ADMIN,
     ).exists()
+
+
+def _has_other_org_admin(organization, user_id):
+    return OrganizationMember.objects.filter(
+        organization=organization,
+        role=OrganizationMember.ORG_ADMIN,
+    ).exclude(user_id=user_id).exists()
 # ── Organization ViewSet ──────────────────────────────────────────────────────
 @extend_schema_view(
     list=extend_schema(tags=['Organizations'], summary='List my organizations'),
@@ -139,6 +148,16 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
             if 'role' in data:
+                if (
+                    member.role == OrganizationMember.ORG_ADMIN
+                    and data['role'] != OrganizationMember.ORG_ADMIN
+                    and not _has_other_org_admin(organization, member.user_id)
+                ):
+                    return Response(
+                        {'detail': 'An organization must always have at least one org admin.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                old_role = member.role
                 member.role = data['role']
             if 'job_role_id' in data:
                 job_role_id = data['job_role_id']
@@ -150,12 +169,33 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                         return Response({'detail': 'Job role not found.'}, status=status.HTTP_404_NOT_FOUND)
                     member.job_role = job_role
             member.save()
+            if 'role' in data and old_role != member.role:
+                write_audit_log(
+                    request.user,
+                    'ORG_MEMBER_ROLE_CHANGED',
+                    'OrganizationMember',
+                    member.pk,
+                    {
+                        'organization_id': organization.pk,
+                        'target_user_id': member.user_id,
+                        'old_role': old_role,
+                        'new_role': member.role,
+                    },
+                )
             member.refresh_from_db()
             return Response(OrganizationMemberSerializer(member).data, status=status.HTTP_200_OK)
         # DELETE
         if member.user_id == request.user.pk:
             return Response(
                 {'detail': 'You cannot remove yourself from the organization.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if (
+            member.role == OrganizationMember.ORG_ADMIN
+            and not _has_other_org_admin(organization, member.user_id)
+        ):
+            return Response(
+                {'detail': 'An organization must always have at least one org admin.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         # Also remove from every workspace inside this org
@@ -181,6 +221,11 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     def set_member_job_role(self, request, pk=None, member_id=None):
         organization = self.get_object()
+        if not _is_org_admin(request.user, organization.pk):
+            return Response(
+                {'detail': 'Only organization admins can update member job roles.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         member = OrganizationMember.objects.filter(pk=member_id, organization=organization).first()
         if member is None:
             return Response({'detail': 'Member not found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -245,6 +290,18 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             logging.getLogger(__name__).error(
                 "invite: failed to queue send_invite_email", invite.id, exc
             )
+        write_audit_log(
+            request.user,
+            'INVITE_CREATED',
+            'OrganizationInvite',
+            invite.pk,
+            {
+                'organization_id': organization.pk,
+                'workspace_id': workspace.pk if workspace else None,
+                'role': role,
+                'email': email,
+            },
+        )
         return Response(
             OrganizationInviteSerializer(invite).data,
             status=status.HTTP_201_CREATED,
@@ -335,7 +392,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         organization = self.get_object()
         if request.method == 'GET':
             workspaces = (
-                Workspace.objects.filter(organization=organization)
+                Workspace.objects.filter(organization=organization, is_active=True)
                 .annotate(
                     member_count=Count('team_members', distinct=True),
                 )
@@ -351,6 +408,11 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         serializer = WorkspaceInOrgSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         workspace = serializer.save(organization=organization)
+        TeamMember.objects.get_or_create(
+            workspace=workspace,
+            user=request.user,
+            defaults={'role': TeamMember.WORKSPACE_ADMIN},
+        )
         return Response(WorkspaceInOrgSerializer(workspace).data, status=status.HTTP_201_CREATED)
     @extend_schema(
         methods=['get'],
@@ -382,10 +444,15 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     def org_workspace_detail(self, request, pk=None, ws_id=None):
         organization = self.get_object()
-        workspace = get_object_or_404(Workspace, pk=ws_id, organization=organization)
+        workspace = get_object_or_404(
+            Workspace,
+            pk=ws_id,
+            organization=organization,
+            is_active=True,
+        )
         if request.method == 'GET':
             workspace = (
-                Workspace.objects.filter(pk=ws_id, organization=organization)
+                Workspace.objects.filter(pk=ws_id, organization=organization, is_active=True)
                 .annotate(
                     member_count=Count('team_members', distinct=True),
                 )
@@ -416,7 +483,15 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 {'detail': 'Only organization admins can delete workspaces.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        workspace.delete()
+        workspace.is_active = False
+        workspace.save(update_fields=['is_active', 'updated_at'])
+        write_audit_log(
+            request.user,
+            'WORKSPACE_SOFT_DELETED',
+            'Workspace',
+            workspace.pk,
+            {'organization_id': organization.pk, 'name': workspace.name},
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
     # ── Workspace members ─────────────────────────────────────────────────────
     @extend_schema(
@@ -442,7 +517,12 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     def workspace_members(self, request, pk=None, ws_id=None):
         organization = self.get_object()
-        workspace = get_object_or_404(Workspace, pk=ws_id, organization=organization)
+        workspace = get_object_or_404(
+            Workspace,
+            pk=ws_id,
+            organization=organization,
+            is_active=True,
+        )
         if request.method == 'GET':
             qs = TeamMember.objects.filter(workspace=workspace).select_related('user', 'job_role')
             return Response(TeamMemberInOrgSerializer(qs, many=True).data)
@@ -456,6 +536,11 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user_id = serializer.validated_data['user_id']
         role = serializer.validated_data.get('role', TeamMember.MEMBER)
+        if not can_workspace_admin_assign_role(request.user, workspace, role):
+            return Response(
+                {'detail': 'Workspace admins can only assign manager or member roles.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         if not OrganizationMember.objects.filter(organization=organization, user_id=user_id).exists():
             return Response(
                 {'detail': 'User must be an organization member before being added to a workspace.'},
@@ -502,7 +587,12 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
     )
     def workspace_member_detail(self, request, pk=None, ws_id=None, user_id=None):
         organization = self.get_object()
-        workspace = get_object_or_404(Workspace, pk=ws_id, organization=organization)
+        workspace = get_object_or_404(
+            Workspace,
+            pk=ws_id,
+            organization=organization,
+            is_active=True,
+        )
         if not _is_workspace_admin_or_org_admin(request.user, workspace.pk, organization.pk):
             return Response(
                 {'detail': 'Only org admins or workspace admins can modify workspace members.'},
@@ -518,8 +608,29 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         if request.method == 'PATCH':
             serializer = WorkspaceMemberRoleUpdateSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            member.role = serializer.validated_data['role']
+            new_role = serializer.validated_data['role']
+            if not can_workspace_admin_assign_role(request.user, workspace, new_role):
+                return Response(
+                    {'detail': 'Workspace admins can only assign manager or member roles.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            old_role = member.role
+            member.role = new_role
             member.save()
+            if old_role != member.role:
+                write_audit_log(
+                    request.user,
+                    'WORKSPACE_MEMBER_ROLE_CHANGED',
+                    'TeamMember',
+                    member.pk,
+                    {
+                        'organization_id': organization.pk,
+                        'workspace_id': workspace.pk,
+                        'target_user_id': member.user_id,
+                        'old_role': old_role,
+                        'new_role': member.role,
+                    },
+                )
             member.refresh_from_db()
             return Response(TeamMemberInOrgSerializer(member).data)
         # DELETE
@@ -560,6 +671,13 @@ class AcceptInviteView(APIView):
                 {'detail': 'This invitation has expired. Please ask an admin to send a new one.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        user_email = (request.user.email or '').strip().lower()
+        invite_email = (invite.email or '').strip().lower()
+        if user_email != invite_email:
+            return Response(
+                {'detail': 'This invitation can only be accepted by the invited email address.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         # Determine org-level role
         org_role = (
             OrganizationMember.ORG_ADMIN
@@ -586,6 +704,18 @@ class AcceptInviteView(APIView):
             )
         invite.is_accepted = True
         invite.save(update_fields=['is_accepted', 'updated_at'])
+        write_audit_log(
+            request.user,
+            'INVITE_ACCEPTED',
+            'OrganizationInvite',
+            invite.pk,
+            {
+                'organization_id': invite.organization_id,
+                'workspace_id': invite.workspace_id,
+                'role': invite.role,
+                'email': invite.email,
+            },
+        )
         member = OrganizationMember.objects.select_related('user', 'job_role', 'organization').get(pk=member.pk)
         return Response(OrganizationMemberSerializer(member).data, status=status.HTTP_200_OK)
 class MyInvitesView(APIView):

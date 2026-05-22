@@ -63,6 +63,16 @@ export function OrganizationProvider({ children }) {
     if (localStorage.getItem("access")) {
       refreshOrganizations();
     }
+
+    const onLogin = () => {
+      refreshOrganizations();
+    };
+
+    window.addEventListener("auth:login", onLogin);
+
+    return () => {
+      window.removeEventListener("auth:login", onLogin);
+    };
   }, [refreshOrganizations]);
 
   return (

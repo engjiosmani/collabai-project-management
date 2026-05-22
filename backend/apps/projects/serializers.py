@@ -51,6 +51,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             )
 
     def update(self, instance, validated_data):
+        if 'is_active' in validated_data and not validated_data['is_active']:
+            raise serializers.ValidationError(
+                {'is_active': 'Use the delete endpoint to archive a project.'}
+            )
         try:
             return super().update(instance, validated_data)
         except IntegrityError:

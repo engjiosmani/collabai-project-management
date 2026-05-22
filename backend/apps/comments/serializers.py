@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from apps.tasks.models import Task
-from common.tenant_access import user_can_access_organization
+from common.role_permissions import user_can_update_task, user_has_project_access
 
 from .models import ActivityLog, Comment
 
@@ -33,8 +33,9 @@ class CommentSerializer(serializers.ModelSerializer):
     def validate_task(self, value: Task):
         request = self.context.get('request')
         user = getattr(request, 'user', None)
-        organization = value.project.organization
-        if not user_can_access_organization(user, organization):
+        if not value.project.is_active or not (
+            user_has_project_access(user, value.project) or user_can_update_task(user, value)
+        ):
             raise serializers.ValidationError('Invalid task or access denied.')
         return value
 

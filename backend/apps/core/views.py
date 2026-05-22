@@ -39,6 +39,7 @@ from common.cache import (
     set_cached_payload,
 )
 from common.tenant_access import organizations_queryset_for_user
+from common.role_permissions import project_visibility_q, task_visibility_q
 from apps.comments.models import ActivityLog, Comment
 from apps.comments.serializers import ActivityLogSerializer
 from apps.notifications.models import Notification
@@ -166,16 +167,24 @@ class DashboardSummaryView(CachedGETMixin, APIView):
         user = request.user
         org_qs = organizations_queryset_for_user(user)
 
-        total_projects = Project.objects.filter(organization__in=org_qs).count()
+        org_ids = list(org_qs.values_list('pk', flat=True))
 
-        tasks_qs = Task.objects.filter(project__organization__in=org_qs)
+        total_projects = Project.objects.filter(
+            project_visibility_q(user, org_ids),
+            is_active=True,
+        ).distinct().count()
+
+        tasks_qs = Task.objects.filter(
+            task_visibility_q(user, org_ids),
+            project__is_active=True,
+        ).distinct()
         total_tasks = tasks_qs.count()
 
         done_status_ids = completed_task_status_ids()
         completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count() if done_status_ids else 0
         pending_tasks = max(total_tasks - completed_tasks, 0)
 
-        activity_base_qs = ActivityLog.objects.filter(task__project__organization__in=org_qs)
+        activity_base_qs = ActivityLog.objects.filter(task__in=tasks_qs)
         total_activity_logs = activity_base_qs.count()
 
         recent_activity_qs = activity_base_qs.select_related('task', 'user').order_by('-created_at')[:10]

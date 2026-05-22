@@ -89,7 +89,7 @@ class WorkspaceSerializer(serializers.ModelSerializer):
             TeamMember.objects.get_or_create(
                 workspace=workspace,
                 user=request.user,
-                defaults={'role': TeamMember.MEMBER}
+                defaults={'role': TeamMember.WORKSPACE_ADMIN}
             )
 
         return workspace

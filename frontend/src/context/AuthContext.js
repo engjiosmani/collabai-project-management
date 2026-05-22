@@ -1,4 +1,4 @@
-import { createContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import API, { clearAuthStorage, getApiErrorMessage } from "../api/api";
 
 const ROLE_WEIGHTS = {
@@ -15,7 +15,9 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [memberships, setMemberships] = useState([]);
-    const [loadingMemberships, setLoadingMemberships] = useState(false);
+    const [loadingMemberships, setLoadingMemberships] = useState(
+        Boolean(localStorage.getItem("access"))
+    );
     const [activeOrganizationId, setActiveOrganizationId] = useState(
         localStorage.getItem("active_organization_id") || null
     );
@@ -91,24 +93,48 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
+    const loadMemberships = useCallback(async () => {
+        setLoadingMemberships(true);
+        try {
+            const res = await API.get("/profile/memberships/");
+            const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+            setMemberships(data);
+            return data;
+        } catch {
+            setMemberships([]);
+            return [];
+        } finally {
+            setLoadingMemberships(false);
+        }
+    }, []);
+
+    const loadProfile = useCallback(async () => {
+        try {
+            const res = await API.get("/profile/");
+            setUser((current) => ({
+                ...(current || {}),
+                ...res.data,
+                authenticated: true,
+            }));
+            if (res.data?.email) {
+                localStorage.setItem("user_email", res.data.email);
+            }
+            return res.data;
+        } catch {
+            return null;
+        }
+    }, []);
+
     useEffect(() => {
         if (!accessToken) {
             setMemberships([]);
             setLoadingMemberships(false);
             return;
         }
-        setLoadingMemberships(true);
-        API.get("/profile/memberships/")
-            .then((res) => {
-                setMemberships(Array.isArray(res.data) ? res.data : res.data?.results || []);
-            })
-            .catch(() => {
-                setMemberships([]);
-            })
-            .finally(() => {
-                setLoadingMemberships(false);
-            });
-    }, [accessToken]);
+
+        loadProfile();
+        loadMemberships();
+    }, [accessToken, loadMemberships, loadProfile]);
 
     const activeMembership = useMemo(() => {
         if (!memberships.length) return null;
@@ -134,16 +160,26 @@ export const AuthProvider = ({ children }) => {
         );
     }, [activeMembership, activeWorkspaceId]);
 
+    const highestWorkspaceRole = useMemo(() => {
+        const roles = activeMembership?.workspaces?.map((workspace) => workspace.role) || [];
+        return roles.reduce((highest, current) => {
+            return (ROLE_WEIGHTS[current] || 0) > (ROLE_WEIGHTS[highest] || 0)
+                ? current
+                : highest;
+        }, null);
+    }, [activeMembership]);
+
     const role = useMemo(() => {
         const orgWeight = ROLE_WEIGHTS[orgRole] || 0;
-        const workspaceWeight = ROLE_WEIGHTS[workspaceRole] || 0;
+        const effectiveWorkspaceRole = workspaceRole || highestWorkspaceRole;
+        const workspaceWeight = ROLE_WEIGHTS[effectiveWorkspaceRole] || 0;
         const effectiveWeight = Math.max(orgWeight, workspaceWeight);
 
         return (
             Object.entries(ROLE_WEIGHTS).find(([, weight]) => weight === effectiveWeight)?.[0] ||
             null
         );
-    }, [orgRole, workspaceRole]);
+    }, [highestWorkspaceRole, orgRole, workspaceRole]);
 
     const isOrgAdmin = useMemo(() => () => role === "org_admin", [role]);
 
@@ -178,6 +214,10 @@ export const AuthProvider = ({ children }) => {
                 authenticated: true,
             });
 
+            window.dispatchEvent(new Event("auth:login"));
+            await loadProfile();
+            await loadMemberships();
+
             return {
                 success: true,
             };
@@ -194,6 +234,8 @@ export const AuthProvider = ({ children }) => {
         setAccessToken(null);
         setUser(null);
         setMemberships([]);
+        setActiveOrganizationId(null);
+        setActiveWorkspaceId(null);
     };
 
     return (
@@ -206,11 +248,14 @@ export const AuthProvider = ({ children }) => {
                 role,
                 orgRole,
                 workspaceRole,
+                highestWorkspaceRole,
                 activeOrganizationId,
                 activeWorkspaceId,
                 isOrgAdmin,
                 isWorkspaceAdminOrAbove,
                 isManagerOrAbove,
+                loadMemberships,
+                loadProfile,
                 login,
                 logout,
             }}

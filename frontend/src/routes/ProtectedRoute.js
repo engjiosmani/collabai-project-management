@@ -7,26 +7,34 @@ import { useRole } from "../hooks/useRole";
 
 function ProtectedRoute({ children, requiredRole }) {
     const { accessToken, loadingMemberships } = useContext(AuthContext);
-    const { isOrgAdmin, isWorkspaceAdminOrAbove, isManagerOrAbove, loadingOrganizations } = useRole();
+    const { isOrgAdmin, isWorkspaceAdminOrAbove, isManagerOrAbove } = useRole();
 
     if (!accessToken) {
         return <Navigate to="/login" />;
     }
 
-    if (requiredRole && (loadingMemberships || loadingOrganizations)) {
+    if (!requiredRole) {
+        return (
+            <>
+                {children}
+                <FloatingAIAssistant />
+            </>
+        );
+    }
+
+    if (loadingMemberships) {
         return null;
     }
 
-    if (requiredRole) {
-        const roleChecks = {
-            org_admin: isOrgAdmin,
-            workspace_admin: isWorkspaceAdminOrAbove,
-            manager: isManagerOrAbove,
-        };
-        const check = roleChecks[requiredRole];
-        if (check && !check()) {
-            return <Navigate to="/unauthorized" />;
-        }
+    const roleChecks = {
+        org_admin: isOrgAdmin,
+        workspace_admin: isWorkspaceAdminOrAbove,
+        manager: isManagerOrAbove,
+    };
+    const check = roleChecks[requiredRole];
+
+    if (!check || !check()) {
+        return <Navigate to="/unauthorized" />;
     }
 
     return (

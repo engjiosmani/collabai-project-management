@@ -4,6 +4,8 @@ from rest_framework import viewsets
 
 from common.cache import CachedListMixin, NAMESPACE_ACTIVITY_LOGS, NAMESPACE_COMMENTS
 from common.permissions import IsWorkspaceMemberCommentAuthorForWrite, IsWorkspaceTeamMember
+from common.role_permissions import task_visibility_q
+from apps.tasks.models import Task
 from .filters import ActivityLogFilter, CommentFilter
 from .models import ActivityLog, Comment
 from .serializers import ActivityLogSerializer, CommentSerializer
@@ -49,7 +51,13 @@ class CommentViewSet(CachedListMixin, viewsets.ModelViewSet):
             return Comment.objects.none()
         org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            Comment.objects.filter(task__project__organization_id__in=org_ids)
+            Comment.objects.filter(
+                task__in=Task.objects.filter(
+                    task_visibility_q(self.request.user, org_ids),
+                    project__is_active=True,
+                )
+            )
+            .distinct()
             .select_related(
                 'task',
                 'task__project',
@@ -97,7 +105,13 @@ class ActivityLogViewSet(CachedListMixin, viewsets.ReadOnlyModelViewSet):
             return ActivityLog.objects.none()
         org_ids = getattr(self.request, 'organization_ids', [])
         return (
-            ActivityLog.objects.filter(task__project__organization_id__in=org_ids)
+            ActivityLog.objects.filter(
+                task__in=Task.objects.filter(
+                    task_visibility_q(self.request.user, org_ids),
+                    project__is_active=True,
+                )
+            )
+            .distinct()
             .select_related(
                 'task',
                 'task__project',

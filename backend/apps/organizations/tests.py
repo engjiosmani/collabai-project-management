@@ -308,6 +308,16 @@ class AcceptInviteTest(BaseOrgAPI):
             **_jwt(invitee),
         )
         self.assertEqual(res.status_code, 404)
+    def test_invite_accept_requires_matching_email(self):
+        wrong_user = _make_user('wronginvitee', 'wrong@example.com')
+        invite = self._make_invite('right@example.com')
+        res = self.client.post(
+            f'/api/v1/invites/{invite.token}/accept/',
+            **_jwt(wrong_user),
+        )
+        self.assertEqual(res.status_code, 403)
+        invite.refresh_from_db()
+        self.assertFalse(invite.is_accepted)
     def test_unauthenticated_returns_401(self):
         invite = self._make_invite('anon@example.com')
         res = self.client.post(f'/api/v1/invites/{invite.token}/accept/')
@@ -411,7 +421,8 @@ class OrgWorkspacesTest(BaseOrgAPI):
             **_jwt(self.admin),
         )
         self.assertEqual(res.status_code, 204)
-        self.assertFalse(Workspace.objects.filter(pk=ws.pk).exists())
+        ws.refresh_from_db()
+        self.assertFalse(ws.is_active)
     def test_member_cannot_delete_workspace(self):
         res = self.client.delete(
             f'/api/v1/organizations/{self.org.pk}/workspaces/{self.workspace.pk}/',
@@ -518,3 +529,23 @@ class WorkspaceMembersTest(BaseOrgAPI):
             **_jwt(self.admin),
         )
         self.assertEqual(res.status_code, 404)
+    def test_workspace_admin_cannot_assign_workspace_admin_role(self):
+        workspace_admin = _make_user('workspace_admin', 'wsadmin@example.com')
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=workspace_admin,
+            role=OrganizationMember.MEMBER,
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=workspace_admin,
+            role=TeamMember.WORKSPACE_ADMIN,
+        )
+
+        res = self.client.post(
+            f'/api/v1/organizations/{self.org.pk}/workspaces/{self.workspace.pk}/members/',
+            {'user_id': self.member.pk, 'role': TeamMember.WORKSPACE_ADMIN},
+            format='json',
+            **_jwt(workspace_admin),
+        )
+        self.assertEqual(res.status_code, 403)

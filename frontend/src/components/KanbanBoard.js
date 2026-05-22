@@ -3,6 +3,7 @@ import API, { getApiErrorMessage } from "../api/api";
 import { getOrganizationMembers } from "../api/organizations";
 import RoleGate from "./RoleGate";
 import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
+import { useRole } from "../hooks/useRole";
 import "./KanbanBoard.css";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -47,12 +48,13 @@ function PriorityBadge({ name }) {
     return <span className={`kb-badge kb-badge--${tone}`}>{name}</span>;
 }
 
-function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName }) {
+function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName, canManageTasks, canMoveTask }) {
     const [open, setOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const dragStartedRef = useRef(false);
 
     const handleStatusSelect = async (newStatusId) => {
+        if (!canMoveTask) return;
         setSaving(true);
         setOpen(false);
         await onStatusChange(task.id, Number(newStatusId));
@@ -73,8 +75,12 @@ function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName 
         <div
             className="kb-card"
             data-cy={`task-card-${task.id}`}
-            draggable
+            draggable={canMoveTask}
             onDragStart={(e) => {
+                if (!canMoveTask) {
+                    e.preventDefault();
+                    return;
+                }
                 dragStartedRef.current = true;
                 e.dataTransfer.setData("taskId", String(task.id));
             }}
@@ -116,6 +122,7 @@ function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName 
             </div>
 
             <div className="kb-card-actions">
+                {canMoveTask && (
                 <div className="kb-status-picker">
                     <button
                         className="kb-btn kb-btn--sm"
@@ -142,6 +149,7 @@ function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName 
                         </ul>
                     )}
                 </div>
+                )}
 
                 <RoleGate requiredRole="manager">
                     <button
@@ -218,17 +226,22 @@ function TaskDetailModal({ task, statuses, onClose, onEdit }) {
     );
 }
 
-function Column({ status, tasks, statuses, onStatusChange, onEdit, onView, onDrop, projectNameById, showProject }) {
+function Column({ status, tasks, statuses, onStatusChange, onEdit, onView, onDrop, projectNameById, showProject, canManageTasks, canMoveTask, canDropTasks }) {
     const [over, setOver] = useState(false);
 
     return (
         <div
             className={`kb-column${over ? " kb-column--over" : ""}`}
-            onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+            onDragOver={(e) => {
+                if (!canDropTasks) return;
+                e.preventDefault();
+                setOver(true);
+            }}
             onDragLeave={() => setOver(false)}
             onDrop={(e) => {
                 e.preventDefault();
                 setOver(false);
+                if (!canDropTasks) return;
                 const taskId = Number(e.dataTransfer.getData("taskId"));
                 if (taskId) onDrop(taskId, status.id);
             }}
@@ -248,6 +261,8 @@ function Column({ status, tasks, statuses, onStatusChange, onEdit, onView, onDro
                         onEdit={onEdit}
                         onView={onView}
                         projectName={showProject ? projectNameById.get(t.project) : null}
+                        canManageTasks={canManageTasks}
+                        canMoveTask={canMoveTask(t)}
                     />
                 ))}
                 {tasks.length === 0 && (
@@ -501,6 +516,12 @@ export default function KanbanBoard({
     const [editingTask, setEditingTask] = useState(undefined); // undefined = closed, null = new
     const [viewingTask, setViewingTask] = useState(null);
     const abortRef = useRef(null);
+    const { user, isManagerOrAbove } = useRole();
+    const canManageTasks = isManagerOrAbove();
+    const canChangeTaskStatus = useCallback(
+        (task) => canManageTasks || String(task?.assigned_to || "") === String(user?.id || ""),
+        [canManageTasks, user?.id]
+    );
 
     const projectNameById = useMemo(() => {
         const map = new Map();
@@ -558,6 +579,7 @@ export default function KanbanBoard({
 
     const handleStatusChange = useCallback(async (taskId, newStatusId) => {
         const previous = tasks.find((t) => t.id === taskId);
+        if (!canChangeTaskStatus(previous)) return;
         setTasks((prev) =>
             prev.map((t) => (t.id === taskId ? { ...t, status: newStatusId } : t))
         );
@@ -576,7 +598,7 @@ export default function KanbanBoard({
                 fetchAll();
             }
         }
-    }, [fetchAll, onTasksChanged, tasks]);
+    }, [canChangeTaskStatus, fetchAll, onTasksChanged, tasks]);
 
     // ── modal callbacks ────────────────────────────────────────────────────
 
@@ -603,6 +625,7 @@ export default function KanbanBoard({
     }, [tasks, projectFilter]);
 
     const grouped = groupByStatus(visibleTasks, statuses);
+    const canDropTasks = visibleTasks.some((task) => canChangeTaskStatus(task));
 
     // ── render ─────────────────────────────────────────────────────────────
 
@@ -681,11 +704,16 @@ export default function KanbanBoard({
                                 tasks={grouped[s.id] ?? []}
                                 statuses={statuses}
                                 onStatusChange={handleStatusChange}
-                                onEdit={(t) => setEditingTask(t)}
+                                onEdit={(t) => {
+                                    if (canManageTasks) setEditingTask(t);
+                                }}
                                 onView={(t) => setViewingTask(t)}
                                 onDrop={handleStatusChange}
                                 projectNameById={projectNameById}
                                 showProject={showProjectOnCards}
+                                canManageTasks={canManageTasks}
+                                canMoveTask={canChangeTaskStatus}
+                                canDropTasks={canDropTasks}
                             />
                         ))}
                     </div>
@@ -699,12 +727,12 @@ export default function KanbanBoard({
                     onClose={() => setViewingTask(null)}
                     onEdit={(t) => {
                         setViewingTask(null);
-                        setEditingTask(t);
+                        if (canManageTasks) setEditingTask(t);
                     }}
                 />
             )}
 
-            {editingTask !== undefined && (
+            {canManageTasks && editingTask !== undefined && (
                 <TaskModal
                     task={editingTask}
                     statuses={statuses}

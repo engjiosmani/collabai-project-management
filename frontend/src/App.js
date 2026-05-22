@@ -51,31 +51,32 @@ function App() {
                     }
                 />
 
-            <Route
-                path="/ai"
-                element={
-                    <ProtectedRoute>
-                        <AIAssistant />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/organizations"
-                element={
-                    <ProtectedRoute requiredRole="org_admin">
-                        <Organizations />
-                    </ProtectedRoute>
-                }
-            />
+                <Route
+                    path="/ai"
+                    element={
+                        <ProtectedRoute>
+                            <AIAssistant />
+                        </ProtectedRoute>
+                    }
+                />
 
-<Route
-    path="/invitations"
-    element={
-                    <ProtectedRoute requiredRole="org_admin">
-                        <Invitations />
-                    </ProtectedRoute>
-                }
-            />
+                <Route
+                    path="/organizations"
+                    element={
+                        <ProtectedRoute>
+                            <Organizations />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/invitations"
+                    element={
+                        <ProtectedRoute>
+                            <Invitations />
+                        </ProtectedRoute>
+                    }
+                />
 
                 <Route
                     path="/ai/team-pulse"
