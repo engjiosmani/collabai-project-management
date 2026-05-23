@@ -10,6 +10,7 @@ from apps.projects.models import Project, ProjectMember
 from apps.workspaces.models import TeamMember, Workspace
 from common.cache import NAMESPACE_TASKS, make_list_key
 from apps.comments.models import ActivityLog
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from .models import Task, TaskStatus, TaskPriority, Label, TaskLabel, Attachment
 from .status_utils import completed_task_status_ids, is_completed_status_name
@@ -128,6 +129,7 @@ class TaskCRUDAPITest(APITestCase):
                 'status': self.status.pk,
                 'priority': self.priority.pk,
                 'assigned_to': self.assignee.pk,
+                'labels': ['Frontend', 'Urgent'],
             },
             format='json',
             **_jwt_header(self.member),
@@ -136,6 +138,7 @@ class TaskCRUDAPITest(APITestCase):
         self.assertEqual(res.data['status_name'], self.status.name)
         self.assertEqual(res.data['priority_name'], self.priority.name)
         self.assertEqual(res.data['assigned_to_email'], self.assignee.email)
+        self.assertEqual([label['name'] for label in res.data['labels']], ['Frontend', 'Urgent'])
         tid = res.data['id']
 
         res = self.client.patch(
@@ -149,6 +152,75 @@ class TaskCRUDAPITest(APITestCase):
 
         res = self.client.delete(f'/api/v1/tasks/{tid}/', **_jwt_header(self.member))
         self.assertEqual(res.status_code, 204)
+
+    def test_creator_can_delete_after_role_changes(self):
+        res = self.client.post(
+            '/api/v1/tasks/',
+            {
+                'project': self.project.pk,
+                'title': 'Creator Delete Task',
+                'status': self.status.pk,
+                'priority': self.priority.pk,
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        tid = res.data['id']
+        TeamMember.objects.filter(workspace=self.workspace, user=self.member).update(role=TeamMember.MEMBER)
+
+        res = self.client.delete(f'/api/v1/tasks/{tid}/', **_jwt_header(self.member))
+        self.assertEqual(res.status_code, 204, res.data)
+
+    def test_attachment_upload_and_list(self):
+        task = Task.objects.create(
+            project=self.project,
+            title='Attachment Task',
+            status=self.status,
+            priority=self.priority,
+            assigned_to=self.member,
+        )
+
+        upload = SimpleUploadedFile('plan.txt', b'hello world', content_type='text/plain')
+        res = self.client.post(
+            f'/api/v1/tasks/{task.pk}/attachments/',
+            {'file': upload},
+            format='multipart',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['file_name'], 'plan.txt')
+
+        res = self.client.get(f'/api/v1/tasks/{task.pk}/attachments/', **_jwt_header(self.member))
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.data), 1)
+
+        attachment_id = res.data[0]['id']
+        download = self.client.get(
+            f'/api/v1/tasks/{task.pk}/attachments/{attachment_id}/download/',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(download.status_code, 200)
+        self.assertIn('attachment; filename="plan.txt"', download.headers.get('Content-Disposition', ''))
+        self.assertEqual(b''.join(download.streaming_content), b'hello world')
+
+        delete_res = self.client.delete(
+            f'/api/v1/tasks/{task.pk}/attachments/{attachment_id}/',
+            **_jwt_header(self.member),
+        )
+        self.assertEqual(delete_res.status_code, 204)
+
+        res = self.client.get(f'/api/v1/tasks/{task.pk}/attachments/', **_jwt_header(self.member))
+        self.assertEqual(len(res.data), 0)
+
+    def test_task_priority_endpoint(self):
+        TaskPriority.objects.all().delete()
+        TaskPriority.objects.create(name='Low', level=1)
+        TaskPriority.objects.create(name='High', level=3)
+        res = self.client.get('/api/v1/task-priorities/', **_jwt_header(self.member))
+        self.assertEqual(res.status_code, 200)
+        data = res.data.get('results', res.data)
+        self.assertEqual([item['name'] for item in data], ['Low', 'High'])
 
     def test_task_mutations_create_activity_logs(self):
         done_status, _ = TaskStatus.objects.get_or_create(name='Done')

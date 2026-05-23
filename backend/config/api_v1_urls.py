@@ -1,7 +1,7 @@
 from django.urls import include, path
 from apps.core.views import DashboardSummaryView, HealthView, MetricsView
 from apps.organizations.views import AcceptInviteView, MyInvitesView
-from apps.tasks.views import TaskStatusViewSet
+from apps.tasks.views import TaskPriorityViewSet, TaskStatusViewSet
 
 urlpatterns = [
     path('', include('apps.core.urls')),
@@ -27,5 +27,10 @@ urlpatterns = [
         'task-statuses/',
         TaskStatusViewSet.as_view({'get': 'list'}),
         name='task-statuses',
+    ),
+    path(
+        'task-priorities/',
+        TaskPriorityViewSet.as_view({'get': 'list'}),
+        name='task-priorities',
     ),
 ]

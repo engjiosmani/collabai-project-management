@@ -28,6 +28,16 @@ describe("Critical workflows", () => {
       body: [],
     }).as("tasksRequest");
 
+    cy.intercept("GET", "**/api/v1/task-priorities/", {
+      statusCode: 200,
+      body: [
+        { id: 1, name: "Low", level: 1 },
+        { id: 2, name: "Medium", level: 2 },
+        { id: 3, name: "High", level: 3 },
+        { id: 4, name: "Urgent", level: 4 },
+      ],
+    }).as("prioritiesRequest");
+
     cy.intercept("GET", "**/api/v1/task-statuses/", {
       statusCode: 200,
       body: [
@@ -43,6 +53,14 @@ describe("Critical workflows", () => {
         { id: 1, name: "Website Refresh" },
       ],
     }).as("projectsRequest");
+
+    cy.intercept("GET", "**/api/v1/organizations/*/members/", {
+      statusCode: 200,
+      body: [
+        { id: 1, user_id: 1, username: "user", email: "user@example.com", role: "org_admin" },
+        { id: 2, user_id: 2, username: "linda", email: "linda123@gmail.com", role: "member" },
+      ],
+    }).as("organizationMembersRequest");
   };
 
   beforeEach(() => {
@@ -71,9 +89,12 @@ describe("Critical workflows", () => {
     cy.get('[data-cy="login-submit"]').click();
 
     cy.wait("@loginRequest");
+    cy.wait("@meRequest");
+    cy.wait("@orgsRequest");
     cy.url().should("include", "/dashboard");
     cy.wait("@summaryRequest");
     cy.wait("@tasksRequest");
+    cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");
 
     cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
@@ -98,8 +119,11 @@ describe("Critical workflows", () => {
       },
     });
 
+    cy.wait("@meRequest");
+    cy.wait("@orgsRequest");
     cy.wait("@summaryRequest");
     cy.wait("@tasksRequest");
+    cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");
 
     cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
@@ -126,7 +150,7 @@ describe("Critical workflows", () => {
           title: "Write E2E tests",
           description: "Cover the critical dashboard flow",
           status: 1,
-          due_date: "2026-05-20",
+          due_date: "2026-05-24",
           project: 1,
         },
       });
@@ -140,8 +164,11 @@ describe("Critical workflows", () => {
       },
     });
 
+    cy.wait("@meRequest");
+    cy.wait("@orgsRequest");
     cy.wait("@summaryRequest");
     cy.wait("@tasksRequest");
+    cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");
 
     cy.get('[data-cy="new-task-button"]').click();
@@ -151,7 +178,7 @@ describe("Critical workflows", () => {
     cy.get('[data-cy="task-title"]').type("Write E2E tests");
     cy.get('[data-cy="task-description"]').type("Cover the critical dashboard flow");
     cy.get('[data-cy="task-status"]').select("To Do");
-    cy.get('[data-cy="task-due-date"]').type("2026-05-20");
+    cy.get('[data-cy="task-due-date"]').type("2026-05-24");
     cy.get('[data-cy="task-project"]').select("Website Refresh");
     cy.get('[data-cy="task-save"]').click();
 

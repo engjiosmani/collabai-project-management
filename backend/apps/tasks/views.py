@@ -1,10 +1,15 @@
 from copy import copy
 
-from django.db.models import Case, IntegerField, QuerySet, Value, When
+from django.http import FileResponse
+from django.db.models import Case, IntegerField, Prefetch, QuerySet, Value, When
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.response import Response
 
+from apps.comments.models import ActivityLog
 from apps.comments.services.activity import log_task_created, log_task_deleted, log_task_updated
 from apps.projects.models import ProjectMember
 from common.cache import CachedListMixin, NAMESPACE_TASKS
@@ -17,11 +22,23 @@ from common.role_permissions import (
     user_is_manager_or_above,
 )
 from .filters import TaskFilter
-from .models import Task, TaskStatus
-from .serializers import TaskSerializer, TaskStatusSerializer
+from .models import Attachment, Task, TaskPriority, TaskStatus
+from .serializers import (
+    TaskAttachmentSerializer,
+    TaskAttachmentUploadSerializer,
+    TaskPrioritySerializer,
+    TaskSerializer,
+    TaskStatusSerializer,
+)
 
 DEFAULT_LIST_PATH = '/api/v1/tasks/'
 DEFAULT_TASK_STATUS_NAMES = ('To Do', 'In Progress', 'Done')
+DEFAULT_TASK_PRIORITY_VALUES = (
+    ('Low', 1),
+    ('Medium', 2),
+    ('High', 3),
+    ('Urgent', 4),
+)
 # Kanban column order (not alphabetical — "Done" must not appear before "To Do")
 _TASK_STATUS_ORDER_CASE = Case(
     When(name='To Do', then=Value(0)),
@@ -48,6 +65,22 @@ class TaskStatusViewSet(viewsets.ReadOnlyModelViewSet):
         return TaskStatus.objects.annotate(
             _kb_order=_TASK_STATUS_ORDER_CASE,
         ).order_by('_kb_order', 'name')
+
+
+@extend_schema_view(
+    list=extend_schema(tags=['Task priorities'], summary='List task priorities'),
+    retrieve=extend_schema(tags=['Task priorities'], summary='Retrieve task priority'),
+)
+class TaskPriorityViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = TaskPrioritySerializer
+
+    def get_queryset(self):
+        if not TaskPriority.objects.exists():
+            TaskPriority.objects.bulk_create(
+                [TaskPriority(name=name, level=level) for name, level in DEFAULT_TASK_PRIORITY_VALUES],
+                ignore_conflicts=True,
+            )
+        return TaskPriority.objects.order_by('level', 'name')
 
 
 @extend_schema_view(
@@ -117,6 +150,13 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
                 'assigned_to',
             )
             .prefetch_related('task_labels__label')
+            .prefetch_related(
+                Prefetch(
+                    'activity_logs',
+                    queryset=ActivityLog.objects.filter(action='Task created').select_related('user').order_by('created_at'),
+                    to_attr='task_created_logs',
+                )
+            )
         )
 
     def filter_queryset(self, queryset):
@@ -128,6 +168,16 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
     def _invalidate_task_list_cache(self) -> None:
         self.invalidate_list_cache_for_request()
         invalidate_after_task_change()
+
+    def _user_can_delete_task(self, user, task: Task) -> bool:
+        if user_is_manager_or_above(user, task.project.organization):
+            return True
+
+        return ActivityLog.objects.filter(
+            task=task,
+            action='Task created',
+            user=user,
+        ).exists()
 
     def _require_manager_or_above(self, project) -> None:
         if not user_is_manager_or_above(self.request.user, project.organization):
@@ -149,11 +199,18 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
             )
 
     def destroy(self, request, *args, **kwargs):
-        self._require_manager_or_above(self.get_object().project)
-        response = super().destroy(request, *args, **kwargs)
-        if response.status_code == 204:
-            self._invalidate_task_list_cache()
-        return response
+        task = (
+            Task.objects.select_related('project', 'project__organization')
+            .filter(pk=kwargs.get('pk'))
+            .first()
+        )
+        if task is None:
+            raise NotFound('Task not found.')
+        if not self._user_can_delete_task(request.user, task):
+            raise PermissionDenied('You must be a manager, admin, or the task creator to delete this task.')
+        self.perform_destroy(task)
+        self._invalidate_task_list_cache()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def perform_create(self, serializer):
         self._require_manager_or_above(serializer.validated_data['project'])
@@ -189,3 +246,53 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         log_task_deleted(task=instance, user=self.request.user)
         super().perform_destroy(instance)
+
+    @action(detail=True, methods=['get', 'post'], url_path='attachments')
+    def attachments(self, request, pk=None):
+        task = self.get_object()
+
+        if request.method == 'GET':
+            attachments = task.attachments.select_related('uploaded_by').order_by('-created_at')
+            return Response(
+                TaskAttachmentSerializer(attachments, many=True, context={'request': request}).data,
+                status=status.HTTP_200_OK,
+            )
+
+        if not (user_can_update_task(request.user, task) or user_is_manager_or_above(request.user, task.project.organization)):
+            raise PermissionDenied('You do not have permission to upload attachments for this task.')
+
+        serializer = TaskAttachmentUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        file_obj = serializer.validated_data['file']
+        attachment = Attachment.objects.create(
+            task=task,
+            uploaded_by=request.user,
+            file=file_obj,
+            file_name=file_obj.name,
+        )
+        return Response(
+            TaskAttachmentSerializer(attachment, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['get'], url_path=r'attachments/(?P<attachment_id>[^/.]+)/download', url_name='attachment-download')
+    def download_attachment(self, request, pk=None, attachment_id=None):
+        task = self.get_object()
+        attachment = get_object_or_404(task.attachments.select_related('uploaded_by'), pk=attachment_id)
+        attachment.file.open('rb')
+        return FileResponse(attachment.file, as_attachment=True, filename=attachment.file_name)
+
+    @action(detail=True, methods=['delete'], url_path=r'attachments/(?P<attachment_id>[^/.]+)', url_name='attachment-detail')
+    def delete_attachment(self, request, pk=None, attachment_id=None):
+        task = self.get_object()
+        attachment = get_object_or_404(task.attachments.select_related('uploaded_by'), pk=attachment_id)
+
+        if not (
+            user_is_manager_or_above(request.user, task.project.organization)
+            or attachment.uploaded_by_id == request.user.id
+        ):
+            raise PermissionDenied('You do not have permission to delete this attachment.')
+
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
