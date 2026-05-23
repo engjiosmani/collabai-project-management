@@ -34,7 +34,11 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if getattr(user, 'is_superuser', False):
             return User.objects.all().select_related('profile', 'profile__organization').order_by('email')
-        org_ids = organization_ids_for_request(self.request)
+        org_ids = organizations_queryset_for_user(user).values_list('pk', flat=True)
+        if getattr(self.request, 'invalid_requested_organization_id', False):
+            org_ids = []
+        elif getattr(self.request, 'requested_organization_id', None):
+            org_ids = [self.request.requested_organization_id]
         return (
             User.objects.filter(Q(organization_memberships__organization_id__in=org_ids) | Q(pk=user.pk))
             .distinct()
