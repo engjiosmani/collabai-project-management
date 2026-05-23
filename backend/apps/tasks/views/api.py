@@ -3,7 +3,7 @@ from copy import copy
 from django.http import FileResponse
 from django.db.models import Case, IntegerField, Prefetch, QuerySet, Value, When
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound, PermissionDenied
@@ -271,6 +271,12 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(
+        tags=['Tasks'],
+        summary='Download task attachment',
+        parameters=[OpenApiParameter('attachment_id', OpenApiTypes.INT, OpenApiParameter.PATH)],
+        responses={200: bytes},
+    )
     @action(detail=True, methods=['get'], url_path=r'attachments/(?P<attachment_id>[^/.]+)/download', url_name='attachment-download')
     def download_attachment(self, request, pk=None, attachment_id=None):
         task = self.get_object()
@@ -278,6 +284,12 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         attachment.file.open('rb')
         return FileResponse(attachment.file, as_attachment=True, filename=attachment.file_name)
 
+    @extend_schema(
+        tags=['Tasks'],
+        summary='Delete task attachment',
+        parameters=[OpenApiParameter('attachment_id', OpenApiTypes.INT, OpenApiParameter.PATH)],
+        responses={204: None},
+    )
     @action(detail=True, methods=['delete'], url_path=r'attachments/(?P<attachment_id>[^/.]+)', url_name='attachment-detail')
     def delete_attachment(self, request, pk=None, attachment_id=None):
         task = self.get_object()

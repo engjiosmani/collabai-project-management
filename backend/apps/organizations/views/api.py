@@ -647,6 +647,7 @@ class AcceptInviteView(APIView):
     @extend_schema(
         tags=['Organizations'],
         summary='Accept an organization invitation by token',
+        request=None,
         responses={
             200: OrganizationMemberSerializer,
             400: None,
