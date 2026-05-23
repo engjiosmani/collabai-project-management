@@ -38,7 +38,7 @@ from common.cache import (
     make_fixed_key,
     set_cached_payload,
 )
-from common.tenant_access import organizations_queryset_for_user
+from common.tenant_access import organization_ids_for_request, organizations_queryset_for_user
 from common.role_permissions import project_visibility_q, task_visibility_q
 from apps.comments.models import ActivityLog, Comment
 from apps.comments.serializers import ActivityLogSerializer
@@ -167,7 +167,9 @@ class DashboardSummaryView(CachedGETMixin, APIView):
         user = request.user
         org_qs = organizations_queryset_for_user(user)
 
-        org_ids = list(org_qs.values_list('pk', flat=True))
+        org_ids = organization_ids_for_request(request)
+        if org_ids:
+            org_qs = org_qs.filter(pk__in=org_ids)
 
         total_projects = Project.objects.filter(
             project_visibility_q(user, org_ids),

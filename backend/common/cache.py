@@ -81,6 +81,14 @@ def make_list_key(namespace: str, user_id, full_path: str) -> str:
     return f'{namespace}:list:v{version}:u{user_id}:{digest}'
 
 
+def _request_cache_path(request) -> str:
+    path = request.get_full_path()
+    active_org_id = getattr(request, 'requested_organization_id', None)
+    if active_org_id:
+        return f'{path}::org={active_org_id}'
+    return path
+
+
 def make_fixed_key(namespace: str, suffix: str) -> str:
     version = get_version(namespace)
     return f'{namespace}:fixed:v{version}:{suffix}'
@@ -104,7 +112,7 @@ class CachedListMixin:
         cache_key = make_list_key(
             self.cache_namespace,
             request.user.pk,
-            request.get_full_path(),
+            _request_cache_path(request),
         )
         cached = get_cached_payload(cache_key)
         if cached is not None:
@@ -122,7 +130,7 @@ class CachedListMixin:
             if self.cache_default_list_path:
                 paths.add(self.cache_default_list_path)
             if request is not None:
-                paths.add(request.get_full_path())
+                paths.add(_request_cache_path(request))
             for path in paths:
                 invalidate_list_cache(self.cache_namespace, user.pk, path)
         else:
@@ -137,6 +145,9 @@ class CachedGETMixin:
 
     def get_cache_key(self, request) -> str:
         path = self.cache_path_suffix or request.get_full_path()
+        active_org_id = getattr(request, 'requested_organization_id', None)
+        if active_org_id:
+            path = f'{path}::org={active_org_id}'
         return make_list_key(self.cache_namespace, request.user.pk, path)
 
     def get_cached_response(self, request):

@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from common.cache import CachedListMixin, NAMESPACE_PROJECTS
 from common.permissions import IsOrganizationMember
+from common.tenant_access import organization_ids_for_request
 from common.role_permissions import IsAdmin, IsManagerOrAdmin, project_visibility_q
 from common.tenant_viewset import TenantScopedViewSet
 
@@ -46,7 +47,7 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        organization_ids = getattr(self.request, 'organization_ids', [])
+        organization_ids = organization_ids_for_request(self.request)
         if not organization_ids:
             return queryset.none()
         return queryset.filter(
@@ -79,7 +80,7 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
             )
 
         # POST — add member
-        serializer = AddProjectMemberSerializer(data=request.data)
+        serializer = AddProjectMemberSerializer(data=request.data, context={'project': project})
         serializer.is_valid(raise_exception=True)
         user_id = serializer.validated_data['user_id']
         user = User.objects.get(pk=user_id)

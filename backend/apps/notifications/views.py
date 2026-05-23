@@ -1,4 +1,5 @@
 from django.db.models import QuerySet
+from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -36,10 +37,20 @@ class NotificationViewSet(CachedListMixin, viewsets.ModelViewSet):
 		if getattr(self, 'swagger_fake_view', False):
 			return Notification.objects.none()
 		user = self.request.user
-		return Notification.objects.filter(user=user).select_related('user').order_by('-created_at')
+		if getattr(self.request, 'invalid_requested_organization_id', False):
+			return Notification.objects.none()
+		queryset = Notification.objects.filter(user=user)
+		org_id = self.request.query_params.get('organization_id') or getattr(
+			self.request,
+			'active_organization_id',
+			None,
+		)
+		if org_id:
+			queryset = queryset.filter(Q(organization_id=org_id) | Q(organization__isnull=True))
+		return queryset.select_related('user', 'organization').order_by('-created_at')
 
 	def perform_create(self, serializer):
-		serializer.save(user=self.request.user)
+		serializer.save(user=self.request.user, organization=getattr(self.request, 'active_organization', None))
 
 	@extend_schema(tags=['Notifications'], summary='Mark notification as read')
 	@action(detail=True, methods=['post'])

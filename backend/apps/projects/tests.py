@@ -352,3 +352,47 @@ class ProjectListCacheTest(APITestCase):
         self.assertNotEqual(member_key, other_key)
         self.assertIsNotNone(cache.get(member_key))
         self.assertIsNotNone(cache.get(other_key))
+
+class ProjectTenantIsolationAPITest(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(username='tenant-admin@example.com', email='tenant-admin@example.com', password='x')
+        self.outsider = User.objects.create_user(username='tenant-outsider@example.com', email='tenant-outsider@example.com', password='x')
+        self.org = Organization.objects.create(name='Tenant Project Org A')
+        self.other_org = Organization.objects.create(name='Tenant Project Org B')
+        OrganizationMember.objects.create(organization=self.org, user=self.admin, role=OrganizationMember.ORG_ADMIN)
+        OrganizationMember.objects.create(organization=self.other_org, user=self.outsider, role=OrganizationMember.MEMBER)
+        self.project = Project.objects.create(organization=self.org, name='Scoped Project')
+
+    def test_cannot_add_user_from_another_organization_to_project(self):
+        response = self.client.post(
+            f'/api/v1/projects/{self.project.pk}/members/',
+            {'user_id': self.outsider.pk},
+            format='json',
+            **_jwt_header(self.admin),
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(ProjectMember.objects.filter(project=self.project, user=self.outsider).exists())
+
+    def test_active_organization_header_scopes_project_list(self):
+        second_org = Organization.objects.create(name='Tenant Project Org C')
+        OrganizationMember.objects.create(organization=second_org, user=self.admin, role=OrganizationMember.ORG_ADMIN)
+        Project.objects.create(organization=second_org, name='Other Scoped Project')
+
+        response = self.client.get(
+            '/api/v1/projects/',
+            HTTP_X_ORGANIZATION_ID=str(self.org.pk),
+            **_jwt_header(self.admin),
+        )
+        self.assertEqual(response.status_code, 200)
+        names = [item['name'] for item in response.data.get('results', response.data)]
+        self.assertIn('Scoped Project', names)
+        self.assertNotIn('Other Scoped Project', names)
+
+    def test_invalid_active_organization_header_returns_no_project_data(self):
+        response = self.client.get(
+            '/api/v1/projects/',
+            HTTP_X_ORGANIZATION_ID=str(self.other_org.pk),
+            **_jwt_header(self.admin),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('results', response.data), [])

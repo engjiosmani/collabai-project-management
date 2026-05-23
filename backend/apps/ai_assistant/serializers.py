@@ -55,5 +55,5 @@ class TextAnalyzeResponseSerializer(serializers.Serializer):
 class AIRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIRequest
-        fields = ('id', 'prompt', 'response', 'status', 'task', 'created_at')
+        fields = ('id', 'organization', 'prompt', 'response', 'status', 'task', 'created_at')
         read_only_fields = fields

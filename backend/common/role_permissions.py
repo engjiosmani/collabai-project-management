@@ -140,9 +140,17 @@ def task_visibility_q(user, organization_ids):
     visible_projects = Project.objects.filter(
         project_visibility_q(user, organization_ids)
     )
-    return Q(project__in=visible_projects) | Q(
-        project__organization_id__in=organization_ids,
-        assigned_to=user,
+    return (
+        Q(project__in=visible_projects)
+        | Q(
+            project__organization_id__in=organization_ids,
+            assigned_to=user,
+        )
+        | Q(
+            project__organization_id__in=organization_ids,
+            activity_logs__action='Task created',
+            activity_logs__user=user,
+        )
     )
 
 

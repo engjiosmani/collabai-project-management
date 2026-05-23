@@ -5,17 +5,13 @@ from __future__ import annotations
 from django.db.models import QuerySet
 from apps.organizations.models import Organization, OrganizationMember
 
+TENANT_HEADER = 'HTTP_X_ORGANIZATION_ID'
+
 
 def resolve_organization(obj):
     """Resolve organization from an object.
 
-    Supports:
-    - Direct organization field
-    - Project -> workspace -> organization
-    - Task -> related objects -> organization
-
-    NOTE: Does NOT support workspace -> organization fallback.
-    Use workspace.organization directly if needed.
+    Supports direct organization fields and common project/task ownership chains.
     """
     if obj is None:
         return None
@@ -78,3 +74,29 @@ def user_can_access_organization(user, organization) -> bool:
         organization=organization,
         user=user,
     ).exists()
+
+
+def normalize_organization_id(value) -> int | None:
+    if value in (None, ''):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def active_organization_id_from_request(request) -> int | None:
+    """Return requested active tenant id from header or query params."""
+    header_value = request.META.get(TENANT_HEADER)
+    query_value = getattr(request, 'query_params', {}).get('organization_id')
+    return normalize_organization_id(header_value or query_value)
+
+
+def organization_ids_for_request(request) -> list[int]:
+    """Authorized tenant ids for this request, narrowed to active tenant when provided."""
+    if getattr(request, 'invalid_requested_organization_id', False):
+        return []
+    requested = getattr(request, 'requested_organization_id', None)
+    if requested:
+        return [requested]
+    return list(getattr(request, 'organization_ids', []) or [])

@@ -15,6 +15,7 @@ from apps.projects.models import ProjectMember
 from common.cache import CachedListMixin, NAMESPACE_TASKS
 from common.cache_signals import invalidate_after_task_change
 from common.permissions import IsWorkspaceTeamMember
+from common.tenant_access import organization_ids_for_request
 from common.role_permissions import (
     task_visibility_q,
     user_can_assign_task,
@@ -134,7 +135,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         if getattr(self, 'swagger_fake_view', False):
             return Task.objects.none()
 
-        org_ids = getattr(self.request, 'organization_ids', [])
+        org_ids = organization_ids_for_request(self.request)
 
         return (
             Task.objects.filter(
@@ -199,13 +200,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
             )
 
     def destroy(self, request, *args, **kwargs):
-        task = (
-            Task.objects.select_related('project', 'project__organization')
-            .filter(pk=kwargs.get('pk'))
-            .first()
-        )
-        if task is None:
-            raise NotFound('Task not found.')
+        task = self.get_object()
         if not self._user_can_delete_task(request.user, task):
             raise PermissionDenied('You must be a manager, admin, or the task creator to delete this task.')
         self.perform_destroy(task)

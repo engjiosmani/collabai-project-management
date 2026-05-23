@@ -173,11 +173,15 @@ class TaskSerializer(serializers.ModelSerializer):
         if label_names is None:
             return
 
+        organization = task.project.organization
         normalized_labels = []
         for name in label_names:
-            label = Label.objects.filter(name__iexact=name).first()
+            label = Label.objects.filter(
+                organization=organization,
+                name__iexact=name,
+            ).first()
             if label is None:
-                label = Label.objects.create(name=name)
+                label = Label.objects.create(organization=organization, name=name)
             normalized_labels.append(label)
 
         TaskLabel.objects.filter(task=task).exclude(label__in=normalized_labels).delete()

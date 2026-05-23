@@ -77,6 +77,7 @@ Question: {question}"""
 
         ai_request = AIRequest.objects.create(
             user=user,
+            organization_id=organization_id,
             task_id=task_id,
             prompt=question,
             status='processing',

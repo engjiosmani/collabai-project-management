@@ -39,12 +39,14 @@ class TextAnalysisService:
         text: str,
         mode: str = 'summary',
         task_id: int | None = None,
+        organization_id: int | None = None,
     ) -> Dict[str, Any]:
         if mode not in ANALYSIS_MODES:
             raise ValueError(f'Unsupported analysis mode: {mode}')
 
         ai_request = AIRequest.objects.create(
             user=user,
+            organization_id=organization_id,
             task_id=task_id,
             prompt=f'[{mode}] {text[:2000]}',
             status='processing',

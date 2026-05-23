@@ -25,6 +25,7 @@ def task_notifications(sender, instance, created, **kwargs):
         # krijo notification ne databaze
         Notification.objects.create(
             user=instance.assigned_to,
+            organization=instance.project.organization,
             title="Task Assignment",
             message=message
         )

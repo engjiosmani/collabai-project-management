@@ -4,6 +4,7 @@ from rest_framework import viewsets
 
 from common.cache import CachedListMixin, NAMESPACE_ACTIVITY_LOGS, NAMESPACE_COMMENTS
 from common.permissions import IsWorkspaceMemberCommentAuthorForWrite, IsWorkspaceTeamMember
+from common.tenant_access import organization_ids_for_request
 from common.role_permissions import task_visibility_q
 from apps.tasks.models import Task
 from .filters import ActivityLogFilter, CommentFilter
@@ -49,7 +50,7 @@ class CommentViewSet(CachedListMixin, viewsets.ModelViewSet):
     def get_queryset(self) -> QuerySet[Comment]:
         if getattr(self, 'swagger_fake_view', False):
             return Comment.objects.none()
-        org_ids = getattr(self.request, 'organization_ids', [])
+        org_ids = organization_ids_for_request(self.request)
         return (
             Comment.objects.filter(
                 task__in=Task.objects.filter(
@@ -103,7 +104,7 @@ class ActivityLogViewSet(CachedListMixin, viewsets.ReadOnlyModelViewSet):
     def get_queryset(self) -> QuerySet[ActivityLog]:
         if getattr(self, 'swagger_fake_view', False):
             return ActivityLog.objects.none()
-        org_ids = getattr(self.request, 'organization_ids', [])
+        org_ids = organization_ids_for_request(self.request)
         return (
             ActivityLog.objects.filter(
                 task__in=Task.objects.filter(

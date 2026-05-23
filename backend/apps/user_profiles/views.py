@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.organizations.models import OrganizationMember
-from common.tenant_access import organizations_queryset_for_user
+from common.tenant_access import organization_ids_for_request, organizations_queryset_for_user
 from .filters import UserFilter
 from .serializers import (
     ChangePasswordSerializer,
@@ -34,7 +34,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if getattr(user, 'is_superuser', False):
             return User.objects.all().select_related('profile', 'profile__organization').order_by('email')
-        org_ids = organizations_queryset_for_user(user).values_list('pk', flat=True)
+        org_ids = organization_ids_for_request(self.request)
         return (
             User.objects.filter(Q(organization_memberships__organization_id__in=org_ids) | Q(pk=user.pk))
             .distinct()

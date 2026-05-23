@@ -11,6 +11,7 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'user',
+            'organization',
             'user_email',
             'title',
             'message',
@@ -18,7 +19,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('user', 'created_at', 'updated_at')
+        read_only_fields = ('user', 'organization', 'created_at', 'updated_at')
 
     def validate_title(self, value: str):
         text = (value or '').strip()

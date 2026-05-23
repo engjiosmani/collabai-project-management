@@ -162,3 +162,25 @@ class RAGAPITests(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('answer', response.data)
+
+    @patch('apps.ai_assistant.views.RAGService.ask')
+    def test_rag_query_rejects_task_from_another_organization(self, mock_ask):
+        other_org = Organization.objects.create(name='RAG Other Org')
+        other_project = Project.objects.create(organization=other_org, name='Other RAG Project')
+        other_task = Task.objects.create(
+            project=other_project,
+            title='Hidden task',
+            status=self.status,
+            priority=self.priority,
+        )
+        response = self.client.post(
+            reverse('ai-rag-query'),
+            {
+                'organization_id': self.org.pk,
+                'question': 'Can I see hidden task?',
+                'task_id': other_task.pk,
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        mock_ask.assert_not_called()

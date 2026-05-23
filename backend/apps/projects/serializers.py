@@ -39,8 +39,14 @@ class AddProjectMemberSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
 
     def validate_user_id(self, value):
-        if not User.objects.filter(pk=value).exists():
+        user = User.objects.filter(pk=value).first()
+        if user is None:
             raise serializers.ValidationError('User not found.')
+        project = self.context.get('project')
+        if project is not None and not user_can_access_organization(user, project.organization):
+            raise serializers.ValidationError(
+                'User must be a member of this project organization.'
+            )
         return value
 
 

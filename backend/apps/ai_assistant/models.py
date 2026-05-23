@@ -7,10 +7,23 @@ from apps.organizations.models import Organization
 
 class AIRequest(BaseModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="ai_requests")
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='ai_requests',
+    )
     task = models.ForeignKey(Task, on_delete=models.SET_NULL, null=True, blank=True, related_name="ai_requests")
     prompt = models.TextField()
     response = models.TextField(blank=True)
     status = models.CharField(max_length=50, default="pending")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['organization', 'user', 'created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
 
     def __str__(self):
         return f"AI Request {self.id}"

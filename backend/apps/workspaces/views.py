@@ -12,7 +12,7 @@ from common.role_permissions import (
     user_is_org_admin,
     user_is_workspace_admin_or_org_admin,
 )
-from common.tenant_access import organizations_queryset_for_user
+from common.tenant_access import organization_ids_for_request, organizations_queryset_for_user
 from apps.audit_logs.services import write_audit_log
 
 from .filters import WorkspaceFilter
@@ -69,9 +69,7 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
             return Workspace.objects.none()
 
         # Get organization IDs the user belongs to
-        org_ids = organizations_queryset_for_user(
-            self.request.user
-        ).values_list('pk', flat=True)
+        org_ids = organization_ids_for_request(self.request)
 
         return (
             Workspace.objects.filter(organization_id__in=org_ids, is_active=True)

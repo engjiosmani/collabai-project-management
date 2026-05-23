@@ -555,3 +555,44 @@ class TaskStatusUtilsTest(TestCase):
         ids = completed_task_status_ids()
         self.assertIn(done.pk, ids)
         self.assertNotIn(todo.pk, ids)
+
+class TaskTenantIsolationAPITest(APITestCase):
+    def setUp(self):
+        self.user_a = User.objects.create_user(username='tenant-task-a@example.com', email='tenant-task-a@example.com', password='x')
+        self.user_b = User.objects.create_user(username='tenant-task-b@example.com', email='tenant-task-b@example.com', password='x')
+        self.org_a = Organization.objects.create(name='Tenant Task Org A')
+        self.org_b = Organization.objects.create(name='Tenant Task Org B')
+        OrganizationMember.objects.create(organization=self.org_a, user=self.user_a, role=OrganizationMember.ORG_ADMIN)
+        OrganizationMember.objects.create(organization=self.org_b, user=self.user_b, role=OrganizationMember.ORG_ADMIN)
+        self.workspace_a = Workspace.objects.create(organization=self.org_a, name='Workspace A')
+        TeamMember.objects.create(workspace=self.workspace_a, user=self.user_a, role=TeamMember.MANAGER)
+        self.project_a = Project.objects.create(organization=self.org_a, name='Project A')
+        self.project_b = Project.objects.create(organization=self.org_b, name='Project B')
+        self.status, _ = TaskStatus.objects.get_or_create(name='Tenant Todo')
+        self.priority, _ = TaskPriority.objects.get_or_create(name='Tenant Medium', level=55)
+        self.task_b = Task.objects.create(project=self.project_b, title='Other Org Task', status=self.status, priority=self.priority)
+
+    def test_delete_uses_scoped_queryset_for_guessed_cross_tenant_id(self):
+        response = self.client.delete(
+            f'/api/v1/tasks/{self.task_b.pk}/',
+            **_jwt_header(self.user_a),
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Task.objects.filter(pk=self.task_b.pk).exists())
+
+    def test_labels_created_through_task_api_are_organization_scoped(self):
+        response = self.client.post(
+            '/api/v1/tasks/',
+            {
+                'project': self.project_a.pk,
+                'title': 'Tenant Label Task',
+                'status': self.status.pk,
+                'priority': self.priority.pk,
+                'labels': ['Backend'],
+            },
+            format='json',
+            **_jwt_header(self.user_a),
+        )
+        self.assertEqual(response.status_code, 201)
+        label = Label.objects.get(name='Backend', organization=self.org_a)
+        self.assertTrue(TaskLabel.objects.filter(task_id=response.data['id'], label=label).exists())

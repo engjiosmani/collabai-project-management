@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from common.models import BaseModel
+from apps.organizations.models import Organization
 from apps.projects.models import Project
 
 
@@ -20,8 +21,24 @@ class TaskPriority(BaseModel):
 
 
 class Label(BaseModel):
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="labels",
+    )
     name = models.CharField(max_length=100)
     color = models.CharField(max_length=20, default="#808080")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "name"],
+                name="unique_label_name_per_organization",
+            )
+        ]
+        indexes = [models.Index(fields=["organization", "name"])]
 
     def __str__(self):
         return self.name

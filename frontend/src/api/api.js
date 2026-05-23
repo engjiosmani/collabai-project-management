@@ -117,11 +117,19 @@ const isAuthEndpoint = (url = "") => {
 
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem("access");
+  const organizationId = localStorage.getItem("active_organization_id");
 
   if (token && !config.headers?.Authorization) {
     config.headers = {
       ...config.headers,
       Authorization: `Bearer ${token}`,
+    };
+  }
+
+  if (token && organizationId && !config.headers?.["X-Organization-ID"]) {
+    config.headers = {
+      ...config.headers,
+      "X-Organization-ID": organizationId,
     };
   }
 
