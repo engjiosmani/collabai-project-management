@@ -1,14 +1,52 @@
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
 from common.tenant_access import user_can_access_organization
 
-from .models import Project
+from .models import Project, ProjectMember
+
+User = get_user_model()
+
+
+class ProjectMemberSerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProjectMember
+        fields = (
+            'id',
+            'project',
+            'user',
+            'user_email',
+            'user_username',
+            'user_full_name',
+            'created_at',
+            'updated_at',
+        )
+        read_only_fields = ('created_at', 'updated_at')
+
+    def get_user_full_name(self, obj) -> str:
+        u = obj.user
+        full = f'{u.first_name} {u.last_name}'.strip()
+        return full or u.username or u.email
+
+
+class AddProjectMemberSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+
+    def validate_user_id(self, value):
+        if not User.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('User not found.')
+        return value
 
 
 class ProjectSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True)
+    member_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
@@ -21,10 +59,14 @@ class ProjectSerializer(serializers.ModelSerializer):
             'start_date',
             'due_date',
             'is_active',
+            'member_count',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('created_at', 'updated_at')
+        read_only_fields = ('created_at', 'updated_at', 'member_count')
+
+    def get_member_count(self, obj) -> int:
+        return obj.members.count()
 
     def validate_organization(self, value: Organization):
         request = self.context.get('request')
@@ -51,10 +93,6 @@ class ProjectSerializer(serializers.ModelSerializer):
             )
 
     def update(self, instance, validated_data):
-        if 'is_active' in validated_data and not validated_data['is_active']:
-            raise serializers.ValidationError(
-                {'is_active': 'Use the delete endpoint to archive a project.'}
-            )
         try:
             return super().update(instance, validated_data)
         except IntegrityError:

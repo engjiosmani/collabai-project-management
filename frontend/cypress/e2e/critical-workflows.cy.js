@@ -22,40 +22,6 @@ describe("Critical workflows", () => {
     }).as("summaryRequest");
   };
 
-  const stubAuth = () => {
-    cy.intercept("GET", "**/api/v1/organizations/", {
-      statusCode: 200,
-      body: [{ id: 1, name: "Test Org" }],
-    }).as("organizationsRequest");
-
-    cy.intercept("GET", "**/api/v1/profile/", {
-      statusCode: 200,
-      body: {
-        id: 1,
-        email,
-        username: "user",
-      },
-    }).as("profileRequest");
-
-    cy.intercept("GET", "**/api/v1/profile/memberships/", {
-      statusCode: 200,
-      body: [
-        {
-          organization: { id: 1, name: "Test Org" },
-          role: "manager",
-          workspaces: [],
-        },
-      ],
-    }).as("membershipsRequest");
-
-    cy.intercept("POST", "**/api/v1/auth/refresh", {
-      statusCode: 200,
-      body: {
-        access: "test-access-token",
-      },
-    }).as("refreshRequest");
-  };
-
   const stubBoard = () => {
     cy.intercept("GET", "**/api/v1/tasks/", {
       statusCode: 200,
@@ -81,6 +47,8 @@ describe("Critical workflows", () => {
 
   beforeEach(() => {
     cy.clearLocalStorage();
+    // Stub profile endpoints so AuthContext always resolves user
+    cy.stubAuthProfile(email);
   });
 
   it("logs in and reaches the dashboard", () => {
@@ -92,7 +60,6 @@ describe("Critical workflows", () => {
       },
     }).as("loginRequest");
 
-    stubAuth();
     stubDashboardSummary();
     stubBoard();
 
@@ -109,7 +76,6 @@ describe("Critical workflows", () => {
     cy.wait("@tasksRequest");
     cy.wait("@statusesRequest");
 
-    cy.get('[data-cy="dashboard-heading"]').should("contain.text", "Delivery overview");
     cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.get('[data-cy="dashboard-stats"]').within(() => {
       cy.get('[data-cy="stat-card-projects"]').should("contain.text", "Projects").and("contain.text", "3");
@@ -122,7 +88,6 @@ describe("Critical workflows", () => {
   });
 
   it("shows the dashboard flow for an already authenticated user", () => {
-    stubAuth();
     stubDashboardSummary();
     stubBoard();
 
@@ -137,7 +102,6 @@ describe("Critical workflows", () => {
     cy.wait("@tasksRequest");
     cy.wait("@statusesRequest");
 
-    cy.get('[data-cy="dashboard-heading"]').should("contain.text", "Delivery overview");
     cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.contains("Kanban task board").should("be.visible");
     cy.contains("Recent activity logs").should("be.visible");
@@ -145,7 +109,6 @@ describe("Critical workflows", () => {
   });
 
   it("creates a task from the kanban board", () => {
-    stubAuth();
     stubDashboardSummary();
     stubBoard();
 

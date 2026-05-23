@@ -1,230 +1,138 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import API, { clearAuthStorage, getApiErrorMessage } from "../api/api";
-
-const ROLE_WEIGHTS = {
-    org_admin: 4,
-    workspace_admin: 3,
-    manager: 2,
-    member: 1,
-};
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import API, { clearAuthStorage } from "../api/api";
 
 export const AuthContext = createContext();
 
-// Use centralized API error helper from `api.js` (getApiErrorMessage)
+export function useAuth() {
+    return useContext(AuthContext);
+}
+
+const normalizeRole = (role) => {
+    if (!role) return null;
+    if (role === "admin") return "org_admin";
+    return role;
+};
+
+const extractApiErrorMessage = (data, fallback) => {
+    if (!data) return fallback;
+    if (typeof data === "string") return data;
+    if (data.detail) return data.detail;
+    if (Array.isArray(data.non_field_errors) && data.non_field_errors.length > 0)
+        return data.non_field_errors[0];
+    return fallback;
+};
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    const [memberships, setMemberships] = useState([]);
-    const [loadingMemberships, setLoadingMemberships] = useState(
-        Boolean(localStorage.getItem("access"))
-    );
-    const [activeOrganizationId, setActiveOrganizationId] = useState(
-        localStorage.getItem("active_organization_id") || null
-    );
-    const [activeWorkspaceId, setActiveWorkspaceId] = useState(
-        localStorage.getItem("active_workspace_id") || null
-    );
-
+    const [orgRoles, setOrgRoles] = useState({});
+    const [role, setRole] = useState(null);
+    const [orgRole, setOrgRole] = useState(null);
+    const [loadingMemberships, setLoadingMemberships] = useState(Boolean(localStorage.getItem("access")));
     const [accessToken, setAccessToken] = useState(
         localStorage.getItem("access") || null
     );
 
-    useEffect(() => {
-        const syncFromStorage = () => {
-            const token = localStorage.getItem("access");
-            const email = localStorage.getItem("user_email");
-            const organizationId = localStorage.getItem("active_organization_id");
-            const workspaceId = localStorage.getItem("active_workspace_id");
-
-            setActiveOrganizationId(organizationId);
-            setActiveWorkspaceId(workspaceId);
-
-            if (token) {
-                setAccessToken(token);
-                setUser({
-                    email: email || undefined,
-                    authenticated: true,
-                });
-            } else {
-                setAccessToken(null);
-                setUser(null);
-            }
-        };
-
-        syncFromStorage();
-
-        const onTokenRefreshed = () => {
-            const access = localStorage.getItem("access");
-            if (access) {
-                setAccessToken(access);
-            }
-        };
-
-        const onLogout = () => {
-            setAccessToken(null);
-            setUser(null);
-            setMemberships([]);
-            setActiveOrganizationId(null);
-            setActiveWorkspaceId(null);
-        };
-
-        const onOrganizationChanged = (event) => {
-            setActiveOrganizationId(
-                event.detail?.organizationId || localStorage.getItem("active_organization_id") || null
-            );
-        };
-
-        const onWorkspaceChanged = (event) => {
-            setActiveWorkspaceId(
-                event.detail?.workspaceId || localStorage.getItem("active_workspace_id") || null
-            );
-        };
-
-        window.addEventListener("auth:token-refreshed", onTokenRefreshed);
-        window.addEventListener("auth:logout", onLogout);
-        window.addEventListener("organization:changed", onOrganizationChanged);
-        window.addEventListener("workspace:changed", onWorkspaceChanged);
-
-        return () => {
-            window.removeEventListener("auth:token-refreshed", onTokenRefreshed);
-            window.removeEventListener("auth:logout", onLogout);
-            window.removeEventListener("organization:changed", onOrganizationChanged);
-            window.removeEventListener("workspace:changed", onWorkspaceChanged);
-        };
-    }, []);
-
-    const loadMemberships = useCallback(async () => {
+    const loadUserProfile = useCallback(async () => {
         setLoadingMemberships(true);
         try {
-            const res = await API.get("/profile/memberships/");
-            const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
-            setMemberships(data);
-            return data;
+            const [meRes, orgsRes] = await Promise.all([
+                API.get("/users/me/"),
+                API.get("/organizations/"),
+            ]);
+
+            const me = meRes.data;
+            setUser({
+                id: me.id,
+                email: me.email,
+                username: me.username,
+                first_name: me.first_name || "",
+                last_name: me.last_name || "",
+                authenticated: true,
+            });
+
+            const orgs = Array.isArray(orgsRes.data)
+                ? orgsRes.data
+                : orgsRes.data.results ?? [];
+
+            const rolesMap = {};
+            orgs.forEach((org) => {
+                if (org.id && org.my_role) rolesMap[org.id] = org.my_role;
+            });
+            setOrgRoles(rolesMap);
+
+            // Sync current role for the first org
+            const firstOrgId = orgs[0]?.id;
+            if (firstOrgId) {
+                const rawRole = rolesMap[firstOrgId] || null;
+                const currentRole = normalizeRole(rawRole);
+                setRole(currentRole);
+                setOrgRole(currentRole);
+            }
         } catch {
-            setMemberships([]);
-            return [];
+            // Profile load failure must not log the user out
         } finally {
             setLoadingMemberships(false);
         }
     }, []);
 
-    const loadProfile = useCallback(async () => {
-        try {
-            const res = await API.get("/profile/");
-            setUser((current) => ({
-                ...(current || {}),
-                ...res.data,
-                authenticated: true,
-            }));
-            if (res.data?.email) {
-                localStorage.setItem("user_email", res.data.email);
-            }
-            return res.data;
-        } catch {
-            return null;
-        }
-    }, []);
-
     useEffect(() => {
-        if (!accessToken) {
-            setMemberships([]);
+        const token = localStorage.getItem("access");
+        if (token) {
+            setAccessToken(token);
+            // Immediately hydrate user from localStorage so UI renders before API responds
+            const storedEmail = localStorage.getItem("user_email");
+            if (storedEmail) {
+                setUser((prev) => prev || { email: storedEmail, authenticated: true });
+            }
+            loadUserProfile();
+        } else {
             setLoadingMemberships(false);
-            return;
         }
 
-        loadProfile();
-        loadMemberships();
-    }, [accessToken, loadMemberships, loadProfile]);
+        const onTokenRefreshed = (event) => {
+            const access = event.detail?.access;
+            if (access) setAccessToken(access);
+        };
 
-    const activeMembership = useMemo(() => {
-        if (!memberships.length) return null;
+        const onLogout = () => {
+            setAccessToken(null);
+            setUser(null);
+            setOrgRoles({});
+            setRole(null);
+            setOrgRole(null);
+            setLoadingMemberships(false);
+        };
 
-        const matchedById = activeOrganizationId
-            ? memberships.find(
-                  (membership) => String(membership.organization.id) === String(activeOrganizationId)
-              )
-            : null;
-
-        return matchedById || memberships[0] || null;
-    }, [activeOrganizationId, memberships]);
-
-    const orgRole = activeMembership?.role || null;
-
-    const workspaceRole = useMemo(() => {
-        if (!activeMembership || !activeWorkspaceId) return null;
-
-        return (
-            activeMembership.workspaces?.find(
-                (workspace) => String(workspace.id) === String(activeWorkspaceId)
-            )?.role || null
-        );
-    }, [activeMembership, activeWorkspaceId]);
-
-    const highestWorkspaceRole = useMemo(() => {
-        const roles = activeMembership?.workspaces?.map((workspace) => workspace.role) || [];
-        return roles.reduce((highest, current) => {
-            return (ROLE_WEIGHTS[current] || 0) > (ROLE_WEIGHTS[highest] || 0)
-                ? current
-                : highest;
-        }, null);
-    }, [activeMembership]);
-
-    const role = useMemo(() => {
-        const orgWeight = ROLE_WEIGHTS[orgRole] || 0;
-        const effectiveWorkspaceRole = workspaceRole || highestWorkspaceRole;
-        const workspaceWeight = ROLE_WEIGHTS[effectiveWorkspaceRole] || 0;
-        const effectiveWeight = Math.max(orgWeight, workspaceWeight);
-
-        return (
-            Object.entries(ROLE_WEIGHTS).find(([, weight]) => weight === effectiveWeight)?.[0] ||
-            null
-        );
-    }, [highestWorkspaceRole, orgRole, workspaceRole]);
-
-    const isOrgAdmin = useMemo(() => () => role === "org_admin", [role]);
-
-    const isWorkspaceAdminOrAbove = useMemo(
-        () => () => (ROLE_WEIGHTS[role] || 0) >= ROLE_WEIGHTS.workspace_admin,
-        [role]
-    );
-
-    const isManagerOrAbove = useMemo(
-        () => () => (ROLE_WEIGHTS[role] || 0) >= ROLE_WEIGHTS.manager,
-        [role]
-    );
+        window.addEventListener("auth:token-refreshed", onTokenRefreshed);
+        window.addEventListener("auth:logout", onLogout);
+        return () => {
+            window.removeEventListener("auth:token-refreshed", onTokenRefreshed);
+            window.removeEventListener("auth:logout", onLogout);
+        };
+    }, [loadUserProfile]);
 
     const login = async (email, password) => {
         try {
-            const response = await API.post("/auth/login", {
-                email,
-                password,
-            });
-
-            const access = response.data.access;
-            const refresh = response.data.refresh;
+            const response = await API.post("/auth/login", { email, password });
+            const { access, refresh } = response.data;
 
             localStorage.setItem("access", access);
             localStorage.setItem("refresh", refresh);
             localStorage.setItem("user_email", email);
 
             setAccessToken(access);
+            // Immediately set user from email so heading shows right away
+            setUser((prev) => prev || { email, authenticated: true });
+            await loadUserProfile();
 
-            setUser({
-                email,
-                authenticated: true,
-            });
-
-            window.dispatchEvent(new Event("auth:login"));
-            await loadProfile();
-            await loadMemberships();
-
-            return {
-                success: true,
-            };
+            return { success: true };
         } catch (error) {
             return {
                 success: false,
-                message: getApiErrorMessage(error, "Invalid credentials"),
+                message: extractApiErrorMessage(
+                    error.response?.data,
+                    "Invalid credentials"
+                ),
             };
         }
     };
@@ -233,31 +141,54 @@ export const AuthProvider = ({ children }) => {
         clearAuthStorage();
         setAccessToken(null);
         setUser(null);
-        setMemberships([]);
-        setActiveOrganizationId(null);
-        setActiveWorkspaceId(null);
+        setOrgRoles({});
+        setRole(null);
+        setOrgRole(null);
+        setLoadingMemberships(false);
     };
+
+    const isAdminOfOrg = useCallback(
+        (orgId) => orgRoles[orgId] === "admin" || orgRoles[orgId] === "org_admin",
+        [orgRoles]
+    );
+
+    const isManagerOrAdminOfOrg = useCallback(
+        (orgId) => ["admin", "org_admin", "manager"].includes(orgRoles[orgId]),
+        [orgRoles]
+    );
+
+    const isOrgAdmin = useCallback(
+        () => role === "org_admin" || role === "admin",
+        [role]
+    );
+
+    const isManagerOrAbove = useCallback(
+        () => ["org_admin", "admin", "manager"].includes(role),
+        [role]
+    );
+
+    const isWorkspaceAdminOrAbove = useCallback(
+        () => role === "workspace_admin" || role === "org_admin" || role === "admin",
+        [role]
+    );
 
     return (
         <AuthContext.Provider
             value={{
                 user,
                 accessToken,
-                memberships,
-                loadingMemberships,
                 role,
                 orgRole,
-                workspaceRole,
-                highestWorkspaceRole,
-                activeOrganizationId,
-                activeWorkspaceId,
+                orgRoles,
+                loadingMemberships,
+                isAdminOfOrg,
+                isManagerOrAdminOfOrg,
                 isOrgAdmin,
                 isWorkspaceAdminOrAbove,
                 isManagerOrAbove,
-                loadMemberships,
-                loadProfile,
                 login,
                 logout,
+                refreshProfile: loadUserProfile,
             }}
         >
             {children}

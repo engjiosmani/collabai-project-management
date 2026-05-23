@@ -244,9 +244,7 @@ class IsManagerOrAbove(BasePermission):
                 (TeamMember.WORKSPACE_ADMIN, TeamMember.MANAGER),
             )
         organization = resolve_organization(obj)
-        return _user_has_org_role(
-            request.user, organization, (OrganizationMember.ORG_ADMIN,)
-        )
+        return user_is_manager_or_above(request.user, organization)
 
 
 class IsMember(BasePermission):

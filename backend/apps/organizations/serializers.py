@@ -5,12 +5,13 @@ from apps.workspaces.models import Workspace, TeamMember
 from apps.workspaces.models import JobRole, Workspace, TeamMember
 from .models import Organization, OrganizationInvite, OrganizationMember
 
-
+from rest_framework import serializers
+from apps.organizations.models import Organization, OrganizationMember
 
 class OrganizationSerializer(serializers.ModelSerializer):
-    project_count = serializers.IntegerField(read_only=True)
-    member_count = serializers.IntegerField(read_only=True)
-
+    project_count = serializers.IntegerField(read_only=True, default=0)
+    member_count = serializers.IntegerField(read_only=True, default=0)
+    my_role = serializers.SerializerMethodField()
     class Meta:
         model = Organization
         fields = (
@@ -19,10 +20,22 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'description',
             'project_count',
             'member_count',
+            'my_role',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('project_count', 'member_count', 'created_at', 'updated_at')
+        read_only_fields = ('project_count', 'member_count', 'my_role', 'created_at', 'updated_at')
+    def get_my_role(self, obj) -> str | None:
+        request = self.context.get('request')
+        if not request:
+            return None
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return None
+        member = OrganizationMember.objects.filter(
+            organization=obj, user=user
+        ).first()
+        return member.role if member else None
 
     def validate_name(self, value: str):
         text = (value or '').strip()
