@@ -1,5 +1,5 @@
 from django.db import IntegrityError
-from drf_spectacular.utils import extend_schema_serializer
+from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
@@ -125,7 +125,8 @@ class TeamMemberSerializer(serializers.ModelSerializer):
     task_categories = serializers.SerializerMethodField()
     workspace_name = serializers.CharField(source='workspace.name', read_only=True)
 
-    def get_task_categories(self, obj):
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
+    def get_task_categories(self, obj) -> list[str]:
         if obj.job_role_id and obj.job_role:
             return list(obj.job_role.task_categories or [])
         return []

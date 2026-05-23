@@ -11,6 +11,7 @@ urlpatterns = [
     path('invites/<str:token>/accept/', AcceptInviteView.as_view(), name='accept-invite'),
 
     path('job-roles/', include('apps.workspaces.job_roles_urls')),
+    path('workspaces/', include('apps.workspaces.urls')),
     path('projects/', include('apps.projects.urls')),
     path('tasks/', include('apps.tasks.urls')),
     path('comments/', include('apps.comments.urls')),

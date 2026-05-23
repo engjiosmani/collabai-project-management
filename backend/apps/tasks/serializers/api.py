@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 
@@ -7,6 +8,12 @@ from common.role_permissions import user_has_project_access, user_is_manager_or_
 from common.tenant_access import user_can_access_organization
 
 from ..models import Attachment, Label, Task, TaskLabel, TaskPriority, TaskStatus
+
+
+class TaskLabelSchemaSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    color = serializers.CharField()
 
 
 class TaskStatusSerializer(serializers.ModelSerializer):
@@ -21,6 +28,7 @@ class TaskPrioritySerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'level')
 
 
+@extend_schema_field(TaskLabelSchemaSerializer(many=True))
 class TaskLabelsField(serializers.Field):
     def get_attribute(self, instance):
         return instance
@@ -100,7 +108,7 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
             'updated_at',
         )
 
-    def get_file_url(self, obj):
+    def get_file_url(self, obj) -> str | None:
         request = self.context.get('request')
         if not obj.file:
             return None
@@ -147,11 +155,11 @@ class TaskSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('created_at', 'updated_at')
 
-    def get_created_by_id(self, obj):
+    def get_created_by_id(self, obj) -> int | None:
         creator = self._get_creator_activity(obj)
         return creator.user_id if creator and creator.user_id else None
 
-    def get_created_by_email(self, obj):
+    def get_created_by_email(self, obj) -> str | None:
         creator = self._get_creator_activity(obj)
         if creator and creator.user:
             return creator.user.email or creator.user.get_username()

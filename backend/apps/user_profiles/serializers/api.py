@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from apps.organizations.models import Organization, OrganizationMember
 from common.tenant_access import user_can_access_organization
@@ -136,13 +137,18 @@ class MembershipWorkspaceSerializer(serializers.Serializer):
     id = serializers.IntegerField(source='workspace.id')
     name = serializers.CharField(source='workspace.name')
     role = serializers.CharField()
+class MembershipOrganizationSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
 class MembershipSerializer(serializers.Serializer):
     organization = serializers.SerializerMethodField()
     role = serializers.CharField()
     workspaces = serializers.SerializerMethodField()
-    def get_organization(self, obj):
+    @extend_schema_field(MembershipOrganizationSerializer)
+    def get_organization(self, obj) -> dict:
         return {'id': obj.organization.id, 'name': obj.organization.name}
-    def get_workspaces(self, obj):
+    @extend_schema_field(MembershipWorkspaceSerializer(many=True))
+    def get_workspaces(self, obj) -> list[dict]:
         from apps.workspaces.models import TeamMember
         memberships = TeamMember.objects.filter(
             workspace__organization=obj.organization,

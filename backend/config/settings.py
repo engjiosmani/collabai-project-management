@@ -318,11 +318,34 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'API documentation for CollabAI.',
     'VERSION': '1.0.0',
     'SECURITY': [{'bearerAuth': []}],
+    'POSTPROCESSING_HOOKS': [
+        'drf_spectacular.hooks.postprocess_schema_enums',
+        'common.openapi.complete_openapi_schema',
+    ],
     'ENUM_NAME_OVERRIDES': {
         'MemberRoleEnum': [
             ('admin', 'Admin'),
             ('manager', 'Manager'),
             ('member', 'Member'),
+        ],
+        'OrganizationMemberRoleEnum': [
+            ('org_admin', 'Organization Admin'),
+            ('member', 'Member'),
+        ],
+        'OrganizationInviteRoleEnum': [
+            ('org_admin', 'Organization Admin'),
+            ('workspace_admin', 'Workspace Admin'),
+            ('manager', 'Manager'),
+            ('member', 'Member'),
+        ],
+        'WorkspaceMemberRoleEnum': [
+            ('workspace_admin', 'Workspace Admin'),
+            ('manager', 'Manager'),
+            ('member', 'Member'),
+        ],
+        'ChatMessageRoleEnum': [
+            ('user', 'User'),
+            ('assistant', 'Assistant'),
         ],
     },
     'COMPONENTS': {
