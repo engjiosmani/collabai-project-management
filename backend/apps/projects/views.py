@@ -1,12 +1,12 @@
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
-from rest_framework import status, viewsets
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from common.cache import CachedListMixin, NAMESPACE_PROJECTS
 from common.permissions import IsOrganizationMember
-from common.role_permissions import IsAdmin, IsManagerOrAdmin
+from common.role_permissions import IsAdmin, IsManagerOrAdmin, project_visibility_q
 from common.tenant_viewset import TenantScopedViewSet
 
 from .filters import ProjectFilter
@@ -43,6 +43,15 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
         'organization__name',
     )
     ordering = ('-created_at',)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        organization_ids = getattr(self.request, 'organization_ids', [])
+        if not organization_ids:
+            return queryset.none()
+        return queryset.filter(
+            project_visibility_q(self.request.user, organization_ids)
+        ).distinct()
 
     def get_permissions(self):
         if self.action == 'destroy':

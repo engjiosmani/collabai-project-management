@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import API, { clearAuthStorage } from "../api/api";
 
 export const AuthContext = createContext();

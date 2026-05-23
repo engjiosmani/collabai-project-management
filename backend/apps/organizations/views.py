@@ -287,8 +287,8 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             send_invite_email.delay(invite.id)
         except Exception as exc:
             import logging
-            logging.getLogger(__name__).error(
-                "invite: failed to queue send_invite_email", invite.id, exc
+            logging.getLogger(__name__).exception(
+                "invite: failed to queue send_invite_email for invite %s", invite.id
             )
         write_audit_log(
             request.user,

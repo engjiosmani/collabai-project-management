@@ -390,7 +390,7 @@ RAG_FORCE_MEMORY_STORE = (
 if "test" in sys.argv:
     CELERY_BROKER_URL = 'memory://'
     CELERY_RESULT_BACKEND = 'cache+memory://'
-    CELERY_TASK_ALWAYS_EAGER = False
+    CELERY_TASK_ALWAYS_EAGER = True
 else:
     CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', REDIS_URL or 'redis://127.0.0.1:6379/1')
     CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
