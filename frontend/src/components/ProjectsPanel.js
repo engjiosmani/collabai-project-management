@@ -1,331 +1,597 @@
-import { useCallback, useEffect, useState } from "react";
-
+import { useCallback, useContext, useEffect, useState } from "react";
 import API, { getApiErrorMessage } from "../api/api";
-import { useOrganization } from "../context/OrganizationContext";
-import { useRole } from "../hooks/useRole";
-import { formatWorkspaceLabel } from "../utils/workspaceLabel";
-
+import { deleteProject, fetchProjectsPaginated } from "../api/projects";
+import { AuthContext } from "../context/AuthContext";
+import ProjectFormModal from "./ProjectFormModal";
 import "./ProjectsPanel.css";
 
-const emptyForm = {
-    name: "",
-    description: "",
-    start_date: "",
-    due_date: "",
-};
+const PAGE_SIZE = 12;
+const SORT_OPTIONS = [
+    { value: "-created_at", label: "Newest first" },
+    { value: "created_at", label: "Oldest first" },
+    { value: "name", label: "Name A–Z" },
+    { value: "-name", label: "Name Z–A" },
+    { value: "due_date", label: "Due date ↑" },
+    { value: "-due_date", label: "Due date ↓" },
+];
 
-export default function ProjectsPanel({ onSelectProject, selectedProjectId, layout = "dashboard" }) {
+export default function ProjectsPanel({
+    onSelectProject,
+    selectedProjectId,
+    layout = "dashboard",
+}) {
+    const { isAdminOfOrg, isManagerOrAdminOfOrg } = useContext(AuthContext);
     const isPageLayout = layout === "page";
-    const { activeOrganization } = useOrganization();
-    const { isOrgAdmin, isManagerOrAbove } = useRole();
-    const canManageProjects = isManagerOrAbove();
-    const canArchiveProjects = isOrgAdmin();
 
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
-    const [editingProject, setEditingProject] = useState(null);
-    const [form, setForm] = useState(emptyForm);
 
-    const load = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            const params = activeOrganization?.id ? { organization: activeOrganization.id } : {};
-            const res = await API.get("/projects/", { params });
-            const list = Array.isArray(res.data) ? res.data : res.data.results ?? [];
-            setProjects(list);
-        } catch (err) {
-            setError(getApiErrorMessage(err, "Could not load projects."));
-        } finally {
-            setLoading(false);
-        }
-    }, [activeOrganization?.id]);
+    const [total, setTotal] = useState(0);
+    const [nextPageUrl, setNextPageUrl] = useState(null);
+
+    // Filters / search / sort
+    const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const [orgFilter, setOrgFilter] = useState("");
+    const [sortBy, setSortBy] = useState("-created_at");
+
+    // Organizations for filter dropdown
+    const [organizations, setOrganizations] = useState([]);
+
+    // Modals
+    const [showCreate, setShowCreate] = useState(false);
+    const [editProject, setEditProject] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
+    const [refreshToken, setRefreshToken] = useState(0);
+
+    // ── Load organizations ───────────────────────────────────────────────────
 
     useEffect(() => {
-        load();
-    }, [load]);
+        API.get("/organizations/")
+            .then((res) => {
+                const list = Array.isArray(res.data)
+                    ? res.data
+                    : res.data.results ?? [];
+                setOrganizations(list);
+            })
+            .catch(() => {});
+    }, []);
 
-    const resetForm = () => {
-        setEditingProject(null);
-        setForm(emptyForm);
-    };
+    // ── Load projects ────────────────────────────────────────────────────────
 
-    const startEdit = (project) => {
-        setEditingProject(project);
-        setForm({
-            name: project.name || "",
-            description: project.description || "",
-            start_date: project.start_date || "",
-            due_date: project.due_date || "",
-        });
-    };
-
-    const saveProject = async (event) => {
-        event.preventDefault();
-        if (!canManageProjects) return;
-
-        if (!activeOrganization?.id) {
-            setError("Select an organization before creating a project.");
-            return;
-        }
-
-        if (!form.name.trim()) {
-            setError("Project name is required.");
-            return;
-        }
-
-        setSaving(true);
-        setError(null);
-
-        const payload = {
-            organization: activeOrganization.id,
-            name: form.name.trim(),
-            description: form.description.trim(),
-            start_date: form.start_date || null,
-            due_date: form.due_date || null,
-        };
-
-        try {
-            if (editingProject) {
-                await API.patch(`/projects/${editingProject.id}/`, payload);
+    const loadProjects = useCallback(
+        async ({ reset = true, nextUrl = null } = {}) => {
+            if (reset) {
+                setLoading(true);
             } else {
-                await API.post("/projects/", payload);
+                setLoadingMore(true);
             }
-            resetForm();
-            await load();
-        } catch (err) {
-            setError(getApiErrorMessage(err, "Could not save project."));
-        } finally {
-            setSaving(false);
-        }
+            setError(null);
+
+            const params = reset
+                ? {
+                      page_size: PAGE_SIZE,
+                      ordering: sortBy,
+                      ...(debouncedSearch.trim()
+                          ? { search: debouncedSearch.trim() }
+                          : {}),
+                      ...(orgFilter ? { organization: orgFilter } : {}),
+                  }
+                : null;
+
+            try {
+                const payload = nextUrl
+                    ? (await API.get(nextUrl)).data
+                    : await fetchProjectsPaginated(params);
+                const results = Array.isArray(payload) ? payload : payload.results ?? [];
+                const count = typeof payload?.count === "number" ? payload.count : null;
+
+                setProjects((prev) => (reset ? results : [...prev, ...results]));
+                setTotal((prev) => {
+                    if (count !== null) return count;
+                    return reset ? results.length : prev + results.length;
+                });
+                setNextPageUrl(payload?.next || null);
+            } catch (err) {
+                setError(getApiErrorMessage(err, "Could not load projects."));
+                if (reset) {
+                    setProjects([]);
+                    setTotal(0);
+                    setNextPageUrl(null);
+                }
+            } finally {
+                setLoading(false);
+                setLoadingMore(false);
+            }
+        },
+        [debouncedSearch, orgFilter, sortBy]
+    );
+
+    useEffect(() => {
+        loadProjects({ reset: true });
+    }, [loadProjects, refreshToken]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(search);
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [search]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
     };
 
-    const archiveProject = async (project) => {
-        if (!canArchiveProjects) return;
-        if (!window.confirm(`Archive project "${project.name}"?`)) return;
+    // ── Org filter ───────────────────────────────────────────────────────────
 
-        setError(null);
+    const handleOrgFilterChange = (e) => {
+        setOrgFilter(e.target.value);
+    };
+
+    // ── Sort ─────────────────────────────────────────────────────────────────
+
+    const handleSortChange = (e) => {
+        setSortBy(e.target.value);
+    };
+
+    // ── Load more ────────────────────────────────────────────────────────────
+
+    const handleLoadMore = () => {
+        if (!nextPageUrl) return;
+        loadProjects({ reset: false, nextUrl: nextPageUrl });
+    };
+
+    // ── Create / Edit saved callback ─────────────────────────────────────────
+
+    const handleSaved = () => {
+        setRefreshToken((current) => current + 1);
+        setEditProject(null);
+        setShowCreate(false);
+    };
+
+    // ── Delete ───────────────────────────────────────────────────────────────
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        setDeleteError(null);
         try {
-            await API.delete(`/projects/${project.id}/`);
-            if (String(selectedProjectId) === String(project.id)) {
-                onSelectProject?.("");
-            }
-            await load();
+            await deleteProject(deleteTarget.id);
+            setDeleteTarget(null);
+            setRefreshToken((current) => current + 1);
         } catch (err) {
-            setError(getApiErrorMessage(err, "Could not archive project."));
+            setDeleteError(getApiErrorMessage(err, "Could not delete project."));
+        } finally {
+            setDeleting(false);
         }
     };
 
-    return (
-        <section
-            className={`dashboard-panel dashboard-panel--wide projects-panel${isPageLayout ? " projects-panel--page" : ""}`}
-            data-cy={isPageLayout ? "projects-page-list" : "dashboard-projects"}
-            aria-label="Your projects"
-        >
-            <div className="dashboard-panel-header">
-                {!isPageLayout ? (
+    const hasMore = Boolean(nextPageUrl);
+
+    // ── Dashboard layout (compact, project selector only) ────────────────────
+
+    if (!isPageLayout) {
+        return (
+            <section
+                className="dashboard-panel dashboard-panel--wide projects-panel"
+                data-cy="dashboard-projects"
+                aria-label="Your projects"
+            >
+                <div className="dashboard-panel-header">
                     <div>
-                        <h3 className="dashboard-panel-title">Projects</h3>
+                        <h3 className="dashboard-panel-title">Your projects</h3>
                         <p className="dashboard-panel-subtitle">
-                            Browse projects in your current organization and open their tasks.
+                            Select a project to filter tasks.
                         </p>
                     </div>
-                ) : null}
-
-                <div className="projects-panel-header-actions">
-                    {canManageProjects ? (
-                        <button
-                            type="button"
-                            className="dashboard-button dashboard-button--primary"
-                            onClick={resetForm}
-                        >
-                            New project
-                        </button>
-                    ) : null}
                     <button
                         type="button"
                         className="dashboard-button dashboard-button--ghost"
-                        onClick={load}
+                        onClick={() => loadProjects({ reset: true })}
                         disabled={loading}
                     >
-                        {loading ? "Loading..." : "Refresh"}
+                        {loading ? "Loading…" : "Refresh"}
                     </button>
                 </div>
-            </div>
 
-            {canManageProjects ? (
-                <form className="projects-panel-form" onSubmit={saveProject}>
-                    <div className="projects-panel-form-grid">
-                        <label>
-                            <span>Name</span>
+                {error && <p className="projects-panel-error">{error}</p>}
+                {loading && <p className="projects-panel-muted">Loading projects…</p>}
+                {!loading && projects.length === 0 && (
+                    <p className="projects-panel-muted">No projects yet.</p>
+                )}
+                {!loading && projects.length > 0 && (
+                    <ul className="projects-panel-list">
+                        {projects.map((p) => {
+                            const isSelected =
+                                String(selectedProjectId) === String(p.id);
+                            return (
+                                <li key={p.id}>
+                                    <article
+                                        className={`projects-panel-card${
+                                            isSelected
+                                                ? " projects-panel-card--active"
+                                                : ""
+                                        }`}
+                                    >
+                                        <div className="projects-panel-card-head">
+                                            <h4 className="projects-panel-card-title">
+                                                {p.name}
+                                            </h4>
+                                            <span
+                                                className={`projects-panel-badge${
+                                                    p.is_active === false
+                                                        ? " projects-panel-badge--inactive"
+                                                        : ""
+                                                }`}
+                                            >
+                                                {p.is_active === false
+                                                    ? "Inactive"
+                                                    : "Active"}
+                                            </span>
+                                        </div>
+                                        {p.organization_name && (
+                                            <p className="projects-panel-card-meta">
+                                                {p.organization_name}
+                                            </p>
+                                        )}
+                                        <div className="projects-panel-card-actions">
+                                            <button
+                                                type="button"
+                                                className="dashboard-button dashboard-button--primary"
+                                                onClick={() =>
+                                                    onSelectProject?.(
+                                                        isSelected ? "" : p.id
+                                                    )
+                                                }
+                                            >
+                                                {isSelected
+                                                    ? "Clear filter"
+                                                    : "View tasks"}
+                                            </button>
+                                        </div>
+                                    </article>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </section>
+        );
+    }
+
+    // ── Page layout (full CRUD + search + filter + sort) ─────────────────────
+
+    return (
+        <>
+            <section
+                className="projects-panel projects-panel--page"
+                data-cy="projects-page-list"
+                aria-label="Projects"
+            >
+                {/* Toolbar */}
+                <div className="pp-toolbar">
+                    <div className="pp-toolbar-left">
+                        <div className="pp-search-wrap">
                             <input
-                                value={form.name}
-                                onChange={(event) =>
-                                    setForm((current) => ({ ...current, name: event.target.value }))
-                                }
-                                placeholder="Project name"
+                                type="search"
+                                className="pp-search-input"
+                                placeholder="Search projects…"
+                                value={search}
+                                onChange={handleSearchChange}
+                                aria-label="Search projects"
                             />
-                        </label>
-                        <label>
-                            <span>Start</span>
-                            <input
-                                type="date"
-                                value={form.start_date}
-                                onChange={(event) =>
-                                    setForm((current) => ({ ...current, start_date: event.target.value }))
-                                }
-                            />
-                        </label>
-                        <label>
-                            <span>Due</span>
-                            <input
-                                type="date"
-                                value={form.due_date}
-                                onChange={(event) =>
-                                    setForm((current) => ({ ...current, due_date: event.target.value }))
-                                }
-                            />
-                        </label>
-                    </div>
-                    <label>
-                        <span>Description</span>
-                        <textarea
-                            value={form.description}
-                            onChange={(event) =>
-                                setForm((current) => ({ ...current, description: event.target.value }))
-                            }
-                            placeholder="Short project summary"
-                            rows={3}
-                        />
-                    </label>
-                    <div className="projects-panel-form-actions">
-                        <button
-                            type="submit"
-                            className="dashboard-button dashboard-button--primary"
-                            disabled={saving}
+                        </div>
+
+                        {organizations.length > 0 && (
+                            <select
+                                className="pp-filter-select"
+                                value={orgFilter}
+                                onChange={handleOrgFilterChange}
+                                aria-label="Filter by organization"
+                            >
+                                <option value="">All organizations</option>
+                                {organizations.map((org) => (
+                                    <option key={org.id} value={org.id}>
+                                        {org.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        <select
+                            className="pp-filter-select"
+                            value={sortBy}
+                            onChange={handleSortChange}
+                            aria-label="Sort projects"
                         >
-                            {saving ? "Saving..." : editingProject ? "Save project" : "Create project"}
+                            {SORT_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                    {o.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <button
+                        type="button"
+                        className="dashboard-button dashboard-button--primary"
+                        onClick={() => setShowCreate(true)}
+                        data-cy="create-project-btn"
+                    >
+                        + New Project
+                    </button>
+                </div>
+
+                {/* Result count */}
+                {!loading && !error && (
+                    <p className="pp-count">
+                        {total === 0
+                            ? "No projects found"
+                            : `${total} project${total !== 1 ? "s" : ""}`}
+                        {search ? ` matching "${search}"` : ""}
+                    </p>
+                )}
+
+                {/* Error */}
+                {error && (
+                    <div className="projects-panel-error" role="alert">
+                        <p>{error}</p>
+                        <button
+                            type="button"
+                            className="dashboard-button dashboard-button--primary"
+                            onClick={() => loadProjects({ reset: true })}
+                        >
+                            Retry
                         </button>
-                        {editingProject ? (
+                    </div>
+                )}
+
+                {/* Loading skeleton */}
+                {loading && (
+                    <div className="pp-grid">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="projects-panel-card pp-skeleton" />
+                        ))}
+                    </div>
+                )}
+
+                {/* Empty state */}
+                {!loading && !error && projects.length === 0 && (
+                    <div className="pp-empty">
+                        <p className="pp-empty-title">
+                            {search || orgFilter
+                                ? "No projects match your search."
+                                : "No projects yet."}
+                        </p>
+                        {!search && !orgFilter && (
+                            <button
+                                type="button"
+                                className="dashboard-button dashboard-button--primary"
+                                onClick={() => setShowCreate(true)}
+                            >
+                                Create your first project
+                            </button>
+                        )}
+                        {(search || orgFilter) && (
                             <button
                                 type="button"
                                 className="dashboard-button dashboard-button--ghost"
-                                onClick={resetForm}
+                                onClick={() => {
+                                    setSearch("");
+                                    setOrgFilter("");
+                                    setDebouncedSearch("");
+                                    setRefreshToken((current) => current + 1);
+                                }}
                             >
-                                Cancel
+                                Clear filters
                             </button>
-                        ) : null}
+                        )}
                     </div>
-                </form>
-            ) : null}
+                )}
 
-            {error ? (
-                <div className="projects-panel-error" role="alert">
-                    <p>{error}</p>
-                    <button type="button" className="dashboard-button dashboard-button--primary" onClick={load}>
-                        Retry
-                    </button>
-                </div>
-            ) : null}
+                {/* Project cards */}
+                {!loading && projects.length > 0 && (
+                    <div className="pp-grid">
+                        {projects.map((project) => {
+                            const organizationId = project.organization?.id ?? project.organization;
+                            const canEdit = isManagerOrAdminOfOrg(
+                                organizationId
+                            );
+                            const canDelete = isAdminOfOrg(organizationId);
 
-            {loading && !error ? (
-                <p className="projects-panel-muted">Loading projects...</p>
-            ) : null}
-
-            {!loading && !error && projects.length === 0 ? (
-                <p className="projects-panel-muted">
-                    {canManageProjects
-                        ? "No projects yet. Create the first project for this organization."
-                        : "No projects are assigned or visible to you yet."}
-                </p>
-            ) : null}
-
-            {!loading && !error && projects.length > 0 ? (
-                <ul className="projects-panel-list">
-                    {projects.map((project) => {
-                        const isSelected = String(selectedProjectId) === String(project.id);
-                        const workspaceLabel = project.workspace_name
-                            ? formatWorkspaceLabel({ name: project.workspace_name })
-                            : null;
-
-                        return (
-                            <li key={project.id}>
-                                <article className={`projects-panel-card${isSelected ? " projects-panel-card--active" : ""}`}>
+                            return (
+                                <article
+                                    key={project.id}
+                                    className="projects-panel-card"
+                                    data-cy={`project-card-${project.id}`}
+                                >
                                     <div className="projects-panel-card-head">
-                                        <h4 className="projects-panel-card-title">{project.name}</h4>
-                                        {project.is_active === false ? (
-                                            <span className="projects-panel-badge projects-panel-badge--inactive">
-                                                Inactive
-                                            </span>
-                                        ) : (
-                                            <span className="projects-panel-badge">Active</span>
-                                        )}
+                                        <h4 className="projects-panel-card-title">
+                                            {project.name}
+                                        </h4>
+                                        <span
+                                            className={`projects-panel-badge${
+                                                project.is_active === false
+                                                    ? " projects-panel-badge--inactive"
+                                                    : ""
+                                            }`}
+                                        >
+                                            {project.is_active === false
+                                                ? "Inactive"
+                                                : "Active"}
+                                        </span>
                                     </div>
-                                    {workspaceLabel && workspaceLabel !== project.name ? (
-                                        <p className="projects-panel-card-meta">{workspaceLabel}</p>
-                                    ) : null}
-                                    {project.description ? (
-                                        <p className="projects-panel-card-desc">
-                                            {project.description.length > 160
-                                                ? `${project.description.slice(0, 160)}...`
-                                                : project.description}
-                                        </p>
-                                    ) : (
-                                        <p className="projects-panel-card-desc projects-panel-card-desc--empty">
-                                            No description
+
+                                    {project.organization_name && (
+                                        <p className="projects-panel-card-meta">
+                                            {project.organization_name}
                                         </p>
                                     )}
+
+                                    <p
+                                        className={`projects-panel-card-desc${
+                                            !project.description
+                                                ? " projects-panel-card-desc--empty"
+                                                : ""
+                                        }`}
+                                    >
+                                        {project.description
+                                            ? project.description.length > 140
+                                                ? `${project.description.slice(
+                                                      0,
+                                                      140
+                                                  )}…`
+                                                : project.description
+                                            : "No description"}
+                                    </p>
+
                                     {(project.start_date || project.due_date) && (
                                         <p className="projects-panel-card-dates">
-                                            {project.start_date ? `Start: ${project.start_date}` : ""}
-                                            {project.start_date && project.due_date ? " - " : ""}
-                                            {project.due_date ? `Due: ${project.due_date}` : ""}
+                                            {project.start_date
+                                                ? `Start: ${project.start_date}`
+                                                : ""}
+                                            {project.start_date &&
+                                            project.due_date
+                                                ? " · "
+                                                : ""}
+                                            {project.due_date
+                                                ? `Due: ${project.due_date}`
+                                                : ""}
                                         </p>
                                     )}
+
+                                    {project.member_count !== undefined && (
+                                        <p className="pp-member-count">
+                                            {project.member_count}{" "}
+                                            {project.member_count === 1
+                                                ? "member"
+                                                : "members"}
+                                        </p>
+                                    )}
+
                                     <div className="projects-panel-card-actions">
                                         <button
                                             type="button"
                                             className="dashboard-button dashboard-button--primary"
-                                            onClick={() => onSelectProject?.(project.id)}
+                                            onClick={() =>
+                                                onSelectProject?.(project.id)
+                                            }
                                         >
-                                            {isSelected ? "Showing tasks" : isPageLayout ? "Open tasks" : "View tasks"}
+                                            Open tasks
                                         </button>
-                                        {canManageProjects ? (
+
+                                        {canEdit && (
                                             <button
                                                 type="button"
                                                 className="dashboard-button dashboard-button--ghost"
-                                                onClick={() => startEdit(project)}
+                                                onClick={() =>
+                                                    setEditProject(project)
+                                                }
+                                                data-cy={`edit-project-${project.id}`}
                                             >
                                                 Edit
                                             </button>
-                                        ) : null}
-                                        {isSelected ? (
-                                            <button
-                                                type="button"
-                                                className="dashboard-button dashboard-button--ghost"
-                                                onClick={() => onSelectProject?.("")}
-                                            >
-                                                Show all tasks
-                                            </button>
-                                        ) : null}
-                                        {canArchiveProjects ? (
+                                        )}
+
+                                        {canDelete && (
                                             <button
                                                 type="button"
                                                 className="dashboard-button dashboard-button--danger"
-                                                onClick={() => archiveProject(project)}
+                                                onClick={() =>
+                                                    setDeleteTarget(project)
+                                                }
+                                                data-cy={`delete-project-${project.id}`}
                                             >
-                                                Archive
+                                                Delete
                                             </button>
-                                        ) : null}
+                                        )}
                                     </div>
                                 </article>
-                            </li>
-                        );
-                    })}
-                </ul>
-            ) : null}
-        </section>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* Load more */}
+                {hasMore && !loading && (
+                    <div className="pp-load-more">
+                        <button
+                            type="button"
+                            className="dashboard-button dashboard-button--ghost"
+                            onClick={handleLoadMore}
+                            disabled={loadingMore}
+                        >
+                            {loadingMore
+                                ? "Loading…"
+                                : `Load more (${total - projects.length} remaining)`}
+                        </button>
+                    </div>
+                )}
+            </section>
+
+            {/* ── Modals ───────────────────────────────────────────────────── */}
+
+            <ProjectFormModal
+                open={showCreate}
+                project={null}
+                onClose={() => setShowCreate(false)}
+                onSaved={handleSaved}
+            />
+
+            <ProjectFormModal
+                open={Boolean(editProject)}
+                project={editProject}
+                onClose={() => setEditProject(null)}
+                onSaved={handleSaved}
+            />
+
+
+            {/* Delete confirmation */}
+            {deleteTarget && (
+                <div className="pm-overlay" role="dialog" aria-modal="true">
+                    <div className="pm-dialog pm-dialog--confirm">
+                        <div className="pm-header">
+                            <h2 className="pm-title">Delete Project</h2>
+                        </div>
+                        <p className="pm-confirm-text">
+                            Are you sure you want to permanently delete{" "}
+                            <strong>{deleteTarget.name}</strong>? This will also
+                            remove all associated tasks. This cannot be undone.
+                        </p>
+                        {deleteError && (
+                            <div className="pm-error" role="alert">
+                                {deleteError}
+                            </div>
+                        )}
+                        <div className="pm-actions">
+                            <button
+                                type="button"
+                                className="dashboard-button dashboard-button--ghost"
+                                onClick={() => {
+                                    setDeleteTarget(null);
+                                    setDeleteError(null);
+                                }}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className="dashboard-button dashboard-button--danger"
+                                onClick={handleDeleteConfirm}
+                                disabled={deleting}
+                            >
+                                {deleting ? "Deleting…" : "Delete project"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

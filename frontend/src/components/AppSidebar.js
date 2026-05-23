@@ -6,6 +6,37 @@ import { useOrganization } from "../context/OrganizationContext";
 
 const STORAGE_KEY = "collabai-sidebar-collapsed";
 
+// Shto pas: import { AuthContext } from "../context/AuthContext";
+// (importi ekziston tashmë — shto vetëm komponentin UserChip para export default)
+
+function UserChip() {
+  const { user } = useContext(AuthContext);
+  if (!user) return null;
+
+  const displayName =
+    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+    user.username ||
+    user.email ||
+    "User";
+
+  const initials = displayName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="sidebar-user-chip">
+      <div className="sidebar-user-avatar">{initials}</div>
+      <div className="sidebar-user-info">
+        <span className="sidebar-user-name">{displayName}</span>
+        <span className="sidebar-user-email">{user.email}</span>
+      </div>
+    </div>
+  );
+}
+
 function HamburgerIcon() {
   return (
     <span className="dashboard-sidebar-burger" aria-hidden>
@@ -212,23 +243,20 @@ export default function AppSidebar({ onNavigateSection }) {
         </div>
 
         {!collapsed ? (
-          <div className="dashboard-sidebar-footer">
-            <p className="dashboard-sidebar-note" data-cy="dashboard-sidebar-note">
-              Connected securely over REST using JWT authentication and the shared CollabAI API client.
-            </p>
-
-            <button
-              className="dashboard-button dashboard-button--ghost"
-              data-cy="dashboard-logout"
-              type="button"
-              onClick={() => {
-                logout();
-                navigate("/login");
-              }}
-            >
-              Logout
-            </button>
-          </div>
+<div className="dashboard-sidebar-footer">
+  <UserChip />
+  <button
+    className="dashboard-button dashboard-button--ghost"
+    data-cy="dashboard-logout"
+    type="button"
+    onClick={() => {
+      logout();
+      navigate("/login");
+    }}
+  >
+    Logout
+  </button>
+</div>
         ) : null}
       </div>
     </aside>

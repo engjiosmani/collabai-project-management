@@ -1,41 +1,34 @@
-from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework import status
+from django.contrib.auth import get_user_model
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from apps.organizations.models import OrganizationMember
 from common.cache import CachedListMixin, NAMESPACE_PROJECTS
 from common.permissions import IsOrganizationMember
+from common.role_permissions import IsAdmin, IsManagerOrAdmin
 from common.tenant_viewset import TenantScopedViewSet
-from common.role_permissions import (
-    IsOrgAdmin,
-    project_visibility_q,
-    user_is_manager_or_above,
-)
-from apps.audit_logs.services import write_audit_log
 
 from .filters import ProjectFilter
 from .models import Project, ProjectMember
-from .serializers import ProjectSerializer
+from .serializers import AddProjectMemberSerializer, ProjectMemberSerializer, ProjectSerializer
+
+User = get_user_model()
 
 
 @extend_schema_view(
     list=extend_schema(tags=['Projects'], summary='List projects'),
     retrieve=extend_schema(tags=['Projects'], summary='Retrieve project'),
     create=extend_schema(tags=['Projects'], summary='Create project'),
-    update=extend_schema(tags=['Projects'], summary='Update project'),
-    partial_update=extend_schema(tags=['Projects'], summary='Partially update project'),
-    destroy=extend_schema(tags=['Projects'], summary='Delete project'),
+    update=extend_schema(tags=['Projects'], summary='Update project (manager/admin only)'),
+    partial_update=extend_schema(tags=['Projects'], summary='Partially update project (manager/admin only)'),
+    destroy=extend_schema(tags=['Projects'], summary='Delete project (admin only)'),
 )
 class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
     cache_namespace = NAMESPACE_PROJECTS
     cache_default_list_path = '/api/v1/projects/'
-    """
-    CRUD for projects scoped to organizations the current user belongs to.
-    """
-    queryset = Project.objects.select_related('organization')
 
+    queryset = Project.objects.select_related('organization')
     serializer_class = ProjectSerializer
     permission_classes = [IsOrganizationMember]
     filterset_class = ProjectFilter
@@ -52,137 +45,65 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
     ordering = ('-created_at',)
 
     def get_permissions(self):
-        if self.action == "destroy":
-            return [IsOrgAdmin()]
+        if self.action == 'destroy':
+            return [IsAdmin()]
+        if self.action in ('update', 'partial_update'):
+            return [IsManagerOrAdmin()]
         return super().get_permissions()
 
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return self.queryset.none()
+    # ── Project Members ──────────────────────────────────────────────────────
 
-        org_ids = getattr(self.request, 'organization_ids', [])
-        return (
-            self.queryset.filter(
-                project_visibility_q(self.request.user, org_ids),
-                is_active=True,
-            )
-            .distinct()
-        )
-
-    def perform_create(self, serializer):
-        organization = serializer.validated_data['organization']
-        if not user_is_manager_or_above(self.request.user, organization):
-            raise PermissionDenied('You must be a manager or above to create projects.')
-        project = serializer.save()
-        ProjectMember.objects.get_or_create(project=project, user=self.request.user)
-
-    def perform_update(self, serializer):
-        organization = serializer.validated_data.get(
-            'organization',
-            serializer.instance.organization,
-        )
-        if not user_is_manager_or_above(self.request.user, organization):
-            raise PermissionDenied('You must be a manager or above to update projects.')
-        serializer.save()
-
-    def perform_destroy(self, instance):
-        instance.is_active = False
-        instance.save(update_fields=['is_active', 'updated_at'])
-        write_audit_log(
-            self.request.user,
-            'PROJECT_SOFT_DELETED',
-            'Project',
-            instance.pk,
-            {'organization_id': instance.organization_id, 'name': instance.name},
-        )
-
+    @extend_schema(
+        tags=['Projects'],
+        summary='List project members',
+        responses={200: ProjectMemberSerializer(many=True)},
+    )
     @action(detail=True, methods=['get', 'post'], url_path='members')
     def members(self, request, pk=None):
         project = self.get_object()
 
         if request.method == 'GET':
-            memberships = project.members.select_related('user').order_by('user__email')
+            members = ProjectMember.objects.filter(project=project).select_related('user')
             return Response(
-                [
-                    {
-                        'id': membership.pk,
-                        'user_id': membership.user_id,
-                        'email': membership.user.email,
-                        'username': membership.user.username,
-                        'created_at': membership.created_at,
-                    }
-                    for membership in memberships
-                ],
+                ProjectMemberSerializer(members, many=True).data,
                 status=status.HTTP_200_OK,
             )
 
-        if not user_is_manager_or_above(request.user, project.organization):
-            raise PermissionDenied('You must be a manager or above to add project members.')
+        # POST — add member
+        serializer = AddProjectMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_id = serializer.validated_data['user_id']
+        user = User.objects.get(pk=user_id)
 
-        user_id = request.data.get('user_id')
-        if not user_id:
-            return Response({'user_id': 'This field is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not OrganizationMember.objects.filter(
-            organization=project.organization,
-            user_id=user_id,
-        ).exists():
-            return Response(
-                {'detail': 'User must be an organization member before joining a project.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        membership, created = ProjectMember.objects.get_or_create(
-            project=project,
-            user_id=user_id,
-        )
-        if not created:
-            return Response(
-                {'detail': 'User is already a project member.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        write_audit_log(
-            request.user,
-            'PROJECT_MEMBER_ADDED',
-            'ProjectMember',
-            membership.pk,
-            {
-                'organization_id': project.organization_id,
-                'project_id': project.pk,
-                'target_user_id': membership.user_id,
-            },
-        )
+        member, created = ProjectMember.objects.get_or_create(project=project, user=user)
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(
-            {'id': membership.pk, 'user_id': membership.user_id},
-            status=status.HTTP_201_CREATED,
+            ProjectMemberSerializer(member).data,
+            status=status_code,
         )
 
+    @extend_schema(
+        tags=['Projects'],
+        summary='Remove a project member',
+        parameters=[
+            OpenApiParameter(
+                name='user_id',
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+            )
+        ],
+        responses={204: None},
+    )
     @action(
         detail=True,
         methods=['delete'],
         url_path=r'members/(?P<user_id>[^/.]+)',
     )
-    def member_detail(self, request, pk=None, user_id=None):
+    def remove_member(self, request, pk=None, user_id=None):
         project = self.get_object()
-        if not user_is_manager_or_above(request.user, project.organization):
-            raise PermissionDenied('You must be a manager or above to remove project members.')
-
-        membership = ProjectMember.objects.filter(project=project, user_id=user_id).first()
-        if membership is None:
-            return Response({'detail': 'Project member not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        membership_id = membership.pk
-        membership.delete()
-        write_audit_log(
-            request.user,
-            'PROJECT_MEMBER_REMOVED',
-            'ProjectMember',
-            membership_id,
-            {
-                'organization_id': project.organization_id,
-                'project_id': project.pk,
-                'target_user_id': int(user_id),
-            },
-        )
+        deleted, _ = ProjectMember.objects.filter(
+            project=project, user_id=user_id
+        ).delete()
+        if not deleted:
+            return Response({'detail': 'Member not found.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
