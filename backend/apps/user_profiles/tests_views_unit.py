@@ -26,8 +26,8 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
 
         self.assertEqual(qs.count(), 0)
 
-    @patch("apps.user_profiles.views.organizations_queryset_for_user")
-    @patch("apps.user_profiles.views.User.objects")
+    @patch("apps.user_profiles.views.api.organizations_queryset_for_user")
+    @patch("apps.user_profiles.views.api.User.objects")
     def test_user_viewset_get_queryset_for_superuser(self, user_objects, orgs_for_user):
         view = UserViewSet()
         view.request = SimpleNamespace(user=SimpleNamespace(is_superuser=True))
@@ -50,8 +50,8 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
         selected_qs.order_by.assert_called_once_with("email")
         orgs_for_user.assert_not_called()
 
-    @patch("apps.user_profiles.views.organizations_queryset_for_user")
-    @patch("apps.user_profiles.views.User.objects")
+    @patch("apps.user_profiles.views.api.organizations_queryset_for_user")
+    @patch("apps.user_profiles.views.api.User.objects")
     def test_user_viewset_get_queryset_for_normal_user(self, user_objects, orgs_for_user):
         user = SimpleNamespace(pk=7, is_superuser=False)
         view = UserViewSet()
@@ -100,7 +100,7 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
         request = SimpleNamespace(method="GET", user=SimpleNamespace(id=1), data={})
 
         with patch.object(view, "get_serializer") as get_serializer, patch(
-            "apps.user_profiles.views.UserSerializer"
+            "apps.user_profiles.views.api.UserSerializer"
         ) as user_serializer_cls:
             serializer = MagicMock()
             get_serializer.return_value = serializer
@@ -124,7 +124,7 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
         )
 
         with patch.object(view, "get_serializer") as get_serializer, patch(
-            "apps.user_profiles.views.UserSerializer"
+            "apps.user_profiles.views.api.UserSerializer"
         ) as user_serializer_cls:
             serializer = MagicMock()
             get_serializer.return_value = serializer
@@ -142,7 +142,7 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
     def test_profile_get_returns_profile_detail_data(self):
         request = SimpleNamespace(user=SimpleNamespace(id=1))
 
-        with patch("apps.user_profiles.views.ProfileDetailSerializer") as serializer_cls:
+        with patch("apps.user_profiles.views.api.ProfileDetailSerializer") as serializer_cls:
             serializer = MagicMock()
             serializer.data = {"email": "user@example.com"}
             serializer_cls.return_value = serializer
@@ -158,7 +158,7 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
             data={"bio": "Updated"},
         )
 
-        with patch("apps.user_profiles.views.ProfileDetailSerializer") as serializer_cls:
+        with patch("apps.user_profiles.views.api.ProfileDetailSerializer") as serializer_cls:
             update_serializer = MagicMock()
             response_serializer = MagicMock()
             response_serializer.data = {"bio": "Updated"}
@@ -182,7 +182,7 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
             },
         )
 
-        with patch("apps.user_profiles.views.ChangePasswordSerializer") as serializer_cls:
+        with patch("apps.user_profiles.views.api.ChangePasswordSerializer") as serializer_cls:
             serializer = MagicMock()
             serializer.validated_data = {"new_password": "new-password"}
             serializer_cls.return_value = serializer
@@ -195,8 +195,8 @@ class UserProfilesViewsUnitTests(SimpleTestCase):
         user.set_password.assert_called_once_with("new-password")
         user.save.assert_called_once()
 
-    @patch("apps.user_profiles.views.OrganizationMember.objects.filter")
-    @patch("apps.user_profiles.views.MembershipSerializer")
+    @patch("apps.user_profiles.views.api.OrganizationMember.objects.filter")
+    @patch("apps.user_profiles.views.api.MembershipSerializer")
     def test_memberships_get_returns_membership_data(self, serializer_cls, member_filter):
         request = SimpleNamespace(user=SimpleNamespace(id=1))
 

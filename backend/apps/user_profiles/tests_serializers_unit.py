@@ -106,7 +106,7 @@ class UserMeSerializerTests(TestCase):
 
         self.assertIsNone(serializer.validate_organization(None))
 
-    @patch("apps.user_profiles.serializers.user_can_access_organization")
+    @patch("apps.user_profiles.serializers.api.user_can_access_organization")
     def test_validate_organization_rejects_inaccessible_organization(
         self,
         user_can_access_organization,

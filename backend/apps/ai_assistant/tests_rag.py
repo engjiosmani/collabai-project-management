@@ -145,7 +145,7 @@ class RAGAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('results', response.data)
 
-    @patch('apps.ai_assistant.views.RAGService.ask')
+    @patch('apps.ai_assistant.views.api.RAGService.ask')
     def test_rag_query_endpoint(self, mock_ask):
         mock_ask.return_value = {
             'answer': 'JWT was chosen for multi-device support.',
@@ -163,7 +163,7 @@ class RAGAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('answer', response.data)
 
-    @patch('apps.ai_assistant.views.RAGService.ask')
+    @patch('apps.ai_assistant.views.api.RAGService.ask')
     def test_rag_query_rejects_task_from_another_organization(self, mock_ask):
         other_org = Organization.objects.create(name='RAG Other Org')
         other_project = Project.objects.create(organization=other_org, name='Other RAG Project')

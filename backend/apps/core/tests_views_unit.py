@@ -33,7 +33,7 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("refresh", response.data)
 
-    @patch("apps.core.views.RefreshToken")
+    @patch("apps.core.views.api.RefreshToken")
     def test_token_refresh_returns_access_token(self, refresh_token_cls):
         token = MagicMock()
         token.access_token = "new-access-token"
@@ -49,7 +49,7 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["access"], "new-access-token")
 
-    @patch("apps.core.views.RefreshToken")
+    @patch("apps.core.views.api.RefreshToken")
     def test_token_refresh_handles_invalid_token(self, refresh_token_cls):
         refresh_token_cls.side_effect = Exception("bad token")
 
@@ -59,7 +59,7 @@ class CoreViewsUnitTests(TestCase):
             format="json",
         )
 
-        with patch("apps.core.views.TokenError", Exception):
+        with patch("apps.core.views.api.TokenError", Exception):
             response = TokenRefreshView.as_view()(request)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -78,7 +78,7 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("refresh", response.data)
 
-    @patch("apps.core.views.RefreshToken")
+    @patch("apps.core.views.api.RefreshToken")
     def test_logout_blacklists_refresh_token(self, refresh_token_cls):
         user = User.objects.create_user(
             username="logout_success",
@@ -100,7 +100,7 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         token.blacklist.assert_called_once()
 
-    @patch("apps.core.views.RefreshToken")
+    @patch("apps.core.views.api.RefreshToken")
     def test_logout_handles_invalid_refresh_token(self, refresh_token_cls):
         user = User.objects.create_user(
             username="logout_invalid",
@@ -116,15 +116,15 @@ class CoreViewsUnitTests(TestCase):
         )
         force_authenticate(request, user=user)
 
-        with patch("apps.core.views.TokenError", Exception):
+        with patch("apps.core.views.api.TokenError", Exception):
             response = LogoutView.as_view()(request)
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["detail"], "Invalid or expired refresh token.")
 
     @override_settings(RAG_FORCE_MEMORY_STORE=True, REDIS_AVAILABLE=False)
-    @patch("apps.core.views.cache")
-    @patch("apps.core.views.connection")
+    @patch("apps.core.views.api.cache")
+    @patch("apps.core.views.api.connection")
     @patch("apps.ai_assistant.services.groq_client.GroqClient")
     def test_health_view_ok_with_memory_vector_store(
         self,
@@ -151,8 +151,8 @@ class CoreViewsUnitTests(TestCase):
         self.assertTrue(response.data["groq_configured"])
 
     @override_settings(RAG_FORCE_MEMORY_STORE=False, REDIS_AVAILABLE=True)
-    @patch("apps.core.views.cache")
-    @patch("apps.core.views.connection")
+    @patch("apps.core.views.api.cache")
+    @patch("apps.core.views.api.connection")
     @patch("apps.ai_assistant.services.groq_client.GroqClient")
     def test_health_view_reports_degraded_when_database_fails(
         self,
@@ -173,8 +173,8 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.data["cache"], "redis")
         self.assertEqual(response.data["vector_store"], "redis")
 
-    @patch("apps.core.views.get_cached_payload")
-    @patch("apps.core.views.set_cached_payload")
+    @patch("apps.core.views.api.get_cached_payload")
+    @patch("apps.core.views.api.set_cached_payload")
     def test_metrics_view_returns_cached_payload(self, set_cached_payload, get_cached_payload):
         admin = User.objects.create_superuser(
             username="admin_cached",
@@ -192,8 +192,8 @@ class CoreViewsUnitTests(TestCase):
         self.assertEqual(response.data, {"users": 123})
         set_cached_payload.assert_not_called()
 
-    @patch("apps.core.views.get_cached_payload")
-    @patch("apps.core.views.set_cached_payload")
+    @patch("apps.core.views.api.get_cached_payload")
+    @patch("apps.core.views.api.set_cached_payload")
     def test_metrics_view_builds_and_caches_payload(self, set_cached_payload, get_cached_payload):
         admin = User.objects.create_superuser(
             username="admin_metrics",

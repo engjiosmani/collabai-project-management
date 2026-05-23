@@ -53,7 +53,7 @@ class TextAnalyzeAPITests(TestCase):
         access = str(RefreshToken.for_user(self.user).access_token)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
 
-    @patch('apps.ai_assistant.views.TextAnalysisService.analyze')
+    @patch('apps.ai_assistant.views.api.TextAnalysisService.analyze')
     def test_analyze_endpoint(self, mock_analyze):
         mock_analyze.return_value = {
             'mode': 'action_items',

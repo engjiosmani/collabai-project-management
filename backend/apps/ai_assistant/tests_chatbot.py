@@ -39,7 +39,7 @@ class ChatBotAPITests(TestCase):
         token = RefreshToken.for_user(self.user)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.access_token}')
 
-    @patch('apps.ai_assistant.views_chatbot.ChatBotService.reply')
+    @patch('apps.ai_assistant.views.chatbot.ChatBotService.reply')
     def test_chatbot_endpoint(self, mock_reply):
         mock_reply.return_value = {'answer': 'Sure!', 'request_id': 1}
         response = self.client.post(

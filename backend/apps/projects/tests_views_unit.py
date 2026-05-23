@@ -50,7 +50,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         with patch(
             "common.tenant_viewset.TenantScopedViewSet.get_queryset",
             return_value=base_queryset,
-        ), patch("apps.projects.views.project_visibility_q", return_value="visibility-q") as visibility_q:
+        ), patch("apps.projects.views.api.project_visibility_q", return_value="visibility-q") as visibility_q:
             result = view.get_queryset()
 
         self.assertIs(result, distinct_queryset)
@@ -77,8 +77,8 @@ class ProjectViewSetUnitTests(SimpleTestCase):
             self.assertEqual(len(permissions), 1)
             self.assertEqual(permissions[0].__class__.__name__, "IsManagerOrAbove")
 
-    @patch("apps.projects.views.ProjectMemberSerializer")
-    @patch("apps.projects.views.ProjectMember.objects.filter")
+    @patch("apps.projects.views.api.ProjectMemberSerializer")
+    @patch("apps.projects.views.api.ProjectMember.objects.filter")
     def test_members_get_returns_project_members(self, member_filter, serializer_cls):
         view = ProjectViewSet()
         project = SimpleNamespace(id=1)
@@ -99,10 +99,10 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member_filter.return_value.select_related.assert_called_once_with("user")
         serializer_cls.assert_called_once_with(members_qs, many=True)
 
-    @patch("apps.projects.views.ProjectMemberSerializer")
-    @patch("apps.projects.views.ProjectMember.objects.get_or_create")
-    @patch("apps.projects.views.User.objects.get")
-    @patch("apps.projects.views.AddProjectMemberSerializer")
+    @patch("apps.projects.views.api.ProjectMemberSerializer")
+    @patch("apps.projects.views.api.ProjectMember.objects.get_or_create")
+    @patch("apps.projects.views.api.User.objects.get")
+    @patch("apps.projects.views.api.AddProjectMemberSerializer")
     def test_members_post_adds_new_project_member(
         self,
         add_serializer_cls,
@@ -138,10 +138,10 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         get_or_create.assert_called_once_with(project=project, user=user)
         member_serializer_cls.assert_called_once_with(member)
 
-    @patch("apps.projects.views.ProjectMemberSerializer")
-    @patch("apps.projects.views.ProjectMember.objects.get_or_create")
-    @patch("apps.projects.views.User.objects.get")
-    @patch("apps.projects.views.AddProjectMemberSerializer")
+    @patch("apps.projects.views.api.ProjectMemberSerializer")
+    @patch("apps.projects.views.api.ProjectMember.objects.get_or_create")
+    @patch("apps.projects.views.api.User.objects.get")
+    @patch("apps.projects.views.api.AddProjectMemberSerializer")
     def test_members_post_existing_project_member_returns_200(
         self,
         add_serializer_cls,
@@ -173,7 +173,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data, {"user": 2})
 
-    @patch("apps.projects.views.ProjectMember.objects.filter")
+    @patch("apps.projects.views.api.ProjectMember.objects.filter")
     def test_remove_member_returns_404_when_member_not_found(self, member_filter):
         view = ProjectViewSet()
         project = SimpleNamespace(id=1)
@@ -193,7 +193,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         self.assertEqual(response.data["detail"], "Member not found.")
         member_filter.assert_called_once_with(project=project, user_id=99)
 
-    @patch("apps.projects.views.ProjectMember.objects.filter")
+    @patch("apps.projects.views.api.ProjectMember.objects.filter")
     def test_remove_member_returns_204_when_member_deleted(self, member_filter):
         view = ProjectViewSet()
         project = SimpleNamespace(id=1)

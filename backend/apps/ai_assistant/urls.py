@@ -7,8 +7,8 @@ from .views import (
     SemanticSearchView,
     TextAnalyzeView,
 )
-from .views_chatbot import ChatBotView
-from .views_team_pulse import (
+from .views.chatbot import ChatBotView
+from .views.team_pulse import (
     AIConfigView,
     GitHubConfigView,
     TeamPulseOverviewView,

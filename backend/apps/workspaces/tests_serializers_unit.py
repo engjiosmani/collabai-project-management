@@ -24,7 +24,7 @@ class WorkspaceSerializerValidationTests(SimpleTestCase):
 
         self.assertIn("This field is required.", str(ctx.exception))
 
-    @patch("apps.workspaces.serializers.user_can_access_organization")
+    @patch("apps.workspaces.serializers.api.user_can_access_organization")
     def test_validate_organization_rejects_inaccessible_organization(
         self,
         user_can_access_organization,
@@ -42,7 +42,7 @@ class WorkspaceSerializerValidationTests(SimpleTestCase):
         self.assertIn("Invalid organization", str(ctx.exception))
         user_can_access_organization.assert_called_once_with(user, organization)
 
-    @patch("apps.workspaces.serializers.user_can_access_organization")
+    @patch("apps.workspaces.serializers.api.user_can_access_organization")
     def test_validate_organization_accepts_accessible_organization(
         self,
         user_can_access_organization,
@@ -81,7 +81,7 @@ class WorkspaceSerializerValidationTests(SimpleTestCase):
 
 
 class WorkspaceSerializerDuplicateTests(SimpleTestCase):
-    @patch("apps.workspaces.serializers.Workspace.objects.filter")
+    @patch("apps.workspaces.serializers.api.Workspace.objects.filter")
     def test_validate_rejects_duplicate_workspace_name_on_create(
         self,
         workspace_filter,
@@ -107,7 +107,7 @@ class WorkspaceSerializerDuplicateTests(SimpleTestCase):
             name__iexact="Engineering",
         )
 
-    @patch("apps.workspaces.serializers.Workspace.objects.filter")
+    @patch("apps.workspaces.serializers.api.Workspace.objects.filter")
     def test_validate_allows_unique_workspace_name_on_create(
         self,
         workspace_filter,
@@ -127,7 +127,7 @@ class WorkspaceSerializerDuplicateTests(SimpleTestCase):
 
         self.assertIs(result, attrs)
 
-    @patch("apps.workspaces.serializers.Workspace.objects.filter")
+    @patch("apps.workspaces.serializers.api.Workspace.objects.filter")
     def test_validate_excludes_current_instance_on_update(
         self,
         workspace_filter,
@@ -150,7 +150,7 @@ class WorkspaceSerializerDuplicateTests(SimpleTestCase):
         self.assertEqual(result, {})
         qs.exclude.assert_called_once_with(pk=10)
 
-    @patch("apps.workspaces.serializers.Workspace.objects.filter")
+    @patch("apps.workspaces.serializers.api.Workspace.objects.filter")
     def test_validate_rejects_duplicate_workspace_name_on_update(
         self,
         workspace_filter,
@@ -176,7 +176,7 @@ class WorkspaceSerializerDuplicateTests(SimpleTestCase):
 
 
 class WorkspaceSerializerCreateUpdateTests(SimpleTestCase):
-    @patch("apps.workspaces.serializers.TeamMember.objects.get_or_create")
+    @patch("apps.workspaces.serializers.api.TeamMember.objects.get_or_create")
     @patch("rest_framework.serializers.ModelSerializer.create")
     def test_create_adds_request_user_as_workspace_admin(
         self,
@@ -198,7 +198,7 @@ class WorkspaceSerializerCreateUpdateTests(SimpleTestCase):
         self.assertIs(kwargs["user"], user)
         self.assertEqual(kwargs["defaults"]["role"], "workspace_admin")
 
-    @patch("apps.workspaces.serializers.TeamMember.objects.get_or_create")
+    @patch("apps.workspaces.serializers.api.TeamMember.objects.get_or_create")
     @patch("rest_framework.serializers.ModelSerializer.create")
     def test_create_does_not_add_team_member_without_request(
         self,
@@ -313,7 +313,7 @@ class TeamMemberJobRoleUpdateSerializerTests(SimpleTestCase):
 
         self.assertIsNone(serializer.validate_job_role_id(None))
 
-    @patch("apps.workspaces.serializers.JobRole.objects.filter")
+    @patch("apps.workspaces.serializers.api.JobRole.objects.filter")
     def test_validate_job_role_id_accepts_active_job_role(self, job_role_filter):
         qs = MagicMock()
         qs.exists.return_value = True
@@ -324,7 +324,7 @@ class TeamMemberJobRoleUpdateSerializerTests(SimpleTestCase):
         self.assertEqual(serializer.validate_job_role_id(123), 123)
         job_role_filter.assert_called_once_with(pk=123, is_active=True)
 
-    @patch("apps.workspaces.serializers.JobRole.objects.filter")
+    @patch("apps.workspaces.serializers.api.JobRole.objects.filter")
     def test_validate_job_role_id_rejects_missing_or_inactive_job_role(
         self,
         job_role_filter,
