@@ -1,40 +1,56 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function GlobalApiToast() {
-  const [message, setMessage] = useState("");
+  const [toast, setToast] = useState({ message: "", tone: "error" });
   const timeoutRef = useRef(null);
 
   useEffect(() => {
+    const showToast = (message, tone = "error") => {
+      setToast({ message, tone });
+
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = window.setTimeout(() => {
+        setToast({ message: "", tone: "error" });
+      }, 5000);
+    };
+
     const handleApiError = (event) => {
       const nextMessage = event.detail?.message;
       if (!nextMessage) return;
 
       event.preventDefault();
-      setMessage(nextMessage);
+      showToast(nextMessage, "error");
+    };
 
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = window.setTimeout(() => {
-        setMessage("");
-      }, 5000);
+    const handleAppToast = (event) => {
+      const nextMessage = event.detail?.message;
+      if (!nextMessage) return;
+      showToast(nextMessage, event.detail?.tone || "success");
     };
 
     window.addEventListener("api:friendly-error", handleApiError);
+    window.addEventListener("app:toast", handleAppToast);
 
     return () => {
       window.removeEventListener("api:friendly-error", handleApiError);
+      window.removeEventListener("app:toast", handleAppToast);
       window.clearTimeout(timeoutRef.current);
     };
   }, []);
 
-  if (!message) return null;
+  if (!toast.message) return null;
 
   return (
-    <div className="global-api-toast" role="alert" aria-live="assertive">
-      <span>{message}</span>
+    <div
+      className={`global-api-toast global-api-toast--${toast.tone}`}
+      role="alert"
+      aria-live="assertive"
+    >
+      <span>{toast.message}</span>
       <button
         type="button"
         className="global-api-toast__close"
-        onClick={() => setMessage("")}
+        onClick={() => setToast({ message: "", tone: "error" })}
         aria-label="Dismiss notification"
       >
         x

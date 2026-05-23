@@ -36,7 +36,7 @@ def send_password_reset_email(self, user_id, token_value):
         ).rstrip("/")
 
         reset_link = (
-            f"{frontend_url}/resetpassword?token={token_value}"
+            f"{frontend_url}/reset-password?token={token_value}"
         )
 
         context = {

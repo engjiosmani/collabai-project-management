@@ -87,6 +87,7 @@ export default function AppSidebar({ onNavigateSection }) {
   const isProjects = pathname === "/projects";
   const isOrganizations = pathname === "/organizations";
   const isInvitations = pathname === "/invitations";
+  const isSettings = pathname.startsWith("/settings");
   const isAI = pathname === "/ai";
   const isTeamPulse = pathname.startsWith("/ai/team-pulse");
 
@@ -216,6 +217,14 @@ export default function AppSidebar({ onNavigateSection }) {
                   style={linkStyle}
                 >
                   Invitations
+                </Link>
+
+                <Link
+                  className={navClass(isSettings)}
+                  to="/settings/profile"
+                  style={linkStyle}
+                >
+                  Settings
                 </Link>
 
                 {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks")}

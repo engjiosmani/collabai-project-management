@@ -18,6 +18,7 @@ jest.mock(
       Navigate: () => null,
       Link: ({ children, to }) => <a href={to}>{children}</a>,
       useNavigate: () => jest.fn(),
+      useLocation: () => ({ state: null }),
     };
   },
   { virtual: true }

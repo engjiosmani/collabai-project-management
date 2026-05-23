@@ -9,6 +9,9 @@ import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
 import Invitations from "./pages/Invitations";
 import Unauthorized from "./pages/Unauthorized";
+import SettingsPage from "./pages/settings/SettingsPage";
+import ForgotPasswordPage from "./pages/settings/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/settings/ResetPasswordPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import GlobalApiToast from "./components/GlobalApiToast";
 import "./App.css";
@@ -31,6 +34,16 @@ function App() {
                 <Route
                     path="/login"
                     element={<Login />}
+                />
+
+                <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                />
+
+                <Route
+                    path="/reset-password"
+                    element={<ResetPasswordPage />}
                 />
 
                 <Route
@@ -74,6 +87,15 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <Invitations />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/settings/profile"
+                    element={
+                        <ProtectedRoute>
+                            <SettingsPage />
                         </ProtectedRoute>
                     }
                 />

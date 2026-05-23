@@ -1,11 +1,12 @@
 import { useContext, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 
 function Login() {
     const { login } = useContext(AuthContext);
 
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [formData, setFormData] = useState({
         email: "",
@@ -52,7 +53,7 @@ function Login() {
                 </h1>
 
                 <p style={styles.subtitle}>
-                    Login to your CollabAI account
+                    {location.state?.message || "Login to your CollabAI account"}
                 </p>
 
                 <form onSubmit={handleSubmit}>
@@ -75,6 +76,12 @@ function Login() {
                         data-cy="login-password"
                         style={styles.input}
                     />
+
+                    <div style={styles.forgotRow}>
+                        <Link to="/forgot-password" style={styles.link}>
+                            Forgot password?
+                        </Link>
+                    </div>
 
                     <button
                         type="submit"
@@ -148,6 +155,13 @@ const styles = {
         fontSize: "15px",
         boxSizing: "border-box",
         outline: "none",
+    },
+
+    forgotRow: {
+        marginTop: "-8px",
+        marginBottom: "18px",
+        textAlign: "right",
+        fontSize: "14px",
     },
 
     button: {

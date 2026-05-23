@@ -1,11 +1,15 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from common.permissions import HasAnyRole
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
+from apps.user_profiles.models import PasswordResetToken
 
 
 class RegisterViewTests(TestCase):
@@ -155,6 +159,67 @@ class LoginViewTests(TestCase):
         response = self.client.post(self.logout_url, {}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('refresh', response.data)
+
+
+class PasswordResetViewTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.forgot_url = reverse('forgot-password')
+        self.reset_url = reverse('reset-password')
+        self.user = get_user_model().objects.create_user(
+            username='reset@example.com',
+            email='reset@example.com',
+            password='OldStrongPass123!',
+        )
+
+    def test_forgot_password_is_public_and_does_not_enumerate_users(self):
+        response = self.client.post(
+            self.forgot_url,
+            {'email': 'missing@example.com'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('detail', response.data)
+
+    def test_reset_password_is_public_and_accepts_frontend_payload(self):
+        token = PasswordResetToken.objects.create(
+            user=self.user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+
+        response = self.client.post(
+            self.reset_url,
+            {
+                'token': str(token.token),
+                'password': 'NewStrongPass123!',
+                'confirm_password': 'NewStrongPass123!',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('NewStrongPass123!'))
+
+    def test_reset_password_rejects_mismatched_confirmation(self):
+        token = PasswordResetToken.objects.create(
+            user=self.user,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+
+        response = self.client.post(
+            self.reset_url,
+            {
+                'token': str(token.token),
+                'password': 'NewStrongPass123!',
+                'confirm_password': 'DifferentStrongPass123!',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('confirm_password', response.data)
 
 
 class MiddlewareTests(TestCase):
