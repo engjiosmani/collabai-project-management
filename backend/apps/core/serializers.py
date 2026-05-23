@@ -133,4 +133,20 @@ class ForgotPasswordSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     token = serializers.CharField()
-    new_password = serializers.CharField(min_length=8, write_only=True)
+    password = serializers.CharField(min_length=8, write_only=True, required=False)
+    confirm_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    new_password = serializers.CharField(min_length=8, write_only=True, required=False)
+
+    def validate(self, attrs):
+        password = attrs.get('password') or attrs.get('new_password')
+        confirm_password = attrs.get('confirm_password')
+
+        if not password:
+            raise serializers.ValidationError({'password': 'This field is required.'})
+
+        if confirm_password is not None and password != confirm_password:
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+
+        validate_password(password)
+        attrs['new_password'] = password
+        return attrs

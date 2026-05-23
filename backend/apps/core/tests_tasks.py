@@ -78,7 +78,7 @@ class SendPasswordResetEmailTaskTest(TestCase):
         email = mail.outbox[0]
         self.assertEqual(email.to, ['reset@example.com'])
         self.assertIn('Reset', email.subject)
-        self.assertIn(f'http://testserver/resetpassword?token={self.token.token}', email.body)
+        self.assertIn(f'http://testserver/reset-password?token={self.token.token}', email.body)
 
     def test_password_reset_email_missing_user_does_not_raise(self):
         from apps.core.tasks import send_password_reset_email

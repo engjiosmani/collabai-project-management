@@ -56,6 +56,18 @@
   line-height: 1.4;
 }
 
+.global-api-toast--success {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #14532d;
+}
+
+.global-api-toast--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #7f1d1d;
+}
+
 .global-api-toast__close {
   width: 28px;
   height: 28px;
