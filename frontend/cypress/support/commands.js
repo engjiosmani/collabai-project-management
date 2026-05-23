@@ -1,4 +1,25 @@
-Cypress.Commands.add("login", (email = "user@example.com", password = "password123") => {
+const TEST_EMAIL = "user@example.com";
+
+// Stubs GET /users/me/ and GET /organizations/ so AuthContext resolves correctly
+Cypress.Commands.add("stubAuthProfile", (email = TEST_EMAIL) => {
+  cy.intercept("GET", "**/api/v1/users/me/", {
+    statusCode: 200,
+    body: {
+      id: 1,
+      email,
+      username: email.split("@")[0],
+      first_name: "Test",
+      last_name: "User",
+    },
+  }).as("meRequest");
+  cy.intercept("GET", "**/api/v1/organizations/", {
+    statusCode: 200,
+    body: [{ id: 1, name: "Test Org", my_role: "admin", project_count: 1, member_count: 1 }],
+  }).as("orgsRequest");
+});
+
+Cypress.Commands.add("login", (email = TEST_EMAIL, password = "password123") => {
+  cy.stubAuthProfile(email);
   cy.intercept("POST", "**/api/v1/auth/login", {
     statusCode: 200,
     body: {
@@ -6,11 +27,10 @@ Cypress.Commands.add("login", (email = "user@example.com", password = "password1
       refresh: "test-refresh-token",
     },
   }).as("loginRequest");
-
   cy.visit("/login");
-  cy.get('input[name="email"]').type(email);
-  cy.get('input[name="password"]').type(password);
-  cy.contains("button", "Login").click();
+  cy.get('[data-cy="login-email"]').type(email);
+  cy.get('[data-cy="login-password"]').type(password);
+  cy.get('[data-cy="login-submit"]').click();
   cy.wait("@loginRequest");
 });
 

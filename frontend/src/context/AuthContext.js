@@ -1,20 +1,17 @@
-import { createContext, useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import API, { clearAuthStorage } from "../api/api";
 
 export const AuthContext = createContext();
+
+export function useAuth() {
+    return useContext(AuthContext);
+}
 
 const normalizeRole = (role) => {
     if (!role) return null;
     if (role === "admin") return "org_admin";
     return role;
 };
-
-const getActiveOrganizationId = (orgs = [], memberships = []) => (
-    localStorage.getItem("active_organization_id") ||
-    orgs[0]?.id ||
-    memberships[0]?.organization?.id ||
-    null
-);
 
 const extractApiErrorMessage = (data, fallback) => {
     if (!data) return fallback;
@@ -27,113 +24,66 @@ const extractApiErrorMessage = (data, fallback) => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
-    // user = { id, email, username, first_name, last_name, authenticated: true }
-
     const [orgRoles, setOrgRoles] = useState({});
-    // { [orgId]: 'admin' | 'manager' | 'member' }
-
     const [role, setRole] = useState(null);
     const [orgRole, setOrgRole] = useState(null);
-    const [workspaceRole, setWorkspaceRole] = useState(null);
-
     const [loadingMemberships, setLoadingMemberships] = useState(Boolean(localStorage.getItem("access")));
-
     const [accessToken, setAccessToken] = useState(
         localStorage.getItem("access") || null
     );
 
-    const syncCurrentRole = useCallback((rolesMap, orgs = [], memberships = []) => {
-        const activeOrganizationId = getActiveOrganizationId(orgs, memberships);
-        if (!activeOrganizationId) {
-            setRole(null);
-            setOrgRole(null);
-            setWorkspaceRole(null);
-            return;
-        }
-
-        const rawRole = rolesMap[String(activeOrganizationId)] || null;
-        const currentRole = normalizeRole(rawRole);
-
-        setRole(currentRole);
-        setOrgRole(currentRole && currentRole !== "workspace_admin" ? currentRole : null);
-        setWorkspaceRole(currentRole === "workspace_admin" ? currentRole : null);
-    }, []);
-
-    // Fetch user profile + org roles after token is available
     const loadUserProfile = useCallback(async () => {
         setLoadingMemberships(true);
-
         try {
-            const [meRes, orgsRes, membershipsRes] = await Promise.allSettled([
-                API.get("/profile/"),
+            const [meRes, orgsRes] = await Promise.all([
+                API.get("/users/me/"),
                 API.get("/organizations/"),
-                API.get("/profile/memberships/"),
             ]);
 
-            if (meRes.status === "fulfilled") {
-                const me = meRes.value.data;
-                setUser({
-                    id: me.id,
-                    email: me.email || localStorage.getItem("user_email") || "",
-                    username: me.username || "",
-                    first_name: me.first_name || "",
-                    last_name: me.last_name || "",
-                    authenticated: true,
-                });
-            } else if (localStorage.getItem("user_email")) {
-                setUser((current) =>
-                    current || {
-                        id: null,
-                        email: localStorage.getItem("user_email") || "",
-                        username: "",
-                        first_name: "",
-                        last_name: "",
-                        authenticated: true,
-                    }
-                );
-            }
+            const me = meRes.data;
+            setUser({
+                id: me.id,
+                email: me.email,
+                username: me.username,
+                first_name: me.first_name || "",
+                last_name: me.last_name || "",
+                authenticated: true,
+            });
 
-            // Build orgId → role map
-            const orgs = orgsRes.status === "fulfilled"
-                ? (Array.isArray(orgsRes.value.data)
-                    ? orgsRes.value.data
-                    : orgsRes.value.data.results ?? [])
-                : [];
-
-            const memberships = membershipsRes.status === "fulfilled"
-                ? (Array.isArray(membershipsRes.value.data)
-                    ? membershipsRes.value.data
-                    : membershipsRes.value.data.results ?? [])
-                : [];
+            const orgs = Array.isArray(orgsRes.data)
+                ? orgsRes.data
+                : orgsRes.data.results ?? [];
 
             const rolesMap = {};
-
-            memberships.forEach((membership) => {
-                const orgId = membership?.organization?.id ?? membership?.organization;
-                if (orgId && membership?.role) {
-                    rolesMap[String(orgId)] = membership.role;
-                }
-            });
-
             orgs.forEach((org) => {
-                if (org.id && org.my_role) {
-                    rolesMap[String(org.id)] = org.my_role;
-                }
+                if (org.id && org.my_role) rolesMap[org.id] = org.my_role;
             });
-
             setOrgRoles(rolesMap);
-            syncCurrentRole(rolesMap, orgs, memberships);
+
+            // Sync current role for the first org
+            const firstOrgId = orgs[0]?.id;
+            if (firstOrgId) {
+                const rawRole = rolesMap[firstOrgId] || null;
+                const currentRole = normalizeRole(rawRole);
+                setRole(currentRole);
+                setOrgRole(currentRole);
+            }
         } catch {
-            // Profile load failure should not log the user out
+            // Profile load failure must not log the user out
         } finally {
             setLoadingMemberships(false);
         }
-    }, [syncCurrentRole]);
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem("access");
         if (token) {
             setAccessToken(token);
+            // Immediately hydrate user from localStorage so UI renders before API responds
+            const storedEmail = localStorage.getItem("user_email");
+            if (storedEmail) {
+                setUser((prev) => prev || { email: storedEmail, authenticated: true });
+            }
             loadUserProfile();
         } else {
             setLoadingMemberships(false);
@@ -143,13 +93,13 @@ export const AuthProvider = ({ children }) => {
             const access = event.detail?.access;
             if (access) setAccessToken(access);
         };
+
         const onLogout = () => {
             setAccessToken(null);
             setUser(null);
             setOrgRoles({});
             setRole(null);
             setOrgRole(null);
-            setWorkspaceRole(null);
             setLoadingMemberships(false);
         };
 
@@ -161,17 +111,6 @@ export const AuthProvider = ({ children }) => {
         };
     }, [loadUserProfile]);
 
-    useEffect(() => {
-        const onOrganizationChanged = () => {
-            syncCurrentRole(orgRoles);
-        };
-
-        window.addEventListener("organization:changed", onOrganizationChanged);
-        return () => {
-            window.removeEventListener("organization:changed", onOrganizationChanged);
-        };
-    }, [orgRoles, syncCurrentRole]);
-
     const login = async (email, password) => {
         try {
             const response = await API.post("/auth/login", { email, password });
@@ -182,7 +121,8 @@ export const AuthProvider = ({ children }) => {
             localStorage.setItem("user_email", email);
 
             setAccessToken(access);
-            // Load full profile (id, orgs, roles)
+            // Immediately set user from email so heading shows right away
+            setUser((prev) => prev || { email, authenticated: true });
             await loadUserProfile();
 
             return { success: true };
@@ -204,34 +144,31 @@ export const AuthProvider = ({ children }) => {
         setOrgRoles({});
         setRole(null);
         setOrgRole(null);
-        setWorkspaceRole(null);
         setLoadingMemberships(false);
     };
 
-    // Helper: returns true if user is org_admin for that org
     const isAdminOfOrg = useCallback(
-        (orgId) => ["admin", "org_admin", "workspace_admin"].includes(orgRoles[orgId]),
+        (orgId) => orgRoles[orgId] === "admin" || orgRoles[orgId] === "org_admin",
         [orgRoles]
     );
 
-    // Helper: returns true if user is manager or admin for that org
     const isManagerOrAdminOfOrg = useCallback(
-        (orgId) => ["admin", "org_admin", "workspace_admin", "manager"].includes(orgRoles[orgId]),
+        (orgId) => ["admin", "org_admin", "manager"].includes(orgRoles[orgId]),
         [orgRoles]
     );
 
     const isOrgAdmin = useCallback(
-        () => ["admin", "org_admin"].includes(role),
-        [role]
-    );
-
-    const isWorkspaceAdminOrAbove = useCallback(
-        () => ["admin", "org_admin", "workspace_admin"].includes(role),
+        () => role === "org_admin" || role === "admin",
         [role]
     );
 
     const isManagerOrAbove = useCallback(
-        () => ["admin", "org_admin", "workspace_admin", "manager"].includes(role),
+        () => ["org_admin", "admin", "manager"].includes(role),
+        [role]
+    );
+
+    const isWorkspaceAdminOrAbove = useCallback(
+        () => role === "workspace_admin" || role === "org_admin" || role === "admin",
         [role]
     );
 
@@ -242,7 +179,6 @@ export const AuthProvider = ({ children }) => {
                 accessToken,
                 role,
                 orgRole,
-                workspaceRole,
                 orgRoles,
                 loadingMemberships,
                 isAdminOfOrg,
