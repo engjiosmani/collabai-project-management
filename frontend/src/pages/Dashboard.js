@@ -179,7 +179,7 @@ function DashboardSkeleton() {
 }
 
 function DashboardScreen() {
-    const { user, logout } = useContext(AuthContext);
+    const { user, logout, loadingMemberships } = useContext(AuthContext);
     const { activeOrganization } = useOrganization();
     const { role } = useRole();
     const navigate = useNavigate();
@@ -294,7 +294,7 @@ function DashboardScreen() {
         ];
     }, [copy.projectHint, copy.taskHint, isMemberView, summary.completedTasks, summary.completionRate, summary.pendingTasks, summary.totalProjects, summary.totalTasks]);
 
-    if (loading && !summary.hasData) {
+    if ((loading && !summary.hasData) || loadingMemberships) {
         return <DashboardSkeleton />;
     }
 
