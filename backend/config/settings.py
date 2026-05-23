@@ -101,11 +101,13 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
     'x-request-id',
+    'x-organization-id',
 ]
 
 # Expose response headers to the frontend
 CORS_EXPOSE_HEADERS = [
     'x-request-id',
+    'x-organization-id',
 ]
 
 
