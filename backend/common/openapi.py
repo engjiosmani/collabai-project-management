@@ -80,7 +80,7 @@ TAG_DESCRIPTIONS = {
     'Projects': 'Project and project membership endpoints.',
     'Tasks': 'Task, task metadata, labels, and attachment endpoints.',
     'Comments': 'Task comments and activity log endpoints.',
-    'AI Assistant': 'AI assistant, semantic search, RAG, and team pulse endpoints.',
+    'AI Assistant': 'AI assistant, semantic search, and RAG endpoints.',
     'Notifications': 'Notification listing and read-state endpoints.',
     'Audit': 'Audit, operational metrics, health, dashboard, and schema endpoints.',
     'Profile': 'User profile, current user, password, and membership endpoints.',

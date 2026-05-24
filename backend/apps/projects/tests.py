@@ -49,11 +49,11 @@ class ProjectModelsTest(TestCase):
     def test_create_integration(self):
         integration = Integration.objects.create(
             organization=self.org,
-            name="GitHub",
-            provider="github",
+            name="Calendar",
+            provider="calendar",
         )
         self.assertEqual(integration.organization, self.org)
-        self.assertEqual(integration.provider, "github")
+        self.assertEqual(integration.provider, "calendar")
 
 
 class ProjectCRUDAPITest(APITestCase):

@@ -36,7 +36,6 @@ class OrganizationRAGMixin:
                 raise PermissionError('You do not have access to this organization.')
 
 
-# Backward-compatible alias for team pulse imports
 WorkspaceRAGMixin = OrganizationRAGMixin
 
 

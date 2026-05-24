@@ -21,7 +21,7 @@ backend/
 │   ├── tasks/
 │   ├── comments/
 │   ├── notifications/
-│   ├── ai_assistant/   # LLM integration (#16, Groq) — /api/v1/ai/ (query, analyze, RAG, task gen, team pulse)
+│   ├── ai_assistant/   # LLM integration (#16, Groq) — /api/v1/ai/ (query, analyze, RAG)
 │   ├── audit_logs/
 │   └── user_profiles/  # Extensions beyond django.contrib.auth User
 └── common/             # BaseModel, permissions, pagination, utils

@@ -90,7 +90,6 @@ export default function AppSidebar({ onNavigateSection }) {
   const isInvitations = pathname === "/invitations";
   const isSettings = pathname.startsWith("/settings");
   const isAI = pathname === "/ai";
-  const isTeamPulse = pathname.startsWith("/ai/team-pulse");
 
   const navClass = (active) =>
     `dashboard-nav-item${active ? " dashboard-nav-item--active" : ""}`;
@@ -239,14 +238,6 @@ export default function AppSidebar({ onNavigateSection }) {
                   style={linkStyle}
                 >
                   AI Assistant
-                </Link>
-
-                <Link
-                  className={navClass(isTeamPulse)}
-                  to="/ai/team-pulse"
-                  style={linkStyle}
-                >
-                  Team Pulse
                 </Link>
               </nav>
             </>

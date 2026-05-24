@@ -1,6 +1,6 @@
 # AI / LLM module (`apps.ai_assistant`)
 
-CollabAI integrates an external **LLM API (Groq)** for chatbot-style Q&A, text analysis, and daily standup narratives. All features are exposed under **`/api/v1/ai/`** and documented in Swagger (`/api/docs/`).
+CollabAI integrates an external **LLM API (Groq)** for chatbot-style Q&A and text analysis. AI features are exposed under **`/api/v1/ai/`** and documented in Swagger (`/api/docs/`).
 
 ## Architecture
 
@@ -9,10 +9,8 @@ flowchart LR
     FE[React UI] -->|REST JWT| API[DRF views]
     API --> RAG[RAGService]
     API --> TA[TextAnalysisService]
-    API --> TP[TeamPulseService]
     RAG --> LLM[GroqClient]
     TA --> LLM
-    TP --> LLM
     RAG --> EMB[EmbeddingService]
     EMB --> VS[(Vector store / Redis)]
     LLM --> GROQ[Groq API]
@@ -37,7 +35,6 @@ See [setup.md](./setup.md) and `backend/.env.example`.
 | `POST` | `/ai/search/` | Semantic search (no LLM) |
 | `POST` | `/ai/reindex/` | Queue workspace reindex (Celery) |
 | `GET` | `/ai/history/` | Recent `AIRequest` records for current user |
-| `GET/POST` | `/ai/team-pulse/...` | Standup agent, GitHub, delivery |
 
 Full request/response notes: [api-endpoints.md](./api-endpoints.md#ai--llm-module).
 
