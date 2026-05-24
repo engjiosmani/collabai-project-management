@@ -96,8 +96,8 @@ describe("small UI components", () => {
 
     await waitFor(async () => {
       expect(screen.getByText("Open tasks")).toBeInTheDocument();
-      expect(screen.getByText("12")).toBeInTheDocument();
     });
+    expect(screen.getByText("12")).toBeInTheDocument();
   });
 
   it("NotificationItem renders the notification title", async () => {
@@ -183,8 +183,8 @@ describe("small UI components", () => {
 
     await waitFor(async () => {
       expect(screen.getByRole("alert")).toBeInTheDocument();
-      expect(screen.getByText("Something went wrong.")).toBeInTheDocument();
     });
+    expect(screen.getByText("Something went wrong.")).toBeInTheDocument();
   });
 
   it("ErrorFallback renders the error message", async () => {

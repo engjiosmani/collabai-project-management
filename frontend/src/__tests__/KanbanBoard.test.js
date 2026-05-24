@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { configure, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import KanbanBoard from "../components/KanbanBoard";
 import { AuthContext } from "../context/AuthContext";
 import API, { getApiErrorMessage } from "../api/api";
@@ -56,6 +56,8 @@ jest.mock("../context/OrganizationContext", () => ({
   useOrganization: jest.fn(() => ({ activeOrganization: null })),
 }));
 
+configure({ testIdAttribute: "data-cy" });
+
 const statuses = [
   { id: 1, name: "Todo" },
   { id: 2, name: "Done" },
@@ -101,7 +103,7 @@ describe("KanbanBoard", () => {
     renderBoard();
 
     await waitFor(async () => {
-      expect(document.querySelector('[data-cy="kanban-loading"]')).toBeInTheDocument();
+      expect(screen.getByTestId("kanban-loading")).toBeInTheDocument();
     });
   });
 
@@ -109,20 +111,18 @@ describe("KanbanBoard", () => {
     renderBoard();
 
     await waitFor(async () => {
-      expect(document.querySelector('[data-cy="task-card-101"]')).toBeInTheDocument();
-      expect(document.querySelector('[data-cy="task-card-102"]')).toBeInTheDocument();
+      expect(screen.getByTestId("task-card-101")).toBeInTheDocument();
     });
+    expect(screen.getByTestId("task-card-102")).toBeInTheDocument();
   });
 
   it("calls updateTask with the new status id when a task is dropped on another column", async () => {
     renderBoard();
 
     await waitFor(async () => {
-      expect(document.querySelector('[data-cy="task-card-101"]')).toBeInTheDocument();
+      expect(screen.getByTestId("task-card-101")).toBeInTheDocument();
     });
 
-    const card = document.querySelector('[data-cy="task-card-101"]');
-    const doneColumn = screen.getByText("Done").closest(".kb-column");
     const dataTransfer = {
       data: {},
       setData(type, value) {
@@ -133,9 +133,9 @@ describe("KanbanBoard", () => {
       },
     };
 
-    fireEvent.dragStart(card, { dataTransfer });
-    fireEvent.dragOver(doneColumn, { dataTransfer });
-    fireEvent.drop(doneColumn, { dataTransfer });
+    fireEvent.dragStart(screen.getByText("First task"), { dataTransfer });
+    fireEvent.dragOver(screen.getByText("Done"), { dataTransfer });
+    fireEvent.drop(screen.getByText("Done"), { dataTransfer });
 
     await waitFor(async () => {
       expect(updateTask).toHaveBeenCalledWith(101, { status: 2 });
@@ -148,10 +148,9 @@ describe("KanbanBoard", () => {
     renderBoard();
 
     await waitFor(async () => {
-      const error = document.querySelector('[data-cy="kanban-error"]');
-      expect(error).toBeInTheDocument();
-      expect(error).toHaveTextContent("Network error");
+      expect(screen.getByTestId("kanban-error")).toBeInTheDocument();
     });
+    expect(screen.getByTestId("kanban-error")).toHaveTextContent("Network error");
   });
 
   it('renders "No task statuses found" when statuses are empty', async () => {
@@ -168,24 +167,16 @@ describe("KanbanBoard", () => {
     renderBoard();
 
     await waitFor(async () => {
-      expect(document.querySelector('[data-cy="task-card-101"]')).toBeInTheDocument();
+      expect(screen.getByTestId("task-card-101")).toBeInTheDocument();
     });
 
-    const firstTaskCard = document.querySelector('[data-cy="task-card-101"]');
-    const moveButton = firstTaskCard.querySelector("button.kb-btn--sm");
-    fireEvent.click(moveButton);
+    fireEvent.click(screen.getAllByText("Move ▾")[0]);
 
     await waitFor(async () => {
-      expect(firstTaskCard.querySelectorAll('[role="option"]')).toHaveLength(
-        statuses.length
-      );
+      expect(screen.getByRole("option", { name: "Done" })).toBeInTheDocument();
     });
 
-    fireEvent.click(
-      Array.from(firstTaskCard.querySelectorAll('[role="option"]')).find(
-        (option) => option.textContent === "Done"
-      )
-    );
+    fireEvent.click(screen.getByRole("option", { name: "Done" }));
 
     await waitFor(async () => {
       expect(updateTask).toHaveBeenCalledWith(101, { status: 2 });

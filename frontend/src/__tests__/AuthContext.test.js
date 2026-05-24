@@ -8,11 +8,7 @@ jest.mock("../api/api", () => ({
     post: jest.fn(),
     get: jest.fn(),
   },
-  clearAuthStorage: jest.fn(() => {
-    globalThis.localStorage.removeItem("access");
-    globalThis.localStorage.removeItem("refresh");
-    globalThis.localStorage.removeItem("user_email");
-  }),
+  clearAuthStorage: jest.fn(),
 }));
 
 function AuthProbe() {
@@ -73,10 +69,10 @@ describe("AuthContext", () => {
     });
 
     await waitFor(async () => {
-      expect(localStorage.getItem("access")).toBe("acc123");
-      expect(localStorage.getItem("refresh")).toBe("ref456");
       expect(screen.getByTestId("access-token")).toHaveTextContent("acc123");
     });
+    expect(localStorage.getItem("access")).toBe("acc123");
+    expect(localStorage.getItem("refresh")).toBe("ref456");
     expect(API.post).toHaveBeenCalledWith("/auth/login", {
       email: "test@test.com",
       password: "secret",
@@ -104,12 +100,12 @@ describe("AuthContext", () => {
 
     await waitFor(async () => {
       expect(clearAuthStorage).toHaveBeenCalled();
-      expect(localStorage.getItem("access")).toBeNull();
-      expect(localStorage.getItem("refresh")).toBeNull();
-      expect(screen.getByTestId("access-token")).toHaveTextContent("");
-      expect(screen.getByTestId("user-email")).toHaveTextContent("");
-      expect(screen.getByTestId("role")).toHaveTextContent("");
     });
+    expect(localStorage.getItem("access")).toBeNull();
+    expect(localStorage.getItem("refresh")).toBeNull();
+    expect(screen.getByTestId("access-token")).toHaveTextContent("");
+    expect(screen.getByTestId("user-email")).toHaveTextContent("");
+    expect(screen.getByTestId("role")).toHaveTextContent("");
   });
 
   it("updates accessToken on auth:token-refreshed event", async () => {

@@ -35,8 +35,8 @@ describe("NotificationsPanel", () => {
 
     await waitFor(async () => {
       expect(screen.getByText("Build finished")).toBeInTheDocument();
-      expect(screen.getByText("Invite accepted")).toBeInTheDocument();
     });
+    expect(screen.getByText("Invite accepted")).toBeInTheDocument();
   });
 
   it("does not throw when clicking a notification item", async () => {
