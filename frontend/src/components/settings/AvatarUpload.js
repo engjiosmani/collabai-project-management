@@ -70,7 +70,7 @@ export default function AvatarUpload({ profile, onUpload, disabled }) {
 
       <div className="avatar-upload-body">
         <label className="dashboard-button dashboard-button--ghost avatar-upload-button">
-          <span>{uploading ? "Uploading..." : "Upload avatar"}</span>
+          <span>{uploading ? "Uploading" : "Upload avatar"}</span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/gif,image/webp"

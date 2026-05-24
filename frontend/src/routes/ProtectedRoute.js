@@ -2,6 +2,7 @@ import { useContext } from "react";
 import { Navigate } from "react-router-dom";
 
 import FloatingAIAssistant from "../components/FloatingAIAssistant";
+import LoadingSpinner from "../components/ui/LoadingSpinner";
 import { AuthContext } from "../context/AuthContext";
 import { useRole } from "../hooks/useRole";
 
@@ -23,7 +24,7 @@ function ProtectedRoute({ children, requiredRole }) {
     }
 
     if (loadingMemberships) {
-        return null;
+        return <LoadingSpinner label="Checking access" size="lg" />;
     }
 
     const roleChecks = {

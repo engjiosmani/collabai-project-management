@@ -21,6 +21,9 @@ import { fetchProjectMembers } from "../api/projects";
 import { getWorkspaceMembers } from "../api/workspaces";
 import RoleGate from "./RoleGate";
 import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
+import EmptyState from "./ui/EmptyState";
+import LoadingSkeleton from "./ui/LoadingSkeleton";
+import LoadingSpinner from "./ui/LoadingSpinner";
 import { useOrganization } from "../context/OrganizationContext";
 import { useRole } from "../hooks/useRole";
 import "./KanbanBoard.css";
@@ -431,9 +434,23 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
 
                     <div className="kb-detail-section">
                         <h4 className="kb-detail-label">Attachments</h4>
-                        {attachmentsLoading ? <p className="kb-detail-empty">Loading attachments…</p> : null}
+                        {attachmentsLoading ? (
+                            <LoadingSkeleton
+                                variant="list"
+                                count={2}
+                                lines={1}
+                                label="Loading attachments"
+                            />
+                        ) : null}
                         {attachmentsError ? <p className="kb-modal-error">{attachmentsError}</p> : null}
-                        {!attachmentsLoading && attachments.length === 0 ? <p className="kb-detail-empty">No attachments yet.</p> : null}
+                        {!attachmentsLoading && attachments.length === 0 ? (
+                            <EmptyState
+                                compact
+                                icon="A"
+                                title="No attachments"
+                                description="Files added to this task will appear here."
+                            />
+                        ) : null}
                         <div className="kb-detail-list">
                             {attachments.map((attachment) => (
                                 <article key={attachment.id} className="kb-detail-item">
@@ -505,9 +522,23 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
 
                     <div className="kb-detail-section">
                         <h4 className="kb-detail-label">Comments</h4>
-                        {commentsLoading ? <p className="kb-detail-empty">Loading comments…</p> : null}
+                        {commentsLoading ? (
+                            <LoadingSkeleton
+                                variant="list"
+                                count={2}
+                                lines={2}
+                                label="Loading comments"
+                            />
+                        ) : null}
                         {commentsError ? <p className="kb-modal-error">{commentsError}</p> : null}
-                        {!commentsLoading && comments.length === 0 ? <p className="kb-detail-empty">No comments yet.</p> : null}
+                        {!commentsLoading && comments.length === 0 ? (
+                            <EmptyState
+                                compact
+                                icon="C"
+                                title="No comments"
+                                description="Discussion about this task will appear here."
+                            />
+                        ) : null}
                         <div className="kb-detail-list">
                             {comments.map((comment) => (
                                 <article key={comment.id} className="kb-detail-item">
@@ -539,9 +570,23 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
 
                     <div className="kb-detail-section">
                         <h4 className="kb-detail-label">Activity log</h4>
-                        {activityLoading ? <p className="kb-detail-empty">Loading activity…</p> : null}
+                        {activityLoading ? (
+                            <LoadingSkeleton
+                                variant="list"
+                                count={2}
+                                lines={2}
+                                label="Loading activity"
+                            />
+                        ) : null}
                         {activityError ? <p className="kb-modal-error">{activityError}</p> : null}
-                        {!activityLoading && activity.length === 0 ? <p className="kb-detail-empty">No activity yet.</p> : null}
+                        {!activityLoading && activity.length === 0 ? (
+                            <EmptyState
+                                compact
+                                icon="L"
+                                title="No activity found"
+                                description="Task updates, comments, and status changes will be listed here."
+                            />
+                        ) : null}
                         <div className="kb-detail-list">
                             {activity.map((item) => (
                                 <article key={item.id} className="kb-detail-item">
@@ -633,7 +678,13 @@ function Column({ status, tasks, statuses, onStatusChange, onEdit, onView, onDro
                     />
                 ))}
                 {tasks.length === 0 && (
-                    <div className="kb-column-empty">Drop tasks here</div>
+                    <EmptyState
+                        compact
+                        icon="T"
+                        title="No tasks"
+                        description="Tasks in this status will appear here."
+                        className="kb-column-empty-state"
+                    />
                 )}
             </div>
         </div>
@@ -891,7 +942,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
                             >
                                 <option value="">
                                     {membersLoading
-                                        ? "Loading assignees..."
+                                        ? "Loading assignees"
                                         : hasAssigneeSource
                                         ? "Unassigned"
                                         : "Select a workspace first"}
@@ -1209,8 +1260,7 @@ export default function KanbanBoard({
     if (loading) {
         return (
             <div className="kb-state kb-state--loading" data-cy="kanban-loading">
-                <div className="kb-spinner" />
-                <span>Loading board…</span>
+                <LoadingSpinner label="Loading board" />
             </div>
         );
     }
@@ -1312,9 +1362,12 @@ export default function KanbanBoard({
             </header>
 
             {statuses.length === 0 ? (
-                <div className="kb-state kb-state--empty">
-                    No task statuses found. Make sure the backend has TaskStatus records.
-                </div>
+                <EmptyState
+                    icon="S"
+                    title="No task statuses found"
+                    description="Make sure the backend has TaskStatus records before creating tasks."
+                    className="kb-state kb-state--empty"
+                />
             ) : (
                 <div className="kb-board-scroll">
                     <div className="kb-board">

@@ -64,7 +64,7 @@ export default function AcceptInvite() {
             onClick={handleAccept}
             disabled={loading}
           >
-            {loading ? "Accepting..." : isLoggedIn ? "Accept Invite" : "Go to Login"}
+            {loading ? "Accepting" : isLoggedIn ? "Accept Invite" : "Go to Login"}
           </button>
         </section>
       </main>

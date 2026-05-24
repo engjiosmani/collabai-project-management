@@ -10,6 +10,7 @@ import {
 } from "../api/teamPulse";
 import StandupMarkdown from "../components/teamPulse/StandupMarkdown";
 import AppSidebar from "../components/AppSidebar";
+import LoadingSkeleton from "../components/ui/LoadingSkeleton";
 import TeamPulseGitHubSetup, {
   getGitHubSetupStatus,
 } from "../components/teamPulse/TeamPulseGitHubSetup";
@@ -247,7 +248,9 @@ function TeamPulse() {
           </form>
         ) : null}
 
-        {loading ? <p className="tp-muted">Loading...</p> : null}
+        {loading ? (
+          <LoadingSkeleton variant="card" count={1} lines={5} label="Loading team pulse" />
+        ) : null}
 
         {!loading ? (
           <section className="tp-card tp-standup-card">

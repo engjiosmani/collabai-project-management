@@ -1,6 +1,8 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import AppSidebar from "../components/AppSidebar";
 import RoleGate from "../components/RoleGate";
+import EmptyState from "../components/ui/EmptyState";
+import LoadingSkeleton from "../components/ui/LoadingSkeleton";
 import {
   createOrganization,
   getOrganizations,
@@ -506,9 +508,7 @@ export default function Organizations() {
         {success && <div style={styles.success}>{success}</div>}
 
         {loading ? (
-          <section className="dashboard-card">
-            <p>Loading organizations...</p>
-          </section>
+          <LoadingSkeleton variant="card" count={2} lines={4} label="Loading organizations" />
         ) : (
           <div style={styles.layout}>
             <aside style={styles.leftPanel}>
@@ -516,7 +516,12 @@ export default function Organizations() {
                 <h2 style={styles.cardTitle}>My Organizations</h2>
 
                 {organizations.length === 0 ? (
-                  <p style={styles.muted}>No organizations yet.</p>
+                  <EmptyState
+                    compact
+                    icon="O"
+                    title="No organizations yet"
+                    description="Create or join an organization to manage members and workspaces."
+                  />
                 ) : (
                   <div style={styles.orgList}>
                     {organizations.map((org) => (

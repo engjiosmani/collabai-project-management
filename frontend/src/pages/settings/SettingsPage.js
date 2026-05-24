@@ -6,7 +6,8 @@ import OrganizationSettingsSection from "../../components/settings/OrganizationS
 import PasswordForm from "../../components/settings/PasswordForm";
 import ProfileForm from "../../components/settings/ProfileForm";
 import SettingsSidebar from "../../components/settings/SettingsSidebar";
-import SkeletonCard from "../../components/dashboard/SkeletonCard";
+import EmptyState from "../../components/ui/EmptyState";
+import LoadingSkeleton from "../../components/ui/LoadingSkeleton";
 import useProfile from "../../hooks/useProfile";
 import { useRole } from "../../hooks/useRole";
 import "../Dashboard.css";
@@ -59,8 +60,8 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="settings-layout">
-            <SkeletonCard lines={4} />
-            <SkeletonCard lines={8} />
+            <LoadingSkeleton variant="card" count={1} lines={4} label="Loading profile navigation" />
+            <LoadingSkeleton variant="card" count={1} lines={8} label="Loading profile settings" />
           </div>
         </main>
       </div>
@@ -72,22 +73,15 @@ export default function SettingsPage() {
       <div className="dashboard-shell">
         <AppSidebar />
         <main className="dashboard-main settings-main">
-          <section className="dashboard-empty-state dashboard-empty-state--error">
-            <div>
-              <p className="dashboard-empty-kicker">Settings</p>
-              <h2 className="dashboard-panel-title">Settings could not load</h2>
-              <p className="dashboard-empty-text">
-                Refresh the page or try again in a moment.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="dashboard-button dashboard-button--primary"
-              onClick={reload}
-            >
-              Retry
-            </button>
-          </section>
+          <EmptyState
+            icon="!"
+            kicker="Settings"
+            title="Settings could not load"
+            description="Refresh the page or try again in a moment."
+            actionLabel="Retry"
+            onAction={reload}
+            className="dashboard-empty-state dashboard-empty-state--error"
+          />
         </main>
       </div>
     );

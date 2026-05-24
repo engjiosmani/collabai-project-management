@@ -1,5 +1,4 @@
 import { forwardRef, useImperativeHandle } from "react";
-import { Link } from "react-router-dom";
 
 import {
   EXAMPLE_QUESTIONS,
@@ -7,6 +6,8 @@ import {
   formatScore,
   useAIAssistantChat,
 } from "../hooks/useAIAssistantChat";
+import EmptyState from "./ui/EmptyState";
+import LoadingSkeleton from "./ui/LoadingSkeleton";
 import "../pages/AIAssistant.css";
 
 const AIAssistantChat = forwardRef(function AIAssistantChat(
@@ -135,14 +136,26 @@ const AIAssistantChat = forwardRef(function AIAssistantChat(
         </div>
       ) : null}
 
+      {projectsLoading ? (
+        <LoadingSkeleton
+          className="ai-project-loading"
+          variant="list"
+          count={1}
+          lines={2}
+          label="Loading AI assistant history"
+        />
+      ) : null}
+
       {!projectsLoading && !hasProject ? (
-        <div className="ai-no-workspace" role="alert">
-          <strong>No projects found.</strong>
-          <p>
-            Open the <Link to="/projects">Projects</Link> page to create one, or run in the backend:{" "}
-            <code>python manage.py bootstrap_organization --email=your@email.com</code>, then refresh.
-          </p>
-        </div>
+        <EmptyState
+          compact
+          icon="AI"
+          title="No projects found"
+          description="Create a project before asking the assistant about project context."
+          actionLabel="Open projects"
+          actionHref="/projects"
+          className="ai-no-workspace"
+        />
       ) : null}
 
       <div className="ai-chat-area" aria-live="polite">
