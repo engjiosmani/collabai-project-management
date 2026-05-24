@@ -2,6 +2,8 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import API, { getApiErrorMessage } from "../api/api";
 import { deleteProject, fetchProjectsPaginated } from "../api/projects";
 import { AuthContext } from "../context/AuthContext";
+import EmptyState from "./ui/EmptyState";
+import LoadingSkeleton from "./ui/LoadingSkeleton";
 import ProjectFormModal from "./ProjectFormModal";
 import "./ProjectsPanel.css";
 
@@ -195,14 +197,26 @@ export default function ProjectsPanel({
                         onClick={() => loadProjects({ reset: true })}
                         disabled={loading}
                     >
-                        {loading ? "Loading…" : "Refresh"}
+                        {loading ? "Refreshing" : "Refresh"}
                     </button>
                 </div>
 
                 {error && <p className="projects-panel-error">{error}</p>}
-                {loading && <p className="projects-panel-muted">Loading projects…</p>}
+                {loading && (
+                    <LoadingSkeleton
+                        variant="list"
+                        count={2}
+                        lines={2}
+                        label="Loading projects"
+                    />
+                )}
                 {!loading && projects.length === 0 && (
-                    <p className="projects-panel-muted">No projects yet.</p>
+                    <EmptyState
+                        compact
+                        icon="P"
+                        title="No projects yet"
+                        description="Create a project to start organizing tasks and team activity."
+                    />
                 )}
                 {!loading && projects.length > 0 && (
                     <ul className="projects-panel-list">
@@ -353,45 +367,50 @@ export default function ProjectsPanel({
 
                 {/* Loading skeleton */}
                 {loading && (
-                    <div className="pp-grid">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <div key={i} className="projects-panel-card pp-skeleton" />
-                        ))}
-                    </div>
+                    <LoadingSkeleton
+                        className="pp-grid"
+                        variant="card"
+                        count={6}
+                        lines={4}
+                        label="Loading projects"
+                    />
                 )}
 
                 {/* Empty state */}
                 {!loading && !error && projects.length === 0 && (
-                    <div className="pp-empty">
-                        <p className="pp-empty-title">
-                            {search || orgFilter
-                                ? "No projects match your search."
-                                : "No projects yet."}
-                        </p>
-                        {!search && !orgFilter && (
-                            <button
-                                type="button"
-                                className="dashboard-button dashboard-button--primary"
-                                onClick={() => setShowCreate(true)}
-                            >
-                                Create your first project
-                            </button>
-                        )}
-                        {(search || orgFilter) && (
-                            <button
-                                type="button"
-                                className="dashboard-button dashboard-button--ghost"
-                                onClick={() => {
-                                    setSearch("");
-                                    setOrgFilter("");
-                                    setDebouncedSearch("");
-                                    setRefreshToken((current) => current + 1);
-                                }}
-                            >
-                                Clear filters
-                            </button>
-                        )}
-                    </div>
+                    <EmptyState
+                        icon="P"
+                        title={
+                            search || orgFilter
+                                ? "No projects match your search"
+                                : "No projects yet"
+                        }
+                        description={
+                            search || orgFilter
+                                ? "Try a different search term or clear the active filters."
+                                : "Create your first project to group tasks, members, dates, and delivery context."
+                        }
+                        actionLabel={
+                            search || orgFilter
+                                ? "Clear filters"
+                                : "Create your first project"
+                        }
+                        actionClassName={
+                            search || orgFilter
+                                ? "dashboard-button dashboard-button--ghost"
+                                : "dashboard-button dashboard-button--primary"
+                        }
+                        onAction={() => {
+                            if (search || orgFilter) {
+                                setSearch("");
+                                setOrgFilter("");
+                                setDebouncedSearch("");
+                                setRefreshToken((current) => current + 1);
+                                return;
+                            }
+                            setShowCreate(true);
+                        }}
+                    />
                 )}
 
                 {/* Project cards */}
@@ -527,7 +546,7 @@ export default function ProjectsPanel({
                             disabled={loadingMore}
                         >
                             {loadingMore
-                                ? "Loading…"
+                                ? "Loading more"
                                 : `Load more (${total - projects.length} remaining)`}
                         </button>
                     </div>

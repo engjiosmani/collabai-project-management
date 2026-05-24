@@ -8,10 +8,11 @@ import TeamPulse from "./pages/TeamPulse";
 import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
 import Invitations from "./pages/Invitations";
-import Unauthorized from "./pages/Unauthorized";
 import SettingsPage from "./pages/settings/SettingsPage";
 import ForgotPasswordPage from "./pages/settings/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/settings/ResetPasswordPage";
+import NotFoundPage from "./pages/errors/NotFoundPage";
+import UnauthorizedPage from "./pages/errors/UnauthorizedPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import GlobalApiToast from "./components/GlobalApiToast";
 import "./App.css";
@@ -109,7 +110,11 @@ function App() {
                     }
                 />
 
-                <Route path="/unauthorized" element={<Unauthorized />} />
+                <Route path="/404" element={<NotFoundPage />} />
+
+                <Route path="/unauthorized" element={<UnauthorizedPage />} />
+
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </>
     );

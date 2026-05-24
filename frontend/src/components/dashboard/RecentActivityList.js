@@ -1,3 +1,5 @@
+import EmptyState from "../ui/EmptyState";
+
 function formatTimestamp(value) {
     if (!value) {
         return "Just now";
@@ -17,11 +19,14 @@ function formatTimestamp(value) {
 function RecentActivityList({ items }) {
     if (!items.length) {
         return (
-            <div className="dashboard-empty-state dashboard-empty-state--soft">
-                <p className="dashboard-empty-kicker">Recent activity</p>
-                <h3>No activity yet</h3>
-                <p className="dashboard-empty-text">When your team updates tasks or comments, the latest events will appear here.</p>
-            </div>
+            <EmptyState
+                compact
+                icon="A"
+                kicker="Recent activity"
+                title="No activity found"
+                description="When your team updates tasks or comments, the latest events will appear here."
+                className="dashboard-empty-state dashboard-empty-state--soft"
+            />
         );
     }
 

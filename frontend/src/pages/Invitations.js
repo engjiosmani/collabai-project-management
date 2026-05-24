@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import AppSidebar from "../components/AppSidebar";
+import EmptyState from "../components/ui/EmptyState";
+import LoadingSkeleton from "../components/ui/LoadingSkeleton";
 import { acceptInvite, getMyInvitations } from "../api/organizations";
 import { getApiErrorMessage } from "../api/api";
 import "./Dashboard.css";
@@ -61,16 +63,14 @@ export default function Invitations() {
         {success && <div style={styles.success}>{success}</div>}
 
         {loading ? (
-          <section className="dashboard-card">
-            <p>Loading invitations...</p>
-          </section>
+          <LoadingSkeleton variant="card" count={2} lines={3} label="Loading invitations" />
         ) : invites.length === 0 ? (
-          <section className="dashboard-card">
-            <h2>No pending invitations</h2>
-            <p style={styles.muted}>
-              When an organization admin invites you, the request will appear here.
-            </p>
-          </section>
+          <EmptyState
+            icon="I"
+            title="No pending invitations"
+            description="When an organization admin invites you, the request will appear here."
+            className="dashboard-card"
+          />
         ) : (
           <div style={styles.grid}>
             {invites.map((invite) => (
@@ -115,7 +115,7 @@ export default function Invitations() {
                   disabled={acceptingToken === invite.token}
                   onClick={() => handleAccept(invite)}
                 >
-                  {acceptingToken === invite.token ? "Accepting..." : "Accept Invitation"}
+                  {acceptingToken === invite.token ? "Accepting" : "Accept Invitation"}
                 </button>
               </section>
             ))}

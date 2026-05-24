@@ -216,6 +216,26 @@
     padding: 24px 12px;
 }
 
+.kb-column-empty-state {
+    padding: 14px 10px;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.kb-column-empty-state .ui-empty-state__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+}
+
+.kb-column-empty-state .ui-empty-state__body h3 {
+    font-size: 0.9rem;
+}
+
+.kb-column-empty-state .ui-empty-state__body p {
+    font-size: 0.82rem;
+}
+
 /* ── card ────────────────────────────────────────────────────────────────── */
 
 .kb-card {
@@ -388,17 +408,6 @@
 }
 
 .kb-state--error { color: #b91c1c; }
-
-.kb-spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid #e2e8f0;
-    border-top-color: #6366f1;
-    border-radius: 50%;
-    animation: kb-spin 0.7s linear infinite;
-}
-
-@keyframes kb-spin { to { transform: rotate(360deg); } }
 
 /* ── modal ───────────────────────────────────────────────────────────────── */
 
@@ -830,3 +839,5 @@
 
 .kb-input:focus { border-color: #6366f1; }
 .kb-textarea { resize: vertical; min-height: 72px; }
+
+
