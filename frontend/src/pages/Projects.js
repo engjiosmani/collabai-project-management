@@ -22,12 +22,10 @@ function Projects() {
     const handleSelectProject = useCallback(
         (projectId) => {
             if (!projectId) {
-                navigate("/dashboard", { state: { scrollTo: "tasks" } });
+                navigate("/tasks");
                 return;
             }
-            navigate(`/dashboard?project=${encodeURIComponent(String(projectId))}`, {
-                state: { scrollTo: "tasks" },
-            });
+            navigate(`/tasks?project=${encodeURIComponent(String(projectId))}`);
         },
         [navigate]
     );

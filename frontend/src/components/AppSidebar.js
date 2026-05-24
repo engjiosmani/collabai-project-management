@@ -85,6 +85,7 @@ export default function AppSidebar({ onNavigateSection }) {
 
   const isDashboard = pathname === "/dashboard";
   const isProjects = pathname === "/projects";
+  const isTasks = pathname === "/tasks";
   const isOrganizations = pathname === "/organizations";
   const isInvitations = pathname === "/invitations";
   const isSettings = pathname.startsWith("/settings");
@@ -97,9 +98,10 @@ export default function AppSidebar({ onNavigateSection }) {
   const linkStyle = { textDecoration: "none", display: "block" };
 
   const renderSectionLink = (section, label, dataCy) => {
-    const className = navClass(false);
+    const isTasksSection = section === "tasks";
+    const className = navClass(isTasksSection ? isTasks : false);
 
-    if (isDashboard && typeof onNavigateSection === "function") {
+    if (!isTasksSection && isDashboard && typeof onNavigateSection === "function") {
       return (
         <button
           className={className}
@@ -116,8 +118,8 @@ export default function AppSidebar({ onNavigateSection }) {
       <Link
         className={className}
         data-cy={dataCy}
-        to="/dashboard"
-        state={{ scrollTo: section }}
+        to={isTasksSection ? "/tasks" : "/dashboard"}
+        state={isTasksSection ? undefined : { scrollTo: section }}
         style={linkStyle}
       >
         {label}

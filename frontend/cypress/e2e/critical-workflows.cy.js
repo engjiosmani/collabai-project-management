@@ -93,9 +93,6 @@ describe("Critical workflows", () => {
     cy.wait("@orgsRequest");
     cy.url().should("include", "/dashboard");
     cy.wait("@summaryRequest");
-    cy.wait("@tasksRequest");
-    cy.wait("@prioritiesRequest");
-    cy.wait("@statusesRequest");
 
     cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.get('[data-cy="dashboard-stats"]').within(() => {
@@ -104,8 +101,14 @@ describe("Critical workflows", () => {
       cy.get('[data-cy="stat-card-completed-tasks"]').should("contain.text", "Completed tasks").and("contain.text", "5");
       cy.get('[data-cy="stat-card-pending-tasks"]').should("contain.text", "Pending tasks").and("contain.text", "3");
     });
-    cy.get('[data-cy="dashboard-kanban"]').should("be.visible");
     cy.get('[data-cy="dashboard-recent-activity"]').should("contain.text", "CREATED");
+
+    cy.get('[data-cy="dashboard-nav-tasks"]').click();
+    cy.url().should("include", "/tasks");
+    cy.wait("@tasksRequest");
+    cy.wait("@prioritiesRequest");
+    cy.wait("@statusesRequest");
+    cy.get('[data-cy="tasks-kanban"]').should("be.visible");
   });
 
   it("shows the dashboard flow for an already authenticated user", () => {
@@ -122,14 +125,16 @@ describe("Critical workflows", () => {
     cy.wait("@meRequest");
     cy.wait("@orgsRequest");
     cy.wait("@summaryRequest");
+
+    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
+    cy.contains("Recent activity logs").should("be.visible");
+    cy.contains("Task completion").should("be.visible");
+
+    cy.get('[data-cy="dashboard-nav-tasks"]').click();
     cy.wait("@tasksRequest");
     cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");
-
-    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
-    cy.contains("Kanban task board").should("be.visible");
-    cy.contains("Recent activity logs").should("be.visible");
-    cy.contains("Task completion").should("be.visible");
+    cy.contains("Task board").should("be.visible");
   });
 
   it("creates a task from the kanban board", () => {
@@ -156,7 +161,7 @@ describe("Critical workflows", () => {
       });
     }).as("createTask");
 
-    cy.visit("/dashboard", {
+    cy.visit("/tasks", {
       onBeforeLoad(win) {
         win.localStorage.setItem("access", "test-access-token");
         win.localStorage.setItem("user_email", email);
@@ -166,7 +171,6 @@ describe("Critical workflows", () => {
 
     cy.wait("@meRequest");
     cy.wait("@orgsRequest");
-    cy.wait("@summaryRequest");
     cy.wait("@tasksRequest");
     cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");

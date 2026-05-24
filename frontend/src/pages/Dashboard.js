@@ -1,11 +1,10 @@
 import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import AppSidebar from "../components/AppSidebar";
 import ActionChart from "../components/dashboard/ActionChart";
 import CompletionChart from "../components/dashboard/CompletionChart";
 import ErrorState from "../components/dashboard/ErrorState";
-import KanbanBoard from "../components/KanbanBoard";
 import RecentActivityList from "../components/dashboard/RecentActivityList";
 import SkeletonCard from "../components/dashboard/SkeletonCard";
 import StatCard from "../components/dashboard/StatCard";
@@ -70,7 +69,7 @@ const DASHBOARD_PROFILES = {
             { label: "Invite member", target: "/organizations", tone: "primary" },
             { label: "Manage organization", target: "/organizations" },
             { label: "Review projects", target: "/projects" },
-            { label: "Open task board", section: "tasks" },
+            { label: "Open task board", target: "/tasks" },
         ],
     },
     workspace_admin: {
@@ -81,7 +80,7 @@ const DASHBOARD_PROFILES = {
             { label: "Workspace members", target: "/organizations", tone: "primary" },
             { label: "Workspace settings", target: "/organizations" },
             { label: "Review projects", target: "/projects" },
-            { label: "Open task board", section: "tasks" },
+            { label: "Open task board", target: "/tasks" },
         ],
     },
     manager: {
@@ -89,7 +88,7 @@ const DASHBOARD_PROFILES = {
         eyebrow: "Manager cockpit",
         focus: "Project execution, task assignment, and progress across work you manage.",
         actions: [
-            { label: "Create task", section: "tasks", tone: "primary" },
+            { label: "Create task", target: "/tasks", tone: "primary" },
             { label: "Review projects", target: "/projects" },
             { label: "Check activity", section: "activity" },
         ],
@@ -99,7 +98,7 @@ const DASHBOARD_PROFILES = {
         eyebrow: "Assigned work",
         focus: "Tasks and project activity assigned or opened to you.",
         actions: [
-            { label: "Open my tasks", section: "tasks", tone: "primary" },
+            { label: "Open my tasks", target: "/tasks", tone: "primary" },
             { label: "Review activity", section: "activity" },
             { label: "View projects", target: "/projects" },
         ],
@@ -185,48 +184,10 @@ function DashboardScreen() {
     const navigate = useNavigate();
     const { summary, loading, refreshing, error, reload } = useDashboard();
     const location = useLocation();
-    const [searchParams, setSearchParams] = useSearchParams();
     const activityRef = useRef(null);
-    const kanbanRef = useRef(null);
-
-    const kanbanProjectFilter = searchParams.get("project") || "";
-
-    const setKanbanProjectFilter = useCallback(
-        (value) => {
-            const next = value ? String(value) : "";
-            const params = new URLSearchParams(searchParams);
-            if (next) {
-                params.set("project", next);
-            } else {
-                params.delete("project");
-            }
-            setSearchParams(params, { replace: true });
-        },
-        [searchParams, setSearchParams]
-    );
-
-    useEffect(() => {
-        const projectId = location.state?.projectId;
-        if (projectId === undefined || projectId === null) {
-            return;
-        }
-        const params = new URLSearchParams(window.location.search);
-        const next = projectId ? String(projectId) : "";
-        if (next) {
-            params.set("project", next);
-        } else {
-            params.delete("project");
-        }
-        const scrollTo = location.state?.scrollTo;
-        setSearchParams(params, {
-            replace: true,
-            state: scrollTo ? { scrollTo } : {},
-        });
-    }, [location.key, location.state?.projectId, location.state?.scrollTo, setSearchParams]);
 
     const scrollToSection = useCallback((section) => {
         const targets = {
-            tasks: kanbanRef,
             activity: activityRef,
         };
         targets[section]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -234,7 +195,7 @@ function DashboardScreen() {
 
     useEffect(() => {
         const target = location.state?.scrollTo;
-        if (!target || !["tasks", "activity"].includes(target)) {
+        if (!target || target !== "activity") {
             return undefined;
         }
         if (loading && !summary.hasData) {
@@ -413,16 +374,6 @@ function DashboardScreen() {
                 </section>
                 ) : null}
 
-                {isMemberView ? (
-                    <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide dashboard-panel--kanban" data-cy="dashboard-kanban">
-                        <KanbanBoard
-                            projectFilter={kanbanProjectFilter}
-                            onProjectFilterChange={setKanbanProjectFilter}
-                            onTasksChanged={() => reload({ silent: true })}
-                        />
-                    </section>
-                ) : null}
-
                 <section
                     ref={activityRef}
                     className="dashboard-panel dashboard-panel--wide"
@@ -443,15 +394,6 @@ function DashboardScreen() {
                     <RecentActivityList items={summary.recentActivity} />
                 </section>
 
-                {!isMemberView ? (
-                <section ref={kanbanRef} className="dashboard-panel dashboard-panel--wide dashboard-panel--kanban" data-cy="dashboard-kanban">
-                    <KanbanBoard
-                        projectFilter={kanbanProjectFilter}
-                        onProjectFilterChange={setKanbanProjectFilter}
-                        onTasksChanged={() => reload({ silent: true })}
-                    />
-                </section>
-                ) : null}
             </main>
         </div>
     );

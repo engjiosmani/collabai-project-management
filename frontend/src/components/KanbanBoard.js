@@ -57,19 +57,30 @@ function statusName(statuses, statusId) {
     return statuses.find((s) => s.id === statusId)?.name || "—";
 }
 
+function getMemberUserId(member) {
+    if (!member) return "";
+    if (member.user_id !== undefined && member.user_id !== null) return member.user_id;
+    if (member.user?.id !== undefined && member.user?.id !== null) return member.user.id;
+    if (typeof member.user === "number" || typeof member.user === "string") return member.user;
+    if (member.id !== undefined && member.email && !member.organization && !member.workspace && !member.project) return member.id;
+    return "";
+}
+
 function toAssigneeOption(member) {
+    const userId = getMemberUserId(member);
     return {
         ...member,
-        user_id: member.user_id ?? member.user?.id ?? member.user ?? member.id,
+        user_id: userId,
         email: member.email ?? member.user_email ?? member.user?.email ?? "",
         username: member.username ?? member.user?.username ?? "",
     };
 }
 
 function toProjectMemberAssignee(member) {
+    const userId = getMemberUserId(member);
     return {
         ...member,
-        user_id: member.user_id ?? member.user?.id ?? member.user,
+        user_id: userId,
         email: member.email ?? member.user_email ?? member.user?.email ?? "",
         username: member.username ?? member.user_username ?? member.user?.username ?? "",
     };
@@ -948,7 +959,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
                                         : "Select a workspace first"}
                                 </option>
                                 {assigneeOptions.map((member) => (
-                                    <option key={member.id || member.user_id} value={String(member.user_id || member.id)}>
+                                    <option key={member.user_id} value={String(member.user_id)}>
                                         {member.email || member.username || `User ${member.user_id}`}
                                     </option>
                                 ))}
@@ -1279,10 +1290,10 @@ export default function KanbanBoard({
             <header className="kb-header">
                 <div className="kb-header__intro">
                     <h2 className="kb-header__title" data-cy="kanban-title">
-                        Kanban task board
+                        Task board
                     </h2>
                     <p className="kb-header__desc">
-                        Create tasks, move them between columns, and filter by project.
+                        Drag tasks between columns and filter by workspace, project, or assignee.
                     </p>
                 </div>
                 <div className="kb-header__controls">
@@ -1355,7 +1366,7 @@ export default function KanbanBoard({
                             type="button"
                                 disabled={projects.length === 0}
                         >
-                            + New task
+                            + Add task
                         </button>
                     </RoleGate>
                 </div>

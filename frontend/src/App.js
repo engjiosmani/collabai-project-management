@@ -5,6 +5,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import AIAssistant from "./pages/AIAssistant";
 import TeamPulse from "./pages/TeamPulse";
+import Tasks from "./pages/Tasks";
 import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
 import Invitations from "./pages/Invitations";
@@ -52,6 +53,15 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <Dashboard />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/tasks"
+                    element={
+                        <ProtectedRoute>
+                            <Tasks />
                         </ProtectedRoute>
                     }
                 />
