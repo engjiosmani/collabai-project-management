@@ -84,22 +84,10 @@ During user registration in `RegisterSerializer`, additional regex validations a
 - At least one **numeric digit** (`0-9`).
 - At least one **special character** (e.g. `@`, `$`, `!`, `%`, `*`, `?`, `&`).
 
-### API Rate Limiting (Throttling)
-To prevent brute-force attacks on public endpoints (like `/api/v1/auth/login` and `/api/v1/auth/register`), DRF throttling is configured both globally and per endpoint:
+### API Rate Limiting
+DRF request throttling is disabled for this student project so local testing, repeated login attempts, polling, and demos do not trigger `429 Too Many Requests` responses.
 
-**Global Throttles**
-- **Anonymous Rate Limiting (`THROTTLE_ANON_RATE`)**: Enforces a default limit of `60 requests per minute` per IP address for unauthenticated requests.
-- **Authenticated Rate Limiting (`THROTTLE_USER_RATE`)**: Enforces a default limit of `1000 requests per hour` for logged-in users.
-- **Granular Scoped Authentication Rate Limiting**: Tighter per-endpoint restrictions are applied to critical auth paths to prevent brute-force, dictionary, and account enumeration attacks:
-  - **Register Endpoint (`/api/v1/auth/register`)**: Restricted to `3 requests per minute` (configurable via `THROTTLE_AUTH_REGISTER_RATE`).
-  - **Login Endpoint (`/api/v1/auth/login`)**: Restricted to `5 requests per minute` (configurable via `THROTTLE_AUTH_LOGIN_RATE`).
-  - **Token Refresh Endpoint (`/api/v1/auth/refresh`)**: Restricted to `10 requests per minute` (configurable via `THROTTLE_AUTH_REFRESH_RATE`).
-- All rates are completely environment-driven and can be adjusted for staging/production. Throttling is automatically bypassed during unit tests (`python manage.py test`) to prevent test suites from being blocked by shared cache states.
-
-| Endpoint | Scope | Default Rate | Env Variable |
-| :--- | :--- | :--- | :--- |
-| `POST /api/v1/auth/login` | `auth_login` | `5/minute` | `THROTTLE_AUTH_LOGIN_RATE` |
-| `POST /api/v1/auth/register` | `auth_register` | `3/minute` | `THROTTLE_AUTH_REGISTER_RATE` |
+For a production deployment, re-enable DRF throttling for public authentication endpoints before exposing the API to untrusted traffic.
 
 ---
 
@@ -186,14 +174,6 @@ Before promoting any build to production, **every** variable below must be expli
 | `SECURE_PROXY_SSL_HEADER_ENABLED` | `False` | `True` (only behind a trusted reverse proxy) | Lets Django detect HTTPS via `X-Forwarded-Proto`. |
 
 `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` are automatically enabled when `DEBUG=False` and require no manual change.
-
-### Recommended Throttle Adjustments
-
-| Variable | Default | Hardened |
-| :--- | :--- | :--- |
-| `THROTTLE_AUTH_LOGIN_RATE` | `5/minute` | `3/minute` (or `10/hour` per-IP for stricter brute-force blocking) |
-| `THROTTLE_AUTH_REGISTER_RATE` | `3/minute` | `5/hour` |
-| `THROTTLE_ANON_RATE` | `60/minute` | `30/minute` |
 
 ### Pre-Deployment Verification Steps
 

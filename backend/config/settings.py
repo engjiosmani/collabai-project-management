@@ -295,22 +295,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'EXCEPTION_HANDLER': 'common.exceptions.custom_exception_handler',
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
-        'rest_framework.throttling.ScopedRateThrottle',
-    ],
-    # During ``manage.py test`` runs, lift all throttle ceilings to effectively
-    # disable rate limiting so tests that hit ``/auth/*`` repeatedly aren't
-    # blocked by shared LocMem cache state. Production rates apply otherwise.
-    'DEFAULT_THROTTLE_RATES': {
-        'anon': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_ANON_RATE', '60/minute'),
-        'user': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_USER_RATE', '1000/hour'),
-        # Per-endpoint brute-force protection (ScopedRateThrottle)
-        'auth_login': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_LOGIN_RATE', '5/minute'),
-        'auth_register': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_REGISTER_RATE', '3/minute'),
-        'auth_refresh': '10000/minute' if "test" in sys.argv else os.environ.get('THROTTLE_AUTH_REFRESH_RATE', '10/minute'),
-    },
 }
 
 SPECTACULAR_SETTINGS = {
