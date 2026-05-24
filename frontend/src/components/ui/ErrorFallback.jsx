@@ -6,7 +6,7 @@ function ErrorFallback({
     onRetry,
     className = "",
 }) {
-    const showDetails = process.env.NODE_ENV === "development" && error;
+    const showDetails = process.env.NODE_ENV !== "production" && error;
 
     return (
         <main className={`ui-error-page ${className}`.trim()} role="alert">
