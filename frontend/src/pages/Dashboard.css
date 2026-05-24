@@ -126,6 +126,25 @@
     flex-shrink: 0;
 }
 
+.dashboard-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.dashboard-brand-row .dashboard-brand {
+    margin-bottom: 0;
+    min-width: 0;
+}
+
+.dashboard-sidebar-collapsed-bell {
+    display: grid;
+    place-items: center;
+    margin-top: 12px;
+}
+
 .dashboard-brand-mark {
     width: 36px;
     height: 36px;

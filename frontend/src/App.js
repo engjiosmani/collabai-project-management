@@ -8,6 +8,8 @@ import Tasks from "./pages/Tasks";
 import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
 import Invitations from "./pages/Invitations";
+import AcceptInvite from "./pages/AcceptInvite";
+import NotificationsPage from "./pages/NotificationsPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import ForgotPasswordPage from "./pages/settings/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/settings/ResetPasswordPage";
@@ -99,6 +101,20 @@ function App() {
                             <Invitations />
                         </ProtectedRoute>
                     }
+                />
+
+                <Route
+                    path="/notifications"
+                    element={
+                        <ProtectedRoute>
+                            <NotificationsPage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/accept-invite/:token"
+                    element={<AcceptInvite />}
                 />
 
                 <Route

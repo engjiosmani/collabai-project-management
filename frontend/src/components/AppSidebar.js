@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
 import { useOrganization } from "../context/OrganizationContext";
+import NotificationBell from "./notifications/NotificationBell";
 
 const STORAGE_KEY = "collabai-sidebar-collapsed";
 
@@ -153,15 +154,23 @@ export default function AppSidebar({ onNavigateSection }) {
           >
             <HamburgerIcon />
           </button>
+          {collapsed ? (
+            <div className="dashboard-sidebar-collapsed-bell">
+              <NotificationBell />
+            </div>
+          ) : null}
 
           {!collapsed ? (
             <>
-              <div className="dashboard-brand">
-                <div className="dashboard-brand-mark">C</div>
-                <div>
-                  <h1 className="dashboard-brand-title">CollabAI</h1>
-                  <p className="dashboard-brand-subtitle">Project intelligence hub</p>
+              <div className="dashboard-brand-row">
+                <div className="dashboard-brand">
+                  <div className="dashboard-brand-mark">C</div>
+                  <div>
+                    <h1 className="dashboard-brand-title">CollabAI</h1>
+                    <p className="dashboard-brand-subtitle">Project intelligence hub</p>
+                  </div>
                 </div>
+                <NotificationBell />
               </div>
 
               <div style={styles.orgSwitcher}>

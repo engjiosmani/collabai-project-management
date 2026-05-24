@@ -193,6 +193,31 @@ class OrgInviteTest(BaseOrgAPI):
         self.assertEqual(res.status_code, 201, res.data)
         self.assertIn('token', res.data)
         self.assertFalse(res.data['is_accepted'])
+
+    def test_invite_existing_user_creates_unread_notification(self):
+        invitee = _make_user('invitee-notify', 'notify-invite@example.com')
+
+        res = self.client.post(
+            f'/api/v1/organizations/{self.org.pk}/invite/',
+            {'email': invitee.email, 'role': 'member'},
+            format='json',
+            **_jwt(self.admin),
+        )
+
+        self.assertEqual(res.status_code, 201, res.data)
+
+        from apps.notifications.models import Notification
+
+        notification = Notification.objects.filter(
+            user=invitee,
+            title='Organization invitation',
+            is_read=False,
+        ).first()
+
+        self.assertIsNotNone(notification)
+        self.assertIsNone(notification.organization)
+        self.assertIn(self.org.name, notification.message)
+
     def test_invite_token_is_valid_uuid(self):
         res = self.client.post(
             f'/api/v1/organizations/{self.org.pk}/invite/',

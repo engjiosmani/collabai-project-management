@@ -283,6 +283,25 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             },
         )
         try:
+            from django.contrib.auth import get_user_model
+            from apps.notifications.models import Notification
+
+            invited_user = get_user_model().objects.filter(email__iexact=email).first()
+            if invited_user:
+                scope = f"workspace {workspace.name}" if workspace else f"organization {organization.name}"
+                Notification.objects.create(
+                    user=invited_user,
+                    organization=None,
+                    title="Organization invitation",
+                    message=f"You were invited to join {scope}.",
+                )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception(
+                "invite: failed to create in-app notification for invite %s",
+                invite.id,
+            )
+        try:
             from ..tasks import send_invite_email
             send_invite_email.delay(invite.id)
         except Exception as exc:
