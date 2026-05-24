@@ -26,6 +26,15 @@ class ProfileSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.avatar:
+            request = self.context.get('request')
+            if request:
+                data['avatar'] = request.build_absolute_uri(instance.avatar.url)
+        else:
+            data['avatar'] = None
+        return data
 class UserSerializer(serializers.ModelSerializer):
     profile = serializers.SerializerMethodField()
     class Meta:

@@ -1,8 +1,10 @@
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
+from apps.workspaces.models import Workspace
 from common.tenant_access import user_can_access_organization
 
 from ..models import Project, ProjectMember
@@ -52,6 +54,7 @@ class AddProjectMemberSerializer(serializers.Serializer):
 
 class ProjectSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True)
+    workspace_name = serializers.CharField(source='workspace.name', read_only=True)
     member_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -60,6 +63,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             'id',
             'organization',
             'organization_name',
+            'workspace',
+            'workspace_name',
             'name',
             'description',
             'start_date',
@@ -69,7 +74,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('created_at', 'updated_at', 'member_count')
+        read_only_fields = ('created_at', 'updated_at', 'member_count', 'workspace_name')
 
     def get_member_count(self, obj) -> int:
         return obj.members.count()
@@ -83,11 +88,33 @@ class ProjectSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_workspace(self, value: Workspace):
+        if value is None:
+            if self.instance is None:
+                raise serializers.ValidationError('Workspace is required for project creation.')
+            return value
+        org = self.initial_data.get('organization') or getattr(self.instance, 'organization_id', None)
+        if org and value.organization_id != int(org) if not isinstance(org, int) else value.organization_id != org:
+            raise serializers.ValidationError('Workspace must belong to the selected organization.')
+        return value
+
     def validate(self, attrs):
-        start = attrs.get('start_date')
-        due = attrs.get('due_date')
-        if start and due and due < start:
-            raise serializers.ValidationError({'due_date': 'Due date cannot be before start date.'})
+        start = attrs.get('start_date', getattr(self.instance, 'start_date', None))
+        due = attrs.get('due_date', getattr(self.instance, 'due_date', None))
+        today = timezone.localdate()
+        errors = {}
+
+        if start and start < today:
+            errors['start_date'] = 'Start date cannot be in the past.'
+
+        if due and due < today:
+            errors['due_date'] = 'Due date cannot be in the past.'
+        elif start and due and due < start:
+            errors['due_date'] = 'Due date cannot be earlier than start date.'
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
         return attrs
 
     def create(self, validated_data):

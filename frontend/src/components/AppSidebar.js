@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthContext } from "../context/AuthContext";
@@ -7,11 +7,22 @@ import NotificationBell from "./notifications/NotificationBell";
 
 const STORAGE_KEY = "collabai-sidebar-collapsed";
 
-// Shto pas: import { AuthContext } from "../context/AuthContext";
-// (importi ekziston tashmë — shto vetëm komponentin UserChip para export default)
-
 function UserChip() {
   const { user } = useContext(AuthContext);
+  const menuRef = useRef(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [menuOpen]);
+
   if (!user) return null;
 
   const displayName =
@@ -27,13 +38,56 @@ function UserChip() {
     .slice(0, 2)
     .toUpperCase();
 
+  const toggleMenu = () => setMenuOpen((v) => !v);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
-    <div className="sidebar-user-chip">
-      <div className="sidebar-user-avatar">{initials}</div>
-      <div className="sidebar-user-info">
-        <span className="sidebar-user-name">{displayName}</span>
-        <span className="sidebar-user-email">{user.email}</span>
-      </div>
+    <div className="sidebar-user-dropdown-wrapper" ref={menuRef}>
+      <button
+        className="sidebar-user-chip"
+        type="button"
+        onClick={toggleMenu}
+        aria-expanded={menuOpen}
+        aria-label="Open user menu"
+      >
+        <div className="sidebar-user-avatar">
+          {user.avatar ? (
+            <img src={user.avatar} alt="" className="sidebar-user-avatar-img" />
+          ) : (
+            initials
+          )}
+        </div>
+        <div className="sidebar-user-info">
+          <span className="sidebar-user-name">{displayName}</span>
+          <span className="sidebar-user-email">{user.email}</span>
+        </div>
+        <span className={`sidebar-user-chevron${menuOpen ? " sidebar-user-chevron--open" : ""}`} aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </button>
+
+      {menuOpen && (
+        <div className="sidebar-user-dropdown" role="menu">
+          <Link
+            className="sidebar-user-dropdown-item"
+            to="/profile"
+            role="menuitem"
+            onClick={closeMenu}
+          >
+            View Profile
+          </Link>
+          <Link
+            className="sidebar-user-dropdown-item"
+            to="/settings"
+            role="menuitem"
+            onClick={closeMenu}
+          >
+            Account Settings
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -87,21 +141,33 @@ export default function AppSidebar({ onNavigateSection }) {
   const isDashboard = pathname === "/dashboard";
   const isProjects = pathname === "/projects";
   const isTasks = pathname === "/tasks";
-  const isOrganizations = pathname === "/organizations";
+  const isOrganizations = pathname === "/organizations" || pathname.startsWith("/organizations/");
   const isInvitations = pathname === "/invitations";
-  const isSettings = pathname.startsWith("/settings");
   const isAI = pathname === "/ai";
 
-  const navClass = (active) =>
-    `dashboard-nav-item${active ? " dashboard-nav-item--active" : ""}`;
+  const hasNoOrg = organizations.length === 0;
+  const navClass = (active, disabled) =>
+    `dashboard-nav-item${active ? " dashboard-nav-item--active" : ""}${disabled ? " dashboard-nav-item--disabled" : ""}`;
 
   const linkStyle = { textDecoration: "none", display: "block" };
 
-  const renderSectionLink = (section, label, dataCy) => {
-    const isTasksSection = section === "tasks";
-    const className = navClass(isTasksSection ? isTasks : false);
+  const renderSectionLink = (section, label, dataCy, disabled) => {
+    const isRoutingSection = section === "tasks";
+    const className = navClass(isRoutingSection ? isTasks : false, disabled);
 
-    if (!isTasksSection && isDashboard && typeof onNavigateSection === "function") {
+    if (disabled) {
+      return (
+        <span
+          className={className}
+          data-cy={dataCy}
+          title="Create or join an organization first."
+        >
+          {label}
+        </span>
+      );
+    }
+
+    if (!isRoutingSection && isDashboard && typeof onNavigateSection === "function") {
       return (
         <button
           className={className}
@@ -118,8 +184,8 @@ export default function AppSidebar({ onNavigateSection }) {
       <Link
         className={className}
         data-cy={dataCy}
-        to={isTasksSection ? "/tasks" : "/dashboard"}
-        state={isTasksSection ? undefined : { scrollTo: section }}
+        to={isRoutingSection ? "/tasks" : "/dashboard"}
+        state={isRoutingSection ? undefined : { scrollTo: section }}
         style={linkStyle}
       >
         {label}
@@ -205,21 +271,33 @@ export default function AppSidebar({ onNavigateSection }) {
                 </Link>
 
                 <Link
-                  className={navClass(isProjects)}
-                  data-cy="dashboard-nav-projects"
-                  to="/projects"
-                  style={linkStyle}
-                >
-                  Projects
-                </Link>
-
-                <Link
                   className={navClass(isOrganizations)}
                   to="/organizations"
                   style={linkStyle}
                 >
                   Organizations
                 </Link>
+
+                {hasNoOrg ? (
+                  <span
+                    className={navClass(isProjects, true)}
+                    data-cy="dashboard-nav-projects"
+                    title="Create or join an organization first."
+                  >
+                    Projects
+                  </span>
+                ) : (
+                  <Link
+                    className={navClass(isProjects)}
+                    data-cy="dashboard-nav-projects"
+                    to="/projects"
+                    style={linkStyle}
+                  >
+                    Projects
+                  </Link>
+                )}
+
+                {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks", hasNoOrg)}
 
                 <Link
                   className={navClass(isInvitations)}
@@ -229,15 +307,6 @@ export default function AppSidebar({ onNavigateSection }) {
                   Invitations
                 </Link>
 
-                <Link
-                  className={navClass(isSettings)}
-                  to="/settings/profile"
-                  style={linkStyle}
-                >
-                  Settings
-                </Link>
-
-                {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks")}
                 {renderSectionLink("activity", "Activity", "dashboard-nav-activity")}
 
                 <Link

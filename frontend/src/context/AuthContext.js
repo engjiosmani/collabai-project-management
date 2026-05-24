@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }) => {
                 username: me.username,
                 first_name: me.first_name || "",
                 last_name: me.last_name || "",
+                avatar: me.profile?.avatar || null,
                 authenticated: true,
             });
 
@@ -124,6 +125,7 @@ export const AuthProvider = ({ children }) => {
             // Immediately set user from email so heading shows right away
             setUser((prev) => prev || { email, authenticated: true });
             await loadUserProfile();
+            window.dispatchEvent(new Event("auth:login"));
 
             return { success: true };
         } catch (error) {

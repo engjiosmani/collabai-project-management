@@ -31,6 +31,7 @@ function Register() {
 
     const [formData, setFormData] = useState({
         email: "",
+        phone_number: "",
         password: "",
         confirmPassword: "",
     });
@@ -57,6 +58,7 @@ function Register() {
         try {
             await API.post("/auth/register", {
                 email: formData.email,
+                phone_number: formData.phone_number,
                 password: formData.password,
             });
 
@@ -95,6 +97,15 @@ function Register() {
                         name="email"
                         placeholder="Enter your email"
                         value={formData.email}
+                        onChange={handleChange}
+                        style={styles.input}
+                    />
+
+                    <input
+                        type="tel"
+                        name="phone_number"
+                        placeholder="Phone number (optional) — e.g. +383 44 123 456"
+                        value={formData.phone_number}
                         onChange={handleChange}
                         style={styles.input}
                     />

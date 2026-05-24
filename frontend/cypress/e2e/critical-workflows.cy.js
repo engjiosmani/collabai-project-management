@@ -104,7 +104,6 @@ describe("Critical workflows", () => {
     cy.url().should("include", "/dashboard");
     cy.wait("@summaryRequest");
 
-    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.get('[data-cy="dashboard-stats"]').within(() => {
       cy.get('[data-cy="stat-card-projects"]').should("contain.text", "Projects").and("contain.text", "3");
       cy.get('[data-cy="stat-card-total-tasks"]').should("contain.text", "Total tasks").and("contain.text", "8");
@@ -136,7 +135,6 @@ describe("Critical workflows", () => {
     cy.wait("@orgsRequest");
     cy.wait("@summaryRequest");
 
-    cy.get('[data-cy="dashboard-user-pill"]').should("contain.text", email);
     cy.contains("Recent activity logs").should("be.visible");
     cy.contains("Task completion").should("be.visible");
 

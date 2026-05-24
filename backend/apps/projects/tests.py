@@ -3,6 +3,8 @@ from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext, override_settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.test import APITestCase
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -167,6 +169,58 @@ class ProjectCRUDAPITest(APITestCase):
             **_jwt_header(self.member),
         )
         self.assertEqual(res.status_code, 400)
+
+    def test_create_rejects_past_start_date(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+
+        res = self.client.post(
+            '/api/v1/projects/',
+            {
+                'organization': self.org.pk,
+                'name': 'Past Start Project',
+                'start_date': yesterday.isoformat(),
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data['start_date'][0], 'Start date cannot be in the past.')
+
+    def test_create_rejects_past_due_date(self):
+        yesterday = timezone.localdate() - timedelta(days=1)
+
+        res = self.client.post(
+            '/api/v1/projects/',
+            {
+                'organization': self.org.pk,
+                'name': 'Past Due Project',
+                'due_date': yesterday.isoformat(),
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data['due_date'][0], 'Due date cannot be in the past.')
+
+    def test_create_rejects_due_date_before_start_date(self):
+        today = timezone.localdate()
+
+        res = self.client.post(
+            '/api/v1/projects/',
+            {
+                'organization': self.org.pk,
+                'name': 'Invalid Date Range Project',
+                'start_date': (today + timedelta(days=3)).isoformat(),
+                'due_date': (today + timedelta(days=1)).isoformat(),
+            },
+            format='json',
+            **_jwt_header(self.member),
+        )
+
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(res.data['due_date'][0], 'Due date cannot be earlier than start date.')
 
     def test_outsider_cannot_create_in_organization(self):
         res = self.client.post(

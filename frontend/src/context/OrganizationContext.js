@@ -63,15 +63,16 @@ export function OrganizationProvider({ children }) {
     if (localStorage.getItem("access")) {
       refreshOrganizations();
     }
-
-    const onLogin = () => {
-      refreshOrganizations();
+    const onLogin = () => { refreshOrganizations(); };
+    const onLogout = () => {
+      setOrganizations([]);
+      setActiveOrganizationState(null);
     };
-
     window.addEventListener("auth:login", onLogin);
-
+    window.addEventListener("auth:logout", onLogout);
     return () => {
       window.removeEventListener("auth:login", onLogin);
+      window.removeEventListener("auth:logout", onLogout);
     };
   }, [refreshOrganizations]);
 

@@ -7,9 +7,12 @@ import AIAssistant from "./pages/AIAssistant";
 import Tasks from "./pages/Tasks";
 import Projects from "./pages/Projects";
 import Organizations from "./pages/Organizations";
+import OrganizationDetail from "./pages/OrganizationDetail";
+import WorkspaceDetail from "./pages/WorkspaceDetail";
 import Invitations from "./pages/Invitations";
 import AcceptInvite from "./pages/AcceptInvite";
 import NotificationsPage from "./pages/NotificationsPage";
+import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import ForgotPasswordPage from "./pages/settings/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/settings/ResetPasswordPage";
@@ -95,10 +98,37 @@ function App() {
                 />
 
                 <Route
+                    path="/organizations/:id"
+                    element={
+                        <ProtectedRoute>
+                            <OrganizationDetail />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/organizations/:orgId/workspaces/:wsId"
+                    element={
+                        <ProtectedRoute>
+                            <WorkspaceDetail />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
                     path="/invitations"
                     element={
                         <ProtectedRoute>
                             <Invitations />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/profile"
+                    element={
+                        <ProtectedRoute>
+                            <ProfilePage />
                         </ProtectedRoute>
                     }
                 />
@@ -118,7 +148,7 @@ function App() {
                 />
 
                 <Route
-                    path="/settings/profile"
+                    path="/settings"
                     element={
                         <ProtectedRoute>
                             <SettingsPage />

@@ -8,10 +8,11 @@ from django.contrib.auth import authenticate
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
+    phone_number = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = get_user_model()
-        fields = ['id', 'email', 'password']
+        fields = ['id', 'email', 'password', 'phone_number']
         read_only_fields = ['id']
 
     def validate_email(self, value):
@@ -43,6 +44,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return RegisterService().register_user(
             email=validated_data['email'],
             password=validated_data['password'],
+            phone_number=validated_data.get('phone_number', ''),
         )
 
 

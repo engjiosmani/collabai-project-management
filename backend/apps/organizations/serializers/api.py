@@ -12,6 +12,8 @@ class OrganizationSerializer(serializers.ModelSerializer):
     project_count = serializers.IntegerField(read_only=True, default=0)
     member_count = serializers.IntegerField(read_only=True, default=0)
     my_role = serializers.SerializerMethodField()
+    owner_id = serializers.IntegerField(read_only=True)
+    is_owner = serializers.SerializerMethodField()
     class Meta:
         model = Organization
         fields = (
@@ -21,10 +23,12 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'project_count',
             'member_count',
             'my_role',
+            'owner_id',
+            'is_owner',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('project_count', 'member_count', 'my_role', 'created_at', 'updated_at')
+        read_only_fields = ('project_count', 'member_count', 'my_role', 'owner_id', 'is_owner', 'created_at', 'updated_at')
     def get_my_role(self, obj) -> str | None:
         request = self.context.get('request')
         if not request:
@@ -36,6 +40,15 @@ class OrganizationSerializer(serializers.ModelSerializer):
             organization=obj, user=user
         ).first()
         return member.role if member else None
+
+    def get_is_owner(self, obj) -> bool:
+        request = self.context.get('request')
+        if not request:
+            return False
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.owner_id == user.pk
 
     def validate_name(self, value: str):
         text = (value or '').strip()
@@ -122,10 +135,11 @@ class OrgMemberRoleUpdateSerializer(serializers.Serializer):
 
 class WorkspaceInOrgSerializer(serializers.ModelSerializer):
     member_count = serializers.IntegerField(read_only=True, default=0)
+    project_count = serializers.IntegerField(read_only=True, default=0)
     class Meta:
         model = Workspace
-        fields = ('id', 'name', 'is_active', 'member_count', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'member_count', 'created_at', 'updated_at')
+        fields = ('id', 'name', 'description', 'is_active', 'member_count', 'project_count', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'member_count', 'project_count', 'created_at', 'updated_at')
 
 class TeamMemberInOrgSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True)

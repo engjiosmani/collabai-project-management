@@ -1,7 +1,6 @@
 import RoleGate from "../RoleGate";
 
 const ITEMS = [
-  { id: "profile", label: "Profile" },
   { id: "password", label: "Password" },
   { id: "memberships", label: "Memberships" },
   { id: "organization", label: "Organization Settings", requiredRole: "org_admin" },

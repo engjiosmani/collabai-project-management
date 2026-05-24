@@ -19,12 +19,12 @@ export const profileValidation = {
   },
   phone_number: {
     maxLength: {
-      value: 40,
-      message: "Phone number must be 40 characters or fewer.",
+      value: 30,
+      message: "Phone number must be 30 characters or fewer.",
     },
     pattern: {
       value: /^[0-9+().\-\s]*$/,
-      message: "Use a valid phone number.",
+      message: "Enter a valid phone number (digits, +, -, parentheses, spaces).",
     },
   },
 };

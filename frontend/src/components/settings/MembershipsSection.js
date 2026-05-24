@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import SettingsSection from "./SettingsSection";
 
 const ROLE_LABELS = {
@@ -13,64 +15,69 @@ function RoleBadge({ role }) {
   const classRole = normalized === "admin" ? "org_admin" : normalized;
 
   return (
-    <span className={`settings-role-badge settings-role-badge--${classRole}`}>
+    <span className={`membership-role-badge membership-role-badge--${classRole}`}>
       {ROLE_LABELS[normalized] || normalized.replace(/_/g, " ")}
     </span>
   );
 }
 
 export default function MembershipsSection({ memberships }) {
-  return (
-    <SettingsSection
-      eyebrow="Access"
-      title="Memberships"
-      description="Organizations and workspaces currently connected to your account."
-    >
-      {!memberships?.length ? (
+  if (!memberships?.length) {
+    return (
+      <SettingsSection
+        eyebrow="Access"
+        title="Memberships"
+        description="Organizations and workspaces currently connected to your account."
+      >
         <div className="settings-empty-state">
           <p className="settings-empty-title">No memberships yet</p>
           <p className="settings-empty-text">
             You are not currently assigned to an organization or workspace.
           </p>
         </div>
-      ) : (
-        <div className="memberships-list">
-          {memberships.map((membership) => {
-            const organization = membership.organization || {};
-            const workspaces = membership.workspaces || [];
+      </SettingsSection>
+    );
+  }
 
-            return (
-              <article
-                className="membership-card"
-                key={organization.id || organization.name}
-              >
-                <div className="membership-card-header">
-                  <div>
-                    <p className="membership-label">Organization</p>
-                    <h3>{organization.name || "Unnamed organization"}</h3>
-                  </div>
+  return (
+    <SettingsSection
+      eyebrow="Access"
+      title="Memberships"
+      description="Organizations and workspaces currently connected to your account."
+    >
+      <div className="memberships-list">
+        {memberships.map((membership) => {
+          const org = membership.organization || {};
+          const workspaces = membership.workspaces || [];
+          const orgId = org.id;
+          const orgName = org.name || "Unnamed organization";
+          const initial = orgName[0]?.toUpperCase() || "O";
+
+          return (
+            <div className="membership-card" key={orgId || orgName}>
+              <div className="membership-icon">{initial}</div>
+              <div className="membership-body">
+                <h3 className="membership-name">{orgName}</h3>
+                <div className="membership-meta">
                   <RoleBadge role={membership.role} />
+                  <span className="membership-count">
+                    {workspaces.length} workspace{workspaces.length !== 1 ? "s" : ""}
+                  </span>
                 </div>
-
-                {workspaces.length ? (
-                  <div className="workspace-list">
-                    {workspaces.map((workspace) => (
-                      <div className="workspace-row" key={workspace.id || workspace.name}>
-                        <span>{workspace.name || "Unnamed workspace"}</span>
-                        <RoleBadge role={workspace.role} />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="settings-help-text">
-                    No workspace memberships in this organization.
-                  </p>
-                )}
-              </article>
-            );
-          })}
-        </div>
-      )}
+              </div>
+              <div className="membership-action">
+                <Link
+                  to={orgId ? `/organizations/${orgId}` : "/organizations"}
+                  className="dashboard-button dashboard-button--ghost"
+                  style={{ padding: "8px 14px", fontSize: "0.82rem" }}
+                >
+                  Open
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </SettingsSection>
   );
 }

@@ -37,6 +37,8 @@ export default function ProjectsPanel({
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [orgFilter, setOrgFilter] = useState("");
+    const [workspaceFilter, setWorkspaceFilter] = useState("");
+    const [workspaces, setWorkspaces] = useState([]);
     const [sortBy, setSortBy] = useState("-created_at");
 
     // Organizations for filter dropdown
@@ -82,6 +84,7 @@ export default function ProjectsPanel({
                           ? { search: debouncedSearch.trim() }
                           : {}),
                       ...(orgFilter ? { organization: orgFilter } : {}),
+                      ...(workspaceFilter ? { workspace: workspaceFilter } : {}),
                   }
                 : null;
 
@@ -110,7 +113,7 @@ export default function ProjectsPanel({
                 setLoadingMore(false);
             }
         },
-        [debouncedSearch, orgFilter, sortBy]
+        [debouncedSearch, orgFilter, workspaceFilter, sortBy]
     );
 
     useEffect(() => {
@@ -131,8 +134,29 @@ export default function ProjectsPanel({
 
     // ── Org filter ───────────────────────────────────────────────────────────
 
+    // ── Load workspaces when org filter changes ──────────────────────────
+
+    useEffect(() => {
+        if (!orgFilter) {
+            setWorkspaces([]);
+            setWorkspaceFilter("");
+            return;
+        }
+        API.get(`/organizations/${orgFilter}/workspaces/`)
+            .then((res) => {
+                const list = Array.isArray(res.data) ? res.data : res.data.results ?? [];
+                setWorkspaces(list);
+            })
+            .catch(() => setWorkspaces([]));
+    }, [orgFilter]);
+
     const handleOrgFilterChange = (e) => {
         setOrgFilter(e.target.value);
+        setWorkspaceFilter("");
+    };
+
+    const handleWorkspaceFilterChange = (e) => {
+        setWorkspaceFilter(e.target.value);
     };
 
     // ── Sort ─────────────────────────────────────────────────────────────────
@@ -251,6 +275,9 @@ export default function ProjectsPanel({
                                         {p.organization_name && (
                                             <p className="projects-panel-card-meta">
                                                 {p.organization_name}
+                                                {p.workspace_name
+                                                    ? ` · ${p.workspace_name}`
+                                                    : ""}
                                             </p>
                                         )}
                                         <div className="projects-panel-card-actions">
@@ -312,6 +339,22 @@ export default function ProjectsPanel({
                                 {organizations.map((org) => (
                                     <option key={org.id} value={org.id}>
                                         {org.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        {orgFilter && workspaces.length > 0 && (
+                            <select
+                                className="pp-filter-select"
+                                value={workspaceFilter}
+                                onChange={handleWorkspaceFilterChange}
+                                aria-label="Filter by workspace"
+                            >
+                                <option value="">All workspaces</option>
+                                {workspaces.map((ws) => (
+                                    <option key={ws.id} value={ws.id}>
+                                        {ws.name}
                                     </option>
                                 ))}
                             </select>
@@ -449,6 +492,9 @@ export default function ProjectsPanel({
                                     {project.organization_name && (
                                         <p className="projects-panel-card-meta">
                                             {project.organization_name}
+                                            {project.workspace_name
+                                                ? ` · ${project.workspace_name}`
+                                                : ""}
                                         </p>
                                     )}
 

@@ -1,6 +1,6 @@
 import uuid
 from datetime import timedelta
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
@@ -30,6 +30,14 @@ from ..serializers import (
     WorkspaceMemberRoleUpdateSerializer,
 )
 # ── Permission helpers ────────────────────────────────────────────────────────
+def _is_org_owner(user, organization_id):
+    if getattr(user, 'is_superuser', False):
+        return True
+    return Organization.objects.filter(
+        pk=organization_id,
+        owner=user,
+        is_deleted=False,
+    ).exists()
 def _is_org_admin(user, organization_id):
     if getattr(user, 'is_superuser', False):
         return True
@@ -77,7 +85,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             return Organization.objects.none()
         org_ids = organizations_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
-            Organization.objects.filter(pk__in=org_ids)
+            Organization.objects.filter(pk__in=org_ids, is_deleted=False)
             .annotate(
                 project_count=Count('projects', distinct=True),
                 member_count=Count('members', distinct=True),
@@ -85,7 +93,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             .order_by('name')
         )
     def perform_create(self, serializer):
-        organization = serializer.save()
+        organization = serializer.save(owner=self.request.user)
         OrganizationMember.objects.get_or_create(
             organization=organization,
             user=self.request.user,
@@ -96,9 +104,19 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             raise PermissionDenied('Only organization admins can update this organization.')
         serializer.save()
     def perform_destroy(self, instance):
-        if not _is_org_admin(self.request.user, instance.pk):
-            raise PermissionDenied('Only organization admins can delete this organization.')
-        instance.delete()
+        if not _is_org_owner(self.request.user, instance.pk):
+            raise PermissionDenied('Only the organization owner can delete this organization.')
+        instance.is_deleted = True
+        instance.deleted_at = timezone.now()
+        instance.deleted_by = self.request.user
+        instance.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
+        write_audit_log(
+            self.request.user,
+            'ORGANIZATION_SOFT_DELETED',
+            'Organization',
+            instance.pk,
+            {'name': instance.name},
+        )
     # ── Members ───────────────────────────────────────────────────────────────
     @extend_schema(tags=['Organizations'], summary='List organization members')
     @action(detail=True, methods=['get'], url_path='members', url_name='members')
@@ -414,6 +432,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 Workspace.objects.filter(organization=organization, is_active=True)
                 .annotate(
                     member_count=Count('team_members', distinct=True),
+                    project_count=Count('projects', distinct=True),
                 )
                 .order_by('name')
             )
@@ -474,6 +493,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 Workspace.objects.filter(pk=ws_id, organization=organization, is_active=True)
                 .annotate(
                     member_count=Count('team_members', distinct=True),
+                    project_count=Count('projects', distinct=True),
                 )
                 .first()
             )
@@ -492,18 +512,21 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 Workspace.objects.filter(pk=workspace.pk)
                 .annotate(
                     member_count=Count('team_members', distinct=True),
+                    project_count=Count('projects', distinct=True),
                 )
                 .first()
             )
             return Response(WorkspaceInOrgSerializer(workspace).data)
-        # DELETE — org_admin only
-        if not _is_org_admin(request.user, organization.pk):
+        # DELETE — org owner or org_admin
+        if not (_is_org_owner(request.user, organization.pk) or _is_org_admin(request.user, organization.pk)):
             return Response(
-                {'detail': 'Only organization admins can delete workspaces.'},
+                {'detail': 'Only the organization owner or an organization admin can delete workspaces.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         workspace.is_active = False
-        workspace.save(update_fields=['is_active', 'updated_at'])
+        workspace.deleted_at = timezone.now()
+        workspace.deleted_by = request.user
+        workspace.save(update_fields=['is_active', 'deleted_at', 'deleted_by', 'updated_at'])
         write_audit_log(
             request.user,
             'WORKSPACE_SOFT_DELETED',

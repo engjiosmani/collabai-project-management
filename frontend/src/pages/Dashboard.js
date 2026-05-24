@@ -178,11 +178,11 @@ function DashboardSkeleton() {
 }
 
 function DashboardScreen() {
-    const { user, logout, loadingMemberships } = useContext(AuthContext);
+    const { logout, loadingMemberships } = useContext(AuthContext);
     const { activeOrganization } = useOrganization();
     const { role } = useRole();
     const navigate = useNavigate();
-    const { summary, loading, refreshing, error, reload } = useDashboard();
+    const { summary, loading, error, reload } = useDashboard();
     const location = useLocation();
     const activityRef = useRef(null);
 
@@ -204,15 +204,6 @@ function DashboardScreen() {
         const timer = window.setTimeout(() => scrollToSection(target), 150);
         return () => window.clearTimeout(timer);
     }, [location.state, loading, summary.hasData, scrollToSection]);
-
-    const handleLogout = () => {
-        logout();
-        navigate("/login");
-    };
-
-    const handleRefresh = () => {
-        reload({ silent: true });
-    };
 
     const isAuthError =
         Boolean(error) &&
@@ -273,7 +264,7 @@ function DashboardScreen() {
                             <button
                                 className="dashboard-button dashboard-button--ghost"
                                 type="button"
-                                onClick={handleRefresh}
+                                onClick={reload}
                             >
                                 Retry
                             </button>
@@ -311,22 +302,7 @@ function DashboardScreen() {
                     </div>
 
                     <div className="dashboard-meta" data-cy="dashboard-meta">
-                        <span className="dashboard-user-pill" data-cy="dashboard-user-pill">Signed in as {user?.email || "authenticated user"}</span>
                         <span className="dashboard-status-pill">{roleLabel}</span>
-                        <span className="dashboard-status-pill">
-                            {summary.lastUpdated ? `Updated ${new Intl.DateTimeFormat(undefined, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                            }).format(summary.lastUpdated)}` : "Loading latest data"}
-                        </span>
-                        <div className="dashboard-actions">
-                            <button className="dashboard-button dashboard-button--ghost" data-cy="dashboard-refresh" onClick={handleRefresh} type="button">
-                                {refreshing ? "Refreshing..." : "Refresh"}
-                            </button>
-                            <button className="dashboard-button dashboard-button--primary" data-cy="dashboard-logout-primary" onClick={handleLogout} type="button">
-                                Logout
-                            </button>
-                        </div>
                     </div>
                 </header>
 

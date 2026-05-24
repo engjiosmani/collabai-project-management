@@ -108,6 +108,12 @@ export default function PasswordForm() {
           </div>
         </div>
 
+        <div className="settings-password-hints">
+          <p className="settings-help-text">
+            Password must be at least 8 characters and include a letter and a number.
+          </p>
+        </div>
+
         <div className="settings-actions">
           <button
             type="submit"

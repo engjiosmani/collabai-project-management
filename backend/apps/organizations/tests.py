@@ -54,10 +54,14 @@ class OrganizationInviteModelTest(TestCase):
 # ── Base setup ────────────────────────────────────────────────────────────────
 class BaseOrgAPI(APITestCase):
     def setUp(self):
+        self.owner = _make_user('owner_user', 'owner@example.com')
         self.admin = _make_user('admin_user', 'admin@example.com')
         self.member = _make_user('member_user', 'member@example.com')
         self.outsider = _make_user('outsider_user', 'outsider@example.com')
-        self.org = Organization.objects.create(name='Alpha Corp')
+        self.org = Organization.objects.create(name='Alpha Corp', owner=self.owner)
+        OrganizationMember.objects.create(
+            organization=self.org, user=self.owner, role=OrganizationMember.ORG_ADMIN
+        )
         OrganizationMember.objects.create(
             organization=self.org, user=self.admin, role=OrganizationMember.ORG_ADMIN
         )
@@ -77,18 +81,20 @@ class OrganizationCRUDTest(BaseOrgAPI):
         names = [o['name'] for o in res.data.get('results', res.data)]
         self.assertIn('Alpha Corp', names)
         self.assertNotIn('Other Corp', names)
-    def test_create_org_auto_assigns_org_admin(self):
+    def test_create_org_auto_assigns_org_admin_and_owner(self):
         res = self.client.post(
             '/api/v1/organizations/',
             {'name': 'New Org'},
             format='json',
-            **_jwt(self.admin),
+            **_jwt(self.owner),
         )
         self.assertEqual(res.status_code, 201, res.data)
+        org = Organization.objects.get(pk=res.data['id'])
+        self.assertEqual(org.owner, self.owner)
         self.assertTrue(
             OrganizationMember.objects.filter(
-                organization_id=res.data['id'],
-                user=self.admin,
+                organization=org,
+                user=self.owner,
                 role=OrganizationMember.ORG_ADMIN,
             ).exists()
         )
@@ -121,6 +127,45 @@ class OrganizationCRUDTest(BaseOrgAPI):
             **_jwt(self.member),
         )
         self.assertEqual(res.status_code, 403)
+    def test_admin_non_owner_cannot_delete_org(self):
+        res = self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/',
+            **_jwt(self.admin),
+        )
+        self.assertEqual(res.status_code, 403)
+    def test_owner_can_delete_org(self):
+        res = self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/',
+            **_jwt(self.owner),
+        )
+        self.assertEqual(res.status_code, 204)
+        self.org.refresh_from_db()
+        self.assertTrue(self.org.is_deleted)
+        self.assertIsNotNone(self.org.deleted_at)
+        self.assertEqual(self.org.deleted_by, self.owner)
+    def test_deleted_org_not_in_list(self):
+        self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/',
+            **_jwt(self.owner),
+        )
+        res = self.client.get(
+            '/api/v1/organizations/',
+            **_jwt(self.owner),
+        )
+        self.assertEqual(res.status_code, 200)
+        results = res.data.get('results', res.data)
+        ids = [o['id'] for o in results]
+        self.assertNotIn(self.org.pk, ids)
+    def test_deleted_org_returns_404(self):
+        self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/',
+            **_jwt(self.owner),
+        )
+        res = self.client.get(
+            f'/api/v1/organizations/{self.org.pk}/',
+            **_jwt(self.owner),
+        )
+        self.assertEqual(res.status_code, 404)
 # ── Members ───────────────────────────────────────────────────────────────────
 class OrgMembersTest(BaseOrgAPI):
     def test_list_members(self):
@@ -129,7 +174,7 @@ class OrgMembersTest(BaseOrgAPI):
             **_jwt(self.admin),
         )
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(res.data), 2)
+        self.assertEqual(len(res.data), 3)
     def test_admin_can_update_member_role(self):
         res = self.client.patch(
             f'/api/v1/organizations/{self.org.pk}/members/{self.member.pk}/',
@@ -454,6 +499,39 @@ class OrgWorkspacesTest(BaseOrgAPI):
             **_jwt(self.member),
         )
         self.assertEqual(res.status_code, 403)
+    def test_admin_can_delete_workspace(self):
+        ws = Workspace.objects.create(name='Admin Delete WS', organization=self.org)
+        res = self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/workspaces/{ws.pk}/',
+            **_jwt(self.admin),
+        )
+        self.assertEqual(res.status_code, 204)
+        ws.refresh_from_db()
+        self.assertFalse(ws.is_active)
+        self.assertIsNotNone(ws.deleted_at)
+        self.assertEqual(ws.deleted_by, self.admin)
+    def test_owner_can_delete_workspace(self):
+        ws = Workspace.objects.create(name='Owner Delete WS', organization=self.org)
+        res = self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/workspaces/{ws.pk}/',
+            **_jwt(self.owner),
+        )
+        self.assertEqual(res.status_code, 204)
+        ws.refresh_from_db()
+        self.assertFalse(ws.is_active)
+    def test_deleted_workspace_not_in_list(self):
+        ws = Workspace.objects.create(name='Deleted List WS', organization=self.org)
+        self.client.delete(
+            f'/api/v1/organizations/{self.org.pk}/workspaces/{ws.pk}/',
+            **_jwt(self.admin),
+        )
+        res = self.client.get(
+            f'/api/v1/organizations/{self.org.pk}/workspaces/',
+            **_jwt(self.admin),
+        )
+        self.assertEqual(res.status_code, 200)
+        names = [w['name'] for w in res.data]
+        self.assertNotIn('Deleted List WS', names)
     def test_workspace_from_other_org_returns_404(self):
         other_org = Organization.objects.create(name='Other Corp')
         other_ws = Workspace.objects.create(name='Other WS', organization=other_org)

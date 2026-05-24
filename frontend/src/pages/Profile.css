@@ -1,0 +1,144 @@
+.profile-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.profile-header {
+  margin-bottom: 24px;
+}
+
+.profile-card {
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+  padding: 32px;
+}
+
+.profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 32px;
+  padding-bottom: 28px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.profile-avatar-section .avatar-upload {
+  margin-bottom: 16px;
+}
+
+.profile-avatar-section .avatar-upload-preview {
+  width: 100px;
+  height: 100px;
+  flex: 0 0 100px;
+  font-size: 2rem;
+}
+
+.profile-name {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.profile-email {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.profile-form {
+  display: grid;
+  gap: 20px;
+}
+
+.profile-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-field {
+  display: grid;
+  gap: 7px;
+}
+
+.profile-field label {
+  color: #334155;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.profile-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px 13px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  outline: none;
+}
+
+.profile-input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
+}
+
+.profile-input--readonly {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.profile-input--error {
+  border-color: #dc2626;
+}
+
+.profile-field-error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.profile-help-text {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+.profile-actions .dashboard-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .profile-card {
+    padding: 20px;
+    border-radius: 18px;
+  }
+
+  .profile-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-avatar-section .avatar-upload {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .profile-actions,
+  .profile-actions .dashboard-button {
+    width: 100%;
+  }
+}

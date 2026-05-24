@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from apps.organizations.models import Organization
+from apps.workspaces.models import Workspace
 from common.models import BaseModel
 from common.tenant_queryset import TenantQuerySet
 
@@ -11,6 +12,13 @@ class Project(BaseModel):
         Organization,
         on_delete=models.CASCADE,
         related_name='projects',
+    )
+    workspace = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name='projects',
+        null=True,
+        blank=True,
     )
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True)

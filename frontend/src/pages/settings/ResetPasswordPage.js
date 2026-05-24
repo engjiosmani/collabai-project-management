@@ -43,10 +43,7 @@ export default function ResetPasswordPage() {
         confirm_password: values.confirm_password,
       });
       emitToast("Password updated — please log in");
-      navigate("/login", {
-        replace: true,
-        state: { message: "Password updated — please log in" },
-      });
+      navigate("/login", { replace: true });
     } catch (error) {
       const applied = applyBackendFieldErrors(error, setError, {
         new_password: "password",

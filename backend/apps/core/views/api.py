@@ -183,7 +183,11 @@ class DashboardSummaryView(CachedGETMixin, APIView):
         completed_tasks = tasks_qs.filter(status_id__in=done_status_ids).count() if done_status_ids else 0
         pending_tasks = max(total_tasks - completed_tasks, 0)
 
-        activity_base_qs = ActivityLog.objects.filter(task__in=tasks_qs)
+        activity_cutoff = timezone.now() - timedelta(days=30)
+        activity_base_qs = ActivityLog.objects.filter(
+            created_at__gte=activity_cutoff,
+            task__in=tasks_qs,
+        )
         total_activity_logs = activity_base_qs.count()
 
         recent_activity_qs = activity_base_qs.select_related('task', 'user').order_by('-created_at')[:10]

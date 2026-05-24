@@ -10,6 +10,15 @@ export const getOrganizations = async () => {
   return unwrap(res.data);
 };
 
+export const getOrganization = async (organizationId) => {
+  const res = await API.get(`/organizations/${organizationId}/`);
+  return res.data;
+};
+
+export const deleteOrganization = async (organizationId) => {
+  await API.delete(`/organizations/${organizationId}/`);
+};
+
 export const createOrganization = async (payload) => {
   const res = await API.post("/organizations/", payload);
   return res.data;
@@ -53,6 +62,18 @@ export const createWorkspace = async (organizationId, payload) => {
     payload
   );
   return res.data;
+};
+
+export const updateWorkspace = async (organizationId, workspaceId, payload) => {
+  const res = await API.patch(
+    `/organizations/${organizationId}/workspaces/${workspaceId}/`,
+    payload
+  );
+  return res.data;
+};
+
+export const deleteWorkspace = async (organizationId, workspaceId) => {
+  await API.delete(`/organizations/${organizationId}/workspaces/${workspaceId}/`);
 };
 
 export const getWorkspaceMembers = async (organizationId, workspaceId) => {

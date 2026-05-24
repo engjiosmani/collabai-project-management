@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.db.models import QuerySet
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
 
@@ -105,8 +108,21 @@ class ActivityLogViewSet(CachedListMixin, viewsets.ReadOnlyModelViewSet):
         if getattr(self, 'swagger_fake_view', False):
             return ActivityLog.objects.none()
         org_ids = organization_ids_for_request(self.request)
+
+        days = self.request.query_params.get('days')
+        if days is not None:
+            try:
+                days = int(days)
+            except (ValueError, TypeError):
+                days = 30
+        else:
+            days = 30
+
+        cutoff = timezone.now() - timedelta(days=days)
+
         return (
             ActivityLog.objects.filter(
+                created_at__gte=cutoff,
                 task__in=Task.objects.filter(
                     task_visibility_q(self.request.user, org_ids),
                     project__is_active=True,
