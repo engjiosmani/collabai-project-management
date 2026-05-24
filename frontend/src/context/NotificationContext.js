@@ -101,6 +101,10 @@ export function NotificationProvider({ children }) {
         const data = await fetchLatestNotifications(signal);
         if (!signal?.aborted) {
           setLatestNotifications(data);
+          const visibleUnreadCount = data.filter((item) => !item.is_read).length;
+          if (visibleUnreadCount > unreadCountRef.current) {
+            setUnreadCount(visibleUnreadCount);
+          }
         }
         return data;
       } catch (err) {

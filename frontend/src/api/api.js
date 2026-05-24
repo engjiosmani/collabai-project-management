@@ -150,7 +150,9 @@ API.interceptors.response.use(
 
     if (status === 429) {
       error.friendlyMessage = RATE_LIMIT_MESSAGE;
-      showGlobalApiError(RATE_LIMIT_MESSAGE);
+      if (!originalRequest?.suppressGlobalError) {
+        showGlobalApiError(RATE_LIMIT_MESSAGE);
+      }
       return Promise.reject(error);
     }
 

@@ -18,15 +18,20 @@ export const unwrapNotificationPage = (data) => {
   };
 };
 
-export const fetchNotifications = async (params = {}, signal) => {
-  const { data } = await API.get("/notifications/", { params, signal });
+export const fetchNotifications = async (params = {}, signal, options = {}) => {
+  const { data } = await API.get("/notifications/", {
+    params,
+    signal,
+    suppressGlobalError: options.suppressGlobalError,
+  });
   return unwrapNotificationPage(data);
 };
 
 export const fetchLatestNotifications = async (signal) => {
   const page = await fetchNotifications(
     { page_size: 10, ordering: "-created_at" },
-    signal
+    signal,
+    { suppressGlobalError: true }
   );
   return page.results;
 };
@@ -34,7 +39,8 @@ export const fetchLatestNotifications = async (signal) => {
 export const fetchUnreadNotificationCount = async (signal) => {
   const page = await fetchNotifications(
     { is_read: false, page_size: 1 },
-    signal
+    signal,
+    { suppressGlobalError: true }
   );
   return page.count;
 };
