@@ -27,6 +27,22 @@
     "e2e:ci": "cypress run --browser electron",
     "eject": "react-scripts eject"
   },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/components/ui/**/*.{js,jsx}",
+      "src/components/KanbanBoard.js",
+      "src/components/RoleGate.js",
+      "src/components/dashboard/ErrorState.js",
+      "src/components/dashboard/StatCard.js",
+      "src/components/notifications/NotificationItem.jsx",
+      "src/components/notifications/NotificationBadge.jsx",
+      "src/components/errors/AppErrorBoundary.jsx",
+      "src/context/AuthContext.js",
+      "src/routes/ProtectedRoute.js",
+      "src/hooks/useRole.js",
+      "src/hooks/useChatBot.js"
+    ]
+  },
   "eslintConfig": {
     "extends": [
       "react-app",

@@ -4,7 +4,7 @@ import {
   getNotificationTarget,
 } from "../../utils/notificationActions";
 
-function NotificationItem({ notification, onSelect, compact = false }) {
+function NotificationItem({ notification, onSelect, onMarkRead, compact = false }) {
   const config = getNotificationConfig(notification);
   const target = getNotificationTarget(notification);
   const isUnread = !notification.is_read;
@@ -48,6 +48,26 @@ function NotificationItem({ notification, onSelect, compact = false }) {
         className="notification-item__read-dot"
         aria-label={isUnread ? "Unread" : "Read"}
       />
+      {isUnread && onMarkRead ? (
+        <span
+          role="button"
+          tabIndex={0}
+          className="notification-item__mark-read"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMarkRead(notification);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onMarkRead(notification);
+            }
+          }}
+        >
+          Mark as read
+        </span>
+      ) : null}
     </button>
   );
 }

@@ -16,6 +16,15 @@ Cypress.Commands.add("stubAuthProfile", (email = TEST_EMAIL) => {
     statusCode: 200,
     body: [{ id: 1, name: "Test Org", my_role: "admin", project_count: 1, member_count: 1 }],
   }).as("orgsRequest");
+  cy.intercept("GET", /\/api\/v1\/notifications\/?(\?.*)?$/, {
+    statusCode: 200,
+    body: {
+      count: 0,
+      next: null,
+      previous: null,
+      results: [],
+    },
+  }).as("notificationsRequest");
 });
 
 Cypress.Commands.add("login", (email = TEST_EMAIL, password = "password123") => {

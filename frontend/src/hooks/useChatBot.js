@@ -99,6 +99,7 @@ export function useChatBot() {
     displayName,
     clearChat,
     abortOnUnmount,
+    sendMessage,
     handleSubmit,
     isEmpty: turns.length === 0,
   };

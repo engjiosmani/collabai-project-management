@@ -54,6 +54,16 @@ describe("Critical workflows", () => {
       ],
     }).as("projectsRequest");
 
+    cy.intercept("GET", "**/api/v1/workspaces/", {
+      statusCode: 200,
+      body: [],
+    }).as("workspacesRequest");
+
+    cy.intercept("GET", "**/api/v1/organizations/*/workspaces/", {
+      statusCode: 200,
+      body: [],
+    }).as("organizationWorkspacesRequest");
+
     cy.intercept("GET", "**/api/v1/organizations/*/members/", {
       statusCode: 200,
       body: [
@@ -174,10 +184,10 @@ describe("Critical workflows", () => {
     cy.wait("@tasksRequest");
     cy.wait("@prioritiesRequest");
     cy.wait("@statusesRequest");
-
-    cy.get('[data-cy="new-task-button"]').click();
-    cy.get('[data-cy="task-modal"]').should("be.visible");
     cy.wait("@projectsRequest");
+
+    cy.get('[data-cy="new-task-button"]').should("be.enabled").click();
+    cy.get('[data-cy="task-modal"]').should("be.visible");
 
     cy.get('[data-cy="task-title"]').type("Write E2E tests");
     cy.get('[data-cy="task-description"]').type("Cover the critical dashboard flow");
