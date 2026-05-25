@@ -135,8 +135,8 @@ describe("Critical workflows", () => {
     cy.wait("@orgsRequest");
     cy.wait("@summaryRequest");
 
-    cy.contains("Recent activity logs").should("be.visible");
-    cy.contains("Task completion").should("be.visible");
+    cy.contains("Recent activity logs").scrollIntoView().should("be.visible");
+    cy.contains("Task completion").scrollIntoView().should("be.visible");
 
     cy.get('[data-cy="dashboard-nav-tasks"]').click();
     cy.wait("@tasksRequest");
@@ -190,7 +190,7 @@ describe("Critical workflows", () => {
     cy.get('[data-cy="task-title"]').type("Write E2E tests");
     cy.get('[data-cy="task-description"]').type("Cover the critical dashboard flow");
     cy.get('[data-cy="task-status"]').select("To Do");
-    cy.get('[data-cy="task-due-date"]').type("2026-05-24");
+    cy.get('[data-cy="task-due-date"]').type("2026-05-26");
     cy.get('[data-cy="task-project"]').select("Website Refresh");
     cy.get('[data-cy="task-save"]').click();
 

@@ -32,6 +32,10 @@ describe("Role enforcement", () => {
 
   it("hides organization admin controls for a member", () => {
     cy.stubAuthProfileMember(email);
+    cy.intercept("GET", "**/api/v1/organizations/1/", {
+      statusCode: 200,
+      body: { id: 1, name: "Test Org", description: "", member_count: 1, workspace_count: 0 },
+    }).as("organizationRequest");
     cy.intercept("GET", "**/api/v1/organizations/1/members/", {
       statusCode: 200,
       body: [{ id: 1, user_id: 1, username: "member", email, role: "member" }],
@@ -43,9 +47,10 @@ describe("Role enforcement", () => {
 
     cy.visit("/login");
     cy.loginViaStorage(email);
-    cy.visit("/organizations");
+    cy.visit("/organizations/1");
     cy.wait("@meRequest");
     cy.wait("@orgsRequest");
+    cy.wait("@organizationRequest");
     cy.wait("@membersRequest");
 
     cy.contains("Invite Member").should("not.exist");

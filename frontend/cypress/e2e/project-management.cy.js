@@ -6,6 +6,10 @@ describe("Project management", () => {
       statusCode: 200,
       body: [{ id: 1, user_id: 1, username: "user", email, role: "org_admin" }],
     }).as("membersRequest");
+    cy.intercept("GET", "**/api/v1/organizations/1/workspaces/", {
+      statusCode: 200,
+      body: [{ id: 10, name: "Default Workspace" }],
+    }).as("workspacesRequest");
   };
 
   const visitProjects = () => {
@@ -37,6 +41,7 @@ describe("Project management", () => {
 
     cy.get('[data-cy="create-project-btn"]').click();
     cy.get("input[name='name']").first().type("Beta Project");
+    cy.get("select[name='workspace']").select("Default Workspace");
     cy.contains("button", "Create project").scrollIntoView().click({ force: true });
     cy.wait("@createProjectRequest");
     cy.wait("@projectsRequest");

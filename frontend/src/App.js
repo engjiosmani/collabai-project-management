@@ -134,6 +134,15 @@ function App() {
                 />
 
                 <Route
+                    path="/settings/profile"
+                    element={
+                        <ProtectedRoute>
+                            <ProfilePage />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
                     path="/notifications"
                     element={
                         <ProtectedRoute>
