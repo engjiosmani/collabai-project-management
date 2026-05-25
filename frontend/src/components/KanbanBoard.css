@@ -62,7 +62,7 @@
     min-width: 160px;
     max-width: min(240px, 36vw);
     border: 1.5px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 9px 12px;
     font-size: 0.9rem;
     font-family: inherit;
@@ -159,7 +159,7 @@
     align-self: flex-start;
     background: #f8fafc;
     border: 1.5px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -218,14 +218,14 @@
 
 .kb-column-empty-state {
     padding: 14px 10px;
-    border-radius: 12px;
+    border-radius: 8px;
     background: #fff;
 }
 
 .kb-column-empty-state .ui-empty-state__icon {
     width: 36px;
     height: 36px;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 .kb-column-empty-state .ui-empty-state__body h3 {
@@ -241,15 +241,14 @@
 .kb-card {
     background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 12px 14px;
     cursor: grab;
     transition: box-shadow 0.12s, transform 0.12s;
 }
 
 .kb-card:hover {
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
-    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 .kb-card:active {
@@ -480,7 +479,7 @@
     padding: 18px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
 }
 
 .kb-detail-label {
@@ -518,7 +517,7 @@
     padding: 14px 16px;
     background: #fff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: 8px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -570,7 +569,7 @@
     padding: 14px 16px;
     background: #fff;
     border: 1px solid #cbd5e1;
-    border-radius: 14px;
+    border-radius: 8px;
 }
 
 .kb-attachment-picker__actions {
@@ -759,14 +758,14 @@
 
 .kb-modal {
     background: #fff;
-    border-radius: 18px;
-    padding: 28px;
+    border-radius: 12px;
+    padding: 22px;
     width: 100%;
     max-width: 480px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
 }
 
 .kb-modal-header {

@@ -16,8 +16,8 @@ import { useRole } from "../hooks/useRole";
 import "./Dashboard.css";
 
 const ROLE_LABELS = {
-    org_admin: "Organization admin",
-    workspace_admin: "Workspace admin",
+    org_admin: "Organization Admin",
+    workspace_admin: "Workspace Admin",
     manager: "Manager",
     member: "Member",
 };
@@ -27,44 +27,44 @@ function scopeCopy(role, activeOrganization) {
 
     if (role === "org_admin") {
         return {
-            subtitle: `${orgName} overview across organization-level access.`,
+            subtitle: `${orgName} - organization-wide view.`,
             projectHint: "Active projects in this organization",
-            taskHint: "Tasks across projects you can administer",
-            activityHint: "Latest activity across your organization scope.",
+            taskHint: "Tasks across projects you can manage",
+            activityHint: "Latest activity across this organization.",
         };
     }
 
     if (role === "workspace_admin") {
         return {
-            subtitle: `${orgName} overview across workspaces you administer.`,
-            projectHint: "Projects visible through your workspace access",
-            taskHint: "Tasks across projects you can administer",
-            activityHint: "Latest activity across your workspace scope.",
+            subtitle: `${orgName} - workspace management view.`,
+            projectHint: "Projects in workspaces you manage",
+            taskHint: "Tasks across projects you can manage",
+            activityHint: "Latest activity in your workspaces.",
         };
     }
 
     if (role === "manager") {
         return {
-            subtitle: `${orgName} overview across projects you manage.`,
-            projectHint: "Projects available to your manager role",
+            subtitle: `${orgName} - project management view.`,
+            projectHint: "Projects you manage",
             taskHint: "Tasks you can create, assign, and update",
-            activityHint: "Latest activity across managed projects.",
+            activityHint: "Latest activity in projects you manage.",
         };
     }
 
     return {
-        subtitle: `${orgName} overview for your assigned work.`,
-        projectHint: "Projects assigned or opened to you",
-        taskHint: "Tasks assigned to you or visible through project access",
+        subtitle: `${orgName} - your assigned work.`,
+        projectHint: "Projects available to you",
+        taskHint: "Tasks assigned to you or visible to you",
         activityHint: "Latest activity from projects you can access.",
     };
 }
 
 const DASHBOARD_PROFILES = {
     org_admin: {
-        title: "Organization overview",
-        eyebrow: "Governance",
-        focus: "Organization health, access, and delivery across all visible work.",
+        title: "Organization dashboard",
+        eyebrow: "Admin controls",
+        focus: "Manage members, workspaces, projects, and organization activity.",
         actions: [
             { label: "Invite member", target: "/organizations", tone: "primary" },
             { label: "Manage organization", target: "/organizations" },
@@ -73,9 +73,9 @@ const DASHBOARD_PROFILES = {
         ],
     },
     workspace_admin: {
-        title: "Workspace overview",
-        eyebrow: "Workspace operations",
-        focus: "Workspace settings, members, and delivery across your administered workspaces.",
+        title: "Workspace dashboard",
+        eyebrow: "Workspace controls",
+        focus: "Manage workspace members, settings, projects, and task delivery.",
         actions: [
             { label: "Workspace members", target: "/organizations", tone: "primary" },
             { label: "Workspace settings", target: "/organizations" },
@@ -84,9 +84,9 @@ const DASHBOARD_PROFILES = {
         ],
     },
     manager: {
-        title: "Delivery overview",
-        eyebrow: "Manager cockpit",
-        focus: "Project execution, task assignment, and progress across work you manage.",
+        title: "Project dashboard",
+        eyebrow: "Manager tools",
+        focus: "Keep assigned projects moving by creating tasks and updating delivery status.",
         actions: [
             { label: "Create task", target: "/tasks", tone: "primary" },
             { label: "Review projects", target: "/projects" },
@@ -94,9 +94,9 @@ const DASHBOARD_PROFILES = {
         ],
     },
     member: {
-        title: "My work",
+        title: "My dashboard",
         eyebrow: "Assigned work",
-        focus: "Tasks and project activity assigned or opened to you.",
+        focus: "Review assigned work and keep task status current.",
         actions: [
             { label: "Open my tasks", target: "/tasks", tone: "primary" },
             { label: "Review activity", section: "activity" },
@@ -114,7 +114,7 @@ function RoleCommandPanel({ profile, roleLabel, onAction }) {
         <section className="dashboard-role-panel dashboard-section" data-cy="dashboard-role-panel">
             <div className="dashboard-role-panel__main">
                 <p className="dashboard-empty-kicker">{profile.eyebrow}</p>
-                <h3>{profile.title}</h3>
+                <h3>Recommended actions</h3>
                 <p>{profile.focus}</p>
             </div>
             <div className="dashboard-role-panel__side">
@@ -332,7 +332,7 @@ function DashboardScreen() {
                         <div className="dashboard-panel-header">
                             <div>
                                 <h3 className="dashboard-panel-title">Task completion</h3>
-                                <p className="dashboard-panel-subtitle">Completed versus pending work in your current access scope.</p>
+                                <p className="dashboard-panel-subtitle">Completed versus pending tasks you can access.</p>
                             </div>
                         </div>
                         <CompletionChart completed={summary.completedTasks} pending={summary.pendingTasks} total={summary.totalTasks} />
@@ -341,8 +341,8 @@ function DashboardScreen() {
                     <article className="dashboard-panel">
                         <div className="dashboard-panel-header">
                             <div>
-                                <h3 className="dashboard-panel-title">Activity overview</h3>
-                                <p className="dashboard-panel-subtitle">Latest actions grouped by event type in your current access scope.</p>
+                                <h3 className="dashboard-panel-title">Recent activity</h3>
+                                <p className="dashboard-panel-subtitle">Latest actions grouped by event type.</p>
                             </div>
                         </div>
                         <ActionChart data={summary.activityByAction} />

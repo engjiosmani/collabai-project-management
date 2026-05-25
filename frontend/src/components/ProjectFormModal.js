@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import API, { getApiErrorMessage } from "../api/api";
 import { getOrganizationMembers } from "../api/organizations";
 import {
@@ -8,6 +8,8 @@ import {
     removeProjectMember,
     updateProject,
 } from "../api/projects";
+import { getWorkspaceMembers } from "../api/workspaces";
+import { AuthContext } from "../context/AuthContext";
 
 const getTodayDateInputValue = () => {
     const now = new Date();
@@ -44,6 +46,7 @@ const validateProjectDates = ({ start_date, due_date }) => {
  *   preselectWs  {object} — { id, name } for workspace-context create
  */
 export default function ProjectFormModal({ open, project, onClose, onSaved, context = "global", preselectOrg, preselectWs }) {
+    const { isAdminOfOrg, isManagerOrAdminOfWorkspace } = useContext(AuthContext);
     const isEdit = Boolean(project);
     const projectOrganizationId = project?.organization?.id ?? project?.organization ?? "";
     const isWorkspaceContext = !isEdit && context === "workspace";
@@ -71,7 +74,18 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
     const [selectedMemberId, setSelectedMemberId] = useState("");
     const [workspaces, setWorkspaces] = useState([]);
     const [workspacesLoading, setWorkspacesLoading] = useState(false);
+    const [workspaceEmptyMessage, setWorkspaceEmptyMessage] = useState("");
     const today = getTodayDateInputValue();
+    const eligibleOrganizations = useMemo(
+        () =>
+            organizations.filter((org) => {
+                if (isAdminOfOrg(org.id)) return true;
+                return Object.keys(org.my_workspace_roles || {}).some((workspaceId) =>
+                    isManagerOrAdminOfWorkspace(org.id, workspaceId)
+                );
+            }),
+        [isAdminOfOrg, isManagerOrAdminOfWorkspace, organizations]
+    );
 
     // Load organizations for the selector (skip in workspace context)
     useEffect(() => {
@@ -90,21 +104,34 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
     useEffect(() => {
         if (!open || isEdit || !form.organization || isWorkspaceContext) {
             setWorkspaces([]);
+            setWorkspaceEmptyMessage("");
             return;
         }
         setForm((prev) => ({ ...prev, workspace: "" }));
         setWorkspacesLoading(true);
+        setWorkspaceEmptyMessage("");
         API.get(`/organizations/${form.organization}/workspaces/`)
             .then((res) => {
                 const list = Array.isArray(res.data) ? res.data : res.data.results ?? [];
-                setWorkspaces(list);
-                if (list.length === 1) {
-                    setForm((prev) => ({ ...prev, workspace: list[0].id }));
+                const eligible = list.filter((ws) =>
+                    isManagerOrAdminOfWorkspace(form.organization, ws.id)
+                );
+                setWorkspaces(eligible);
+                if (eligible.length === 1) {
+                    setForm((prev) => ({ ...prev, workspace: eligible[0].id }));
+                }
+                if (list.length === 0) {
+                    setWorkspaceEmptyMessage("No workspaces found for this organization.");
+                } else if (eligible.length === 0) {
+                    setWorkspaceEmptyMessage("You must be a workspace manager or admin to create projects in this organization.");
                 }
             })
-            .catch(() => setWorkspaces([]))
+            .catch(() => {
+                setWorkspaces([]);
+                setWorkspaceEmptyMessage("Could not load workspaces for this organization.");
+            })
             .finally(() => setWorkspacesLoading(false));
-    }, [open, isEdit, form.organization, isWorkspaceContext]);
+    }, [open, isEdit, form.organization, isWorkspaceContext, isManagerOrAdminOfWorkspace]);
 
     // Populate form when editing
     useEffect(() => {
@@ -133,7 +160,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
             setForm({
                 name: "",
                 description: "",
-                organization: organizations[0]?.id || "",
+                organization: eligibleOrganizations[0]?.id || "",
                 workspace: "",
                 start_date: "",
                 due_date: "",
@@ -142,7 +169,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
         }
         setError(null);
         setFieldErrors({});
-    }, [open, project, organizations, projectOrganizationId, isWorkspaceContext, preselectOrg, preselectWs]);
+    }, [open, project, eligibleOrganizations, projectOrganizationId, isWorkspaceContext, preselectOrg, preselectWs]);
 
     useEffect(() => {
         if (!open || !isEdit || !projectOrganizationId) {
@@ -161,15 +188,18 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
             setMemberError(null);
 
             try {
-                const [projectMembers, orgMembers] = await Promise.all([
+                const memberSource = project.workspace
+                    ? getWorkspaceMembers(project.workspace)
+                    : getOrganizationMembers(projectOrganizationId);
+                const [projectMembers, assignableMembers] = await Promise.all([
                     fetchProjectMembers(project.id),
-                    getOrganizationMembers(projectOrganizationId),
+                    memberSource,
                 ]);
 
                 if (!active) return;
 
                 setMembers(projectMembers);
-                setOrganizationMembers(orgMembers);
+                setOrganizationMembers(assignableMembers);
             } catch (err) {
                 if (!active) return;
                 setMemberError(getApiErrorMessage(err, "Failed to load project members."));
@@ -185,7 +215,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
         return () => {
             active = false;
         };
-    }, [open, isEdit, project?.id, projectOrganizationId]);
+    }, [open, isEdit, project?.id, project?.workspace, projectOrganizationId]);
 
     if (!open) return null;
 
@@ -218,6 +248,12 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
             setFieldErrors(dateErrors);
             return;
         }
+        if (!isEdit && !isWorkspaceContext && !isManagerOrAdminOfWorkspace(form.organization, form.workspace)) {
+            setFieldErrors({
+                workspace: "You must be a workspace manager or admin to create projects here.",
+            });
+            return;
+        }
 
         const payload = {
             name: form.name.trim(),
@@ -233,7 +269,9 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
         try {
             const saved = isEdit
                 ? await updateProject(project.id, payload)
-                : await createProject(payload);
+                : await createProject(payload, {
+                    headers: { "X-Organization-ID": String(form.organization) },
+                });
             onSaved(saved);
             onClose();
         } catch (err) {
@@ -318,7 +356,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                 <form onSubmit={handleSubmit} className="pm-form">
                     <div className="pm-field">
                         <label className="pm-label" htmlFor="pm-name">
-                            Project Name <span className="pm-required">*</span>
+                            Project name <span className="pm-required">*</span>
                         </label>
                         <input
                             id="pm-name"
@@ -373,7 +411,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                                     disabled={isEdit}
                                 >
                                     <option value="">— Select organization —</option>
-                                    {organizations.map((org) => (
+                                    {eligibleOrganizations.map((org) => (
                                         <option key={org.id} value={org.id}>
                                             {org.name}
                                         </option>
@@ -401,17 +439,19 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                                     ) : form.organization && workspaces.length === 0 ? (
                                         <div className="pm-workspace-empty">
                                             <p className="pm-field-hint">
-                                                No workspaces found for this organization.
+                                                {workspaceEmptyMessage || "No eligible workspaces found for this organization."}
                                             </p>
-                                            <a
-                                                href={`/organizations/${form.organization}`}
-                                                className="dashboard-button dashboard-button--ghost"
-                                                style={{ display: "inline-block", marginTop: "8px", fontSize: "13px", padding: "6px 12px" }}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                Create workspace
-                                            </a>
+                                            {isAdminOfOrg(form.organization) && (
+                                                <a
+                                                    href={`/organizations/${form.organization}`}
+                                                    className="dashboard-button dashboard-button--ghost"
+                                                    style={{ display: "inline-block", marginTop: "8px", fontSize: "13px", padding: "6px 12px" }}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    Create workspace
+                                                </a>
+                                            )}
                                         </div>
                                     ) : (
                                         <select
@@ -448,7 +488,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                     <div className="pm-row">
                         <div className="pm-field">
                             <label className="pm-label" htmlFor="pm-start">
-                                Start Date
+                                Start date
                             </label>
                             <input
                                 id="pm-start"
@@ -468,7 +508,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                         </div>
                         <div className="pm-field">
                             <label className="pm-label" htmlFor="pm-due">
-                                Due Date
+                                Due date
                             </label>
                             <input
                                 id="pm-due"
@@ -496,8 +536,11 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                                 checked={form.is_active}
                                 onChange={handleChange}
                             />
-                            Active project
+                            Project is active
                         </label>
+                        <span className="pm-field-hint">
+                            Inactive projects are hidden from normal work views.
+                        </span>
                     </div>
 
                     {isEdit && (

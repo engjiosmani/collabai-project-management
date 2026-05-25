@@ -135,7 +135,7 @@ function NotificationsPage() {
           <div>
             <h2 className="dashboard-heading">Notifications</h2>
             <p className="dashboard-subheading">
-              Review task, comment, invite, and system updates across your active scope.
+              Review task, comment, invitation, and system updates.
             </p>
           </div>
 

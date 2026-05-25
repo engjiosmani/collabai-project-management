@@ -4,14 +4,15 @@
 }
 
 .profile-header {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .profile-card {
-  border-radius: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
-  padding: 32px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  padding: 22px;
 }
 
 .profile-avatar-section {
@@ -19,8 +20,8 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-bottom: 32px;
-  padding-bottom: 28px;
+  margin-bottom: 24px;
+  padding-bottom: 22px;
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -37,7 +38,7 @@
 
 .profile-name {
   margin: 0 0 4px;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   color: #0f172a;
 }
 
@@ -73,8 +74,8 @@
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  padding: 12px 13px;
+  border-radius: 8px;
+  padding: 10px 12px;
   background: #ffffff;
   color: #0f172a;
   font: inherit;
@@ -124,7 +125,7 @@
 @media (max-width: 640px) {
   .profile-card {
     padding: 20px;
-    border-radius: 18px;
+    border-radius: 10px;
   }
 
   .profile-field-grid {

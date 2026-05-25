@@ -19,7 +19,6 @@ import {
 } from "../api/tasks";
 import { fetchProjectMembers } from "../api/projects";
 import { getWorkspaceMembers } from "../api/workspaces";
-import RoleGate from "./RoleGate";
 import TaskDescriptionMarkdown from "./TaskDescriptionMarkdown";
 import EmptyState from "./ui/EmptyState";
 import LoadingSkeleton from "./ui/LoadingSkeleton";
@@ -244,7 +243,7 @@ function TaskCard({ task, statuses, onStatusChange, onEdit, onView, projectName,
     );
 }
 
-function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDeleteTask, canEditTask }) {
+function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDeleteTask, canEditTask, canManageAttachments, canUploadAttachments, currentUserId }) {
     const [attachments, setAttachments] = useState([]);
     const [comments, setComments] = useState([]);
     const [activity, setActivity] = useState([]);
@@ -463,31 +462,38 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
                             />
                         ) : null}
                         <div className="kb-detail-list">
-                            {attachments.map((attachment) => (
+                            {attachments.map((attachment) => {
+                                const canDeleteAttachment =
+                                    canManageAttachments ||
+                                    String(attachment.uploaded_by || "") === String(currentUserId || "");
+                                return (
                                 <article key={attachment.id} className="kb-detail-item">
                                     <div className="kb-detail-item__topline">
                                         <div className="kb-detail-item__meta">
                                             <strong>{attachment.file_name}</strong>
                                             <span>{attachment.uploaded_by_email || "Uploaded"}</span>
                                         </div>
-                                        <button
-                                            className="kb-detail-item__remove"
-                                            type="button"
-                                            onClick={() => handleDeleteAttachment(attachment)}
-                                            disabled={deletingAttachmentId === attachment.id}
-                                            aria-label={`Remove ${attachment.file_name}`}
-                                            title="Remove attachment"
-                                        >
-                                            ×
-                                        </button>
+                                        {canDeleteAttachment && (
+                                            <button
+                                                className="kb-detail-item__remove"
+                                                type="button"
+                                                onClick={() => handleDeleteAttachment(attachment)}
+                                                disabled={deletingAttachmentId === attachment.id}
+                                                aria-label={`Remove ${attachment.file_name}`}
+                                                title="Remove attachment"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
                                     </div>
                                     <button className="kb-btn kb-btn--ghost kb-btn--sm" type="button" onClick={() => handleDownloadAttachment(attachment)}>
                                         Download
                                     </button>
                                 </article>
-                            ))}
+                            );
+                            })}
                         </div>
-                        {!attachmentPickerOpen ? (
+                        {canUploadAttachments && !attachmentPickerOpen ? (
                             <button
                                 className="kb-btn kb-btn--primary kb-btn--sm"
                                 type="button"
@@ -495,7 +501,7 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
                             >
                                 Add attachment
                             </button>
-                        ) : (
+                        ) : canUploadAttachments ? (
                             <div className="kb-attachment-picker">
                                 <label className="kb-label">
                                     Choose file
@@ -528,7 +534,7 @@ function TaskDetailModal({ task, statuses, onClose, onEdit, onDeleted, canDelete
                                     </button>
                                 </div>
                             </div>
-                        )}
+                        ) : null}
                     </div>
 
                     <div className="kb-detail-section">
@@ -728,6 +734,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
     const selectedProjectOrganizationId =
         selectedProject?.organization?.id ?? selectedProject?.organization ?? "";
     const assigneeOrganizationId = organizationId || selectedProjectOrganizationId;
+    const assigneeWorkspaceId = selectedProject?.workspace || workspaceId;
 
     useEffect(() => {
         if (!task) {
@@ -760,7 +767,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
         let cancelled = false;
 
         const loadMembers = async () => {
-            if (!workspaceId && !assigneeOrganizationId && !form.project) {
+            if (!assigneeWorkspaceId && !assigneeOrganizationId && !form.project) {
                 setMembers([]);
                 setMembersError("");
                 return;
@@ -771,8 +778,8 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
             try {
                 let data = [];
                 try {
-                    data = workspaceId
-                        ? await getWorkspaceMembers(workspaceId)
+                    data = assigneeWorkspaceId
+                        ? await getWorkspaceMembers(assigneeWorkspaceId)
                         : await getOrganizationMembers(assigneeOrganizationId);
                 } catch (sourceError) {
                     if (!form.project) {
@@ -798,7 +805,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
         return () => {
             cancelled = true;
         };
-    }, [assigneeOrganizationId, form.project, workspaceId]);
+    }, [assigneeOrganizationId, assigneeWorkspaceId, form.project]);
 
     const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -879,7 +886,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
             list.findIndex((candidate) => String(candidate.user_id) === String(member.user_id)) === index
         );
 
-    const hasAssigneeSource = Boolean(workspaceId || assigneeOrganizationId || form.project);
+    const hasAssigneeSource = Boolean(assigneeWorkspaceId || assigneeOrganizationId || form.project);
     const memberEditOnly = !canEditAllFields;
 
     return (
@@ -956,7 +963,7 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
                                         ? "Loading assignees"
                                         : hasAssigneeSource
                                         ? "Unassigned"
-                                        : "Select a workspace first"}
+                                        : "Select a project first"}
                                 </option>
                                 {assigneeOptions.map((member) => (
                                     <option key={member.user_id} value={String(member.user_id)}>
@@ -964,6 +971,13 @@ function TaskModal({ task, statuses, priorities, projects, workspaceId, organiza
                                     </option>
                                 ))}
                             </select>
+                            {!membersError && canEditAllFields ? (
+                                <p className="kb-detail-empty">
+                                    {form.project
+                                        ? "Only members of the selected project's workspace can be assigned."
+                                        : "Select a project before choosing an assignee."}
+                                </p>
+                            ) : null}
                             {membersError ? <p className="kb-modal-error">{membersError}</p> : null}
                         </label>
 
@@ -1035,8 +1049,7 @@ export default function KanbanBoard({
     const [taskAssigneeFilter, setTaskAssigneeFilter] = useState("");
     const abortRef = useRef(null);
     const { activeOrganization } = useOrganization();
-    const { user, isManagerOrAbove } = useRole();
-    const canManageTasks = isManagerOrAbove();
+    const { user, isManagerOrAbove, isManagerOrAboveInWorkspace } = useRole();
     const resolvedOrganizationId = activeOrganization?.id || activeOrganizationId;
 
     useEffect(() => {
@@ -1061,21 +1074,54 @@ export default function KanbanBoard({
             window.removeEventListener("storage", syncOrganization);
         };
     }, []);
-    const canChangeTaskStatus = useCallback(
-        (task) => canManageTasks || String(task?.assigned_to || "") === String(user?.id || ""),
-        [canManageTasks, user?.id]
-    );
-
-    const canEditTask = useCallback(
-        (task) => canManageTasks || String(task?.assigned_to || "") === String(user?.id || ""),
-        [canManageTasks, user?.id]
-    );
-
     const projectNameById = useMemo(() => {
         const map = new Map();
         projects.forEach((p) => map.set(p.id, p.name));
         return map;
     }, [projects]);
+    const projectById = useMemo(() => {
+        const map = new Map();
+        projects.forEach((project) => map.set(String(project.id), project));
+        return map;
+    }, [projects]);
+    const selectedProjectForFilter = projectFilter ? projectById.get(String(projectFilter)) : null;
+    const canManageProject = useCallback(
+        (project) => {
+            if (!project) return false;
+            if (project.workspace) {
+                return isManagerOrAboveInWorkspace(project.workspace);
+            }
+            return isManagerOrAbove();
+        },
+        [isManagerOrAbove, isManagerOrAboveInWorkspace]
+    );
+    const manageableProjects = useMemo(
+        () => projects.filter((project) => canManageProject(project)),
+        [canManageProject, projects]
+    );
+    const taskProject = useCallback(
+        (task) => projectById.get(String(task?.project?.id ?? task?.project ?? "")),
+        [projectById]
+    );
+    const canManageTask = useCallback(
+        (task) => {
+            const project = taskProject(task);
+            return canManageProject(project);
+        },
+        [canManageProject, taskProject]
+    );
+    const canCreateTask = projectFilter
+        ? canManageProject(selectedProjectForFilter)
+        : manageableProjects.length > 0;
+    const canChangeTaskStatus = useCallback(
+        (task) => canManageTask(task) || String(task?.assigned_to || "") === String(user?.id || ""),
+        [canManageTask, user?.id]
+    );
+
+    const canEditTask = useCallback(
+        (task) => canManageTask(task) || String(task?.assigned_to || "") === String(user?.id || ""),
+        [canManageTask, user?.id]
+    );
 
     const showProjectOnCards = !projectFilter;
 
@@ -1293,7 +1339,7 @@ export default function KanbanBoard({
                         Task board
                     </h2>
                     <p className="kb-header__desc">
-                        Drag tasks between columns and filter by workspace, project, or assignee.
+                        Tasks from accessible projects grouped by status.
                     </p>
                 </div>
                 <div className="kb-header__controls">
@@ -1315,7 +1361,7 @@ export default function KanbanBoard({
                             }}
                             aria-label="Select workspace"
                         >
-                            <option value="">Active workspace</option>
+                            <option value="">All accessible workspaces</option>
                             {workspaces.map((workspace) => (
                                 <option key={workspace.id} value={String(workspace.id)}>
                                     {workspace.name}
@@ -1358,25 +1404,38 @@ export default function KanbanBoard({
                             ))}
                         </select>
                     </label>
-                    <RoleGate requiredRole="manager">
+                    {canCreateTask && (
                         <button
                             className="kb-btn kb-btn--primary"
                             data-cy="new-task-button"
                             onClick={() => setEditingTask(null)}
                             type="button"
-                                disabled={projects.length === 0}
+                                disabled={manageableProjects.length === 0}
                         >
                             + Add task
                         </button>
-                    </RoleGate>
+                    )}
                 </div>
             </header>
 
             {statuses.length === 0 ? (
                 <EmptyState
                     icon="S"
-                    title="No task statuses found"
-                    description="Make sure the backend has TaskStatus records before creating tasks."
+                    title="Task board is not set up"
+                    description="Task statuses are unavailable. Contact an administrator."
+                    className="kb-state kb-state--empty"
+                />
+            ) : visibleTasks.length === 0 ? (
+                <EmptyState
+                    icon="T"
+                    title="No tasks yet"
+                    description={
+                        canCreateTask
+                            ? "Create the first task for the selected project or workspace."
+                            : "Tasks will appear here when they are created in projects you can access."
+                    }
+                    actionLabel={canCreateTask ? "Add task" : undefined}
+                    onAction={canCreateTask ? () => setEditingTask(null) : undefined}
                     className="kb-state kb-state--empty"
                 />
             ) : (
@@ -1416,20 +1475,23 @@ export default function KanbanBoard({
                         if (canEditTask(t)) setEditingTask(t);
                     }}
                     onDeleted={handleDelete}
-                    canDeleteTask={canManageTasks || String(viewingTask.created_by_id || "") === String(user?.id || "")}
+                    canDeleteTask={canManageTask(viewingTask) || String(viewingTask.created_by_id || "") === String(user?.id || "")}
                     canEditTask={canEditTask(viewingTask)}
+                    canManageAttachments={canManageTask(viewingTask)}
+                    canUploadAttachments={canEditTask(viewingTask)}
+                    currentUserId={user?.id}
                 />
             )}
 
-            {editingTask !== undefined && (editingTask === null ? canManageTasks : canEditTask(editingTask)) && (
+            {editingTask !== undefined && (editingTask === null ? canCreateTask : canEditTask(editingTask)) && (
                 <TaskModal
                     task={editingTask}
                     statuses={statuses}
                     priorities={priorities}
-                    projects={projects}
-                    workspaceId={activeWorkspaceId}
+                    projects={editingTask === null || canManageTask(editingTask) ? manageableProjects : projects}
+                    workspaceId={selectedProjectForFilter?.workspace || activeWorkspaceId}
                     organizationId={resolvedOrganizationId}
-                    canEditAllFields={canManageTasks}
+                    canEditAllFields={editingTask === null ? canCreateTask : canManageTask(editingTask)}
                     onClose={() => setEditingTask(undefined)}
                     onSaved={handleSaved}
                     defaultProjectId={projectFilter ? Number(projectFilter) : undefined}

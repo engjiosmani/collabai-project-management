@@ -18,9 +18,9 @@ from common.permissions import IsWorkspaceTeamMember
 from common.tenant_access import organization_ids_for_request
 from common.role_permissions import (
     task_visibility_q,
-    user_can_assign_task,
+    user_can_assign_task_in_project,
+    user_can_manage_project,
     user_can_update_task,
-    user_is_manager_or_above,
 )
 from ..filters import TaskFilter
 from ..models import Attachment, Task, TaskPriority, TaskStatus
@@ -171,7 +171,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         invalidate_after_task_change()
 
     def _user_can_delete_task(self, user, task: Task) -> bool:
-        if user_is_manager_or_above(user, task.project.organization):
+        if user_can_manage_project(user, task.project):
             return True
 
         return ActivityLog.objects.filter(
@@ -181,12 +181,12 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         ).exists()
 
     def _require_manager_or_above(self, project) -> None:
-        if not user_is_manager_or_above(self.request.user, project.organization):
+        if not user_can_manage_project(self.request.user, project):
             raise PermissionDenied('You must be a manager or above to modify tasks.')
 
     def _validate_task_update_permissions(self, instance, validated_data) -> None:
         project = validated_data.get('project') or instance.project
-        if user_is_manager_or_above(self.request.user, project.organization):
+        if user_can_manage_project(self.request.user, project):
             return
 
         if not user_can_update_task(self.request.user, instance):
@@ -210,9 +210,9 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         self._require_manager_or_above(serializer.validated_data['project'])
         assigned_to = serializer.validated_data.get('assigned_to')
-        if assigned_to and not user_can_assign_task(
+        if assigned_to and not user_can_assign_task_in_project(
             self.request.user,
-            serializer.validated_data['project'].organization,
+            serializer.validated_data['project'],
         ):
             raise PermissionDenied('You do not have permission to assign tasks.')
         task = serializer.save()
@@ -253,7 +253,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
                 status=status.HTTP_200_OK,
             )
 
-        if not (user_can_update_task(request.user, task) or user_is_manager_or_above(request.user, task.project.organization)):
+        if not (user_can_update_task(request.user, task) or user_can_manage_project(request.user, task.project)):
             raise PermissionDenied('You do not have permission to upload attachments for this task.')
 
         serializer = TaskAttachmentUploadSerializer(data=request.data)
@@ -296,7 +296,7 @@ class TaskViewSet(CachedListMixin, viewsets.ModelViewSet):
         attachment = get_object_or_404(task.attachments.select_related('uploaded_by'), pk=attachment_id)
 
         if not (
-            user_is_manager_or_above(request.user, task.project.organization)
+            user_can_manage_project(request.user, task.project)
             or attachment.uploaded_by_id == request.user.id
         ):
             raise PermissionDenied('You do not have permission to delete this attachment.')

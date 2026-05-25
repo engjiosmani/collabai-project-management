@@ -78,7 +78,6 @@ export default function AvatarUpload({ profile, onUpload, disabled }) {
             disabled={disabled || uploading}
           />
         </label>
-        <p className="settings-help-text">JPG, PNG, GIF, or WebP. Maximum 2 MB.</p>
         {error && <p className="settings-field-error">{error}</p>}
       </div>
     </div>

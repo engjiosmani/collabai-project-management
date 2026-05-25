@@ -187,11 +187,7 @@ export default function ProfilePage() {
                 />
                 {errors.phone_number ? (
                   <p className="profile-field-error">{errors.phone_number.message}</p>
-                ) : (
-                  <p className="profile-help-text">
-                    Include country code. Example: +383 44 123 456
-                  </p>
-                )}
+                ) : null}
               </div>
 
               <div className="profile-field">

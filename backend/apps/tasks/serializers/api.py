@@ -4,7 +4,8 @@ from rest_framework.reverse import reverse
 
 from apps.comments.models import ActivityLog
 from apps.projects.models import Project
-from common.role_permissions import user_has_project_access, user_is_manager_or_above
+from apps.workspaces.models import TeamMember
+from common.role_permissions import user_can_manage_project, user_has_project_access
 from common.tenant_access import user_can_access_organization
 
 from ..models import Attachment, Label, Task, TaskLabel, TaskPriority, TaskStatus
@@ -218,10 +219,7 @@ class TaskSerializer(serializers.ModelSerializer):
         user = getattr(request, 'user', None)
         if not value.is_active:
             raise serializers.ValidationError('Invalid project or access denied.')
-        if not user_has_project_access(user, value) and not user_is_manager_or_above(
-            user,
-            value.organization,
-        ):
+        if not user_has_project_access(user, value) and not user_can_manage_project(user, value):
             raise serializers.ValidationError('Invalid project or access denied.')
         return value
 
@@ -237,6 +235,13 @@ class TaskSerializer(serializers.ModelSerializer):
             if not user_can_access_organization(assigned, project.organization):
                 raise serializers.ValidationError(
                     {'assigned_to': 'Assignee must be a member of the project organization.'}
+                )
+            if project.workspace_id and not TeamMember.objects.filter(
+                workspace_id=project.workspace_id,
+                user=assigned,
+            ).exists():
+                raise serializers.ValidationError(
+                    {'assigned_to': 'Assignee must be a member of the project workspace.'}
                 )
 
         return attrs

@@ -125,12 +125,17 @@ class OrganizationInviteCreateSerializer(serializers.Serializer):
     workspace_id = serializers.IntegerField(required=False, allow_null=True)
 
 class OrganizationInviteSerializer(serializers.ModelSerializer):
+    organization_name = serializers.CharField(source='organization.name', read_only=True)
+    workspace_name = serializers.CharField(source='workspace.name', read_only=True, allow_null=True)
+
     class Meta:
         model = OrganizationInvite
         fields = (
             'id',
             'organization',
+            'organization_name',
             'workspace',
+            'workspace_name',
             'email',
             'role',
             'token',
@@ -158,9 +163,40 @@ class TeamMemberInOrgSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
+    organization_role = serializers.SerializerMethodField()
+    inherited_role = serializers.SerializerMethodField()
+    effective_role = serializers.SerializerMethodField()
+
+    def get_organization_role(self, obj):
+        role = OrganizationMember.objects.filter(
+            organization_id=obj.workspace.organization_id,
+            user_id=obj.user_id,
+        ).values_list('role', flat=True).first()
+        return role
+
+    def get_inherited_role(self, obj):
+        if self.get_organization_role(obj) == OrganizationMember.ORG_ADMIN:
+            return OrganizationMember.ORG_ADMIN
+        return None
+
+    def get_effective_role(self, obj):
+        return self.get_inherited_role(obj) or obj.role
+
     class Meta:
         model = TeamMember
-        fields = ('id', 'user_id', 'username', 'email', 'role', 'job_role_name', 'created_at', 'updated_at')
+        fields = (
+            'id',
+            'user_id',
+            'username',
+            'email',
+            'role',
+            'organization_role',
+            'inherited_role',
+            'effective_role',
+            'job_role_name',
+            'created_at',
+            'updated_at',
+        )
         read_only_fields = fields
 
 class AddWorkspaceMemberSerializer(serializers.Serializer):

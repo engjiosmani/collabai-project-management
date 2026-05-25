@@ -12,13 +12,14 @@ function EmptyState({
 }) {
     const hasAction = actionLabel && (onAction || actionHref);
     const Component = actionHref ? "a" : "button";
+    const showIconText = icon && (icon === "!" || icon.length > 1);
 
     return (
         <section
             className={`ui-empty-state${compact ? " ui-empty-state--compact" : ""} ${className}`.trim()}
         >
             <div className="ui-empty-state__icon" aria-hidden="true">
-                {icon}
+                {showIconText ? icon : <span className="ui-empty-state__mark" />}
             </div>
             <div className="ui-empty-state__body">
                 {kicker ? <p className="dashboard-empty-kicker">{kicker}</p> : null}

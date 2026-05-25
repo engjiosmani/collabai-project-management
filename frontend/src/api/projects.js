@@ -2,13 +2,13 @@ import API from "./api";
 
 const BASE = "/projects/";
 
-export async function fetchProjects(params = {}) {
-    const { data } = await API.get(BASE, { params });
+export async function fetchProjects(params = {}, config = {}) {
+    const { data } = await API.get(BASE, { ...config, params });
     return Array.isArray(data) ? data : data.results ?? [];
 }
 
-export async function fetchProjectsPaginated(params = {}) {
-    const { data } = await API.get(BASE, { params });
+export async function fetchProjectsPaginated(params = {}, config = {}) {
+    const { data } = await API.get(BASE, { ...config, params });
     if (Array.isArray(data)) {
         return { count: data.length, next: null, previous: null, results: data };
     }
@@ -20,8 +20,8 @@ export async function fetchProject(id) {
     return data;
 }
 
-export async function createProject(payload) {
-    const { data } = await API.post(BASE, payload);
+export async function createProject(payload, config = {}) {
+    const { data } = await API.post(BASE, payload, config);
     return data;
 }
 

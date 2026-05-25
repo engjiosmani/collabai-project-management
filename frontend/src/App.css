@@ -141,7 +141,7 @@
 .ui-skeleton {
   position: relative;
   overflow: hidden;
-  border-radius: 18px;
+  border-radius: 10px;
   background: #fff;
   border: 1px solid #e2e8f0;
   padding: 18px;
@@ -186,10 +186,10 @@
   display: grid;
   justify-items: center;
   gap: 14px;
-  padding: 28px;
+  padding: 24px;
   text-align: center;
   border: 1px dashed #cbd5e1;
-  border-radius: 18px;
+  border-radius: 10px;
   background: #f8fafc;
 }
 
@@ -204,10 +204,19 @@
   place-items: center;
   width: 52px;
   height: 52px;
-  border-radius: 16px;
-  background: #eef2ff;
+  border-radius: 12px;
+  background: #f1f5f9;
   color: #4f46e5;
   font-weight: 800;
+}
+
+.ui-empty-state__mark {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #94a3b8;
+  border-radius: 6px;
+  box-sizing: border-box;
 }
 
 .ui-empty-state__body h3 {
@@ -239,9 +248,9 @@
   padding: 40px 32px;
   text-align: center;
   border: 1px solid #e2e8f0;
-  border-radius: 22px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
 }
 
 .ui-error-card h1 {
@@ -291,7 +300,7 @@
 
 .ui-notification-item {
   padding: 14px;
-  border-radius: 14px;
+  border-radius: 8px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
 }
@@ -313,8 +322,8 @@
   width: 40px;
   height: 40px;
   border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(148, 163, 184, 0.08));
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
   color: #e2e8f0;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -323,11 +332,10 @@
 
 .notification-bell__button:hover,
 .notification-bell__button:focus-visible {
-  background: linear-gradient(180deg, rgba(99, 102, 241, 0.24), rgba(20, 184, 166, 0.14));
+  background: rgba(99, 102, 241, 0.22);
   border-color: rgba(199, 210, 254, 0.5);
   color: #ffffff;
   outline: none;
-  transform: translateY(-1px);
 }
 
 .notification-bell__icon {
@@ -348,7 +356,7 @@
   padding: 0 5px;
   border: 2px solid #0f172a;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ef4444, #f97316);
+  background: #dc2626;
   color: #fff;
   font-size: 10px;
   line-height: 1;
@@ -364,10 +372,10 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
+  border-radius: 10px;
   background: #fff;
   color: #0f172a;
-  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
 }
 
 .notification-dropdown__header,
@@ -444,7 +452,7 @@
   align-items: flex-start;
   padding: 14px;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 8px;
   background: #fff;
   color: inherit;
   text-align: left;
@@ -457,12 +465,11 @@
   border-color: #a5b4fc;
   background: #f8fafc;
   outline: none;
-  transform: translateY(-1px);
 }
 
 .notification-item--compact {
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 8px;
 }
 
 .notification-item--unread {
@@ -475,7 +482,7 @@
   height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #eef2ff;
   color: #4338ca;
   font-size: 0.85rem;

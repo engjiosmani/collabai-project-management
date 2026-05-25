@@ -6,6 +6,13 @@ import { acceptInvite, getMyInvitations } from "../api/organizations";
 import { getApiErrorMessage } from "../api/api";
 import "./Dashboard.css";
 
+const ROLE_LABELS = {
+  org_admin: "Organization Admin",
+  workspace_admin: "Workspace Admin",
+  manager: "Manager",
+  member: "Member",
+};
+
 export default function Invitations() {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +62,7 @@ export default function Invitations() {
         <header className="dashboard-header">
           <div>
             <h1>Invitations</h1>
-            <p>Review and accept organization or workspace invitations.</p>
+            <p>Accept invitations to organizations and workspaces.</p>
           </div>
         </header>
 
@@ -68,7 +75,7 @@ export default function Invitations() {
           <EmptyState
             icon="I"
             title="No pending invitations"
-            description="When an organization admin invites you, the request will appear here."
+            description="When an admin invites you, the invitation will appear here."
             className="dashboard-card"
           />
         ) : (
@@ -88,7 +95,7 @@ export default function Invitations() {
 
                 <div style={styles.details}>
                   <p>
-                    <strong>Role:</strong> {invite.role}
+                    <strong>Role:</strong> {ROLE_LABELS[invite.role] || invite.role}
                   </p>
 
                   {invite.workspace_name ? (
@@ -129,7 +136,7 @@ export default function Invitations() {
 const styles = {
   grid: {
     display: "grid",
-    gap: "18px",
+    gap: "14px",
     gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
   },
   inviteHeader: {
@@ -163,14 +170,14 @@ const styles = {
     background: "#fee2e2",
     color: "#991b1b",
     padding: "12px 14px",
-    borderRadius: "12px",
+    borderRadius: "8px",
     marginBottom: "16px",
   },
   success: {
     background: "#dcfce7",
     color: "#166534",
     padding: "12px 14px",
-    borderRadius: "12px",
+    borderRadius: "8px",
     marginBottom: "16px",
   },
 };

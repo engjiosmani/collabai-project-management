@@ -153,13 +153,13 @@ describe("KanbanBoard", () => {
     expect(screen.getByTestId("kanban-error")).toHaveTextContent("Network error");
   });
 
-  it('renders "No task statuses found" when statuses are empty', async () => {
+  it('renders setup guidance when statuses are empty', async () => {
     getTaskStatuses.mockResolvedValueOnce([]);
 
     renderBoard();
 
     await waitFor(async () => {
-      expect(screen.getByText("No task statuses found")).toBeInTheDocument();
+      expect(screen.getByText("Task board is not set up")).toBeInTheDocument();
     });
   });
 
@@ -210,13 +210,13 @@ describe("KanbanBoard", () => {
     });
   });
 
-  it('renders "No tasks" empty states when columns have no tasks', async () => {
+  it('renders one board-level empty state when there are no tasks', async () => {
     getTasks.mockResolvedValueOnce([]);
 
     renderBoard();
 
     await waitFor(async () => {
-      expect(screen.getAllByText("No tasks")).toHaveLength(statuses.length);
+      expect(screen.getByText("No tasks yet")).toBeInTheDocument();
     });
   });
 });

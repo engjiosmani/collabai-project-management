@@ -53,5 +53,15 @@ export function useRole() {
         isOrgAdmin: () => role === "org_admin",
         isWorkspaceAdminOrAbove: () => rank >= roleRank.workspace_admin,
         isManagerOrAbove: () => rank >= roleRank.manager,
+        isManagerOrAboveInWorkspace: (workspaceId) => {
+            if (orgRole === "org_admin") return true;
+            const scopedRole = normalizeRole(workspaceRolesForOrg?.[workspaceId]);
+            return (roleRank[scopedRole] || 0) >= roleRank.manager;
+        },
+        isWorkspaceAdminOrAboveInWorkspace: (workspaceId) => {
+            if (orgRole === "org_admin") return true;
+            const scopedRole = normalizeRole(workspaceRolesForOrg?.[workspaceId]);
+            return (roleRank[scopedRole] || 0) >= roleRank.workspace_admin;
+        },
     };
 }

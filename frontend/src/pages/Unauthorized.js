@@ -18,21 +18,29 @@ export default function Unauthorized() {
                 style={{
                     textAlign: "center",
                     maxWidth: "420px",
-                    padding: "48px 32px",
+                    padding: "32px",
                     background: "#ffffff",
-                    borderRadius: "20px",
+                    borderRadius: "12px",
                     border: "1px solid #e5e7eb",
-                    boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+                    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
                 }}
             >
                 <div
                     style={{
-                        fontSize: "56px",
-                        marginBottom: "16px",
+                        width: "52px",
+                        height: "52px",
+                        borderRadius: "12px",
+                        background: "#fee2e2",
+                        color: "#991b1b",
+                        display: "grid",
+                        placeItems: "center",
+                        margin: "0 auto 16px",
+                        fontSize: "28px",
+                        fontWeight: 800,
                         lineHeight: 1,
                     }}
                 >
-                    🔒
+                    !
                 </div>
                 <h1
                     style={{

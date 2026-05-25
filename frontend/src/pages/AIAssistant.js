@@ -54,8 +54,7 @@ function AIAssistant() {
               fontWeight: "600",
             }}
           >
-            AI knowledge base is running in memory mode — results will not
-            persist across restarts.
+            System notice: AI knowledge may reset after a server restart.
           </div>
         )}
 

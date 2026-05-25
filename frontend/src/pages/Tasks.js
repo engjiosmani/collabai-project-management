@@ -37,10 +37,9 @@ function Tasks() {
             <main className="dashboard-main tasks-main">
                 <header className="dashboard-topbar tasks-topbar">
                     <div>
-                        <p className="tasks-eyebrow">Delivery board</p>
                         <h2 className="dashboard-heading" data-cy="tasks-heading">Task board</h2>
                         <p className="dashboard-subheading">
-                            Drag tasks between columns and keep project work moving in one focused view.
+                            Track tasks across the projects you can access.
                         </p>
                     </div>
 

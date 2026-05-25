@@ -72,7 +72,7 @@ export default function SettingsPage() {
           <section className="settings-card">
             <div className="settings-card-header">
               <p className="settings-eyebrow">Status</p>
-              <h2>Security Overview</h2>
+              <h2>Security summary</h2>
               <p>Current security status of your account.</p>
             </div>
             <div className="settings-security-grid">

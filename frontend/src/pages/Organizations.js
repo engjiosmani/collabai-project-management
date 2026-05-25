@@ -87,7 +87,7 @@ export default function Organizations() {
           <div>
             <h1 className="dashboard-heading">Organizations</h1>
             <p className="dashboard-subheading">
-              View and manage organizations you belong to.
+              Companies or teams that contain workspaces, members, projects, and tasks.
             </p>
           </div>
           <div className="dashboard-meta">
@@ -96,7 +96,7 @@ export default function Organizations() {
               type="button"
               onClick={() => setModalOpen(true)}
             >
-              Create Organization
+              Create organization
             </button>
           </div>
         </header>
@@ -114,8 +114,8 @@ export default function Organizations() {
           <EmptyState
             icon="O"
             title="No organizations yet"
-            description="You are not part of any organization yet. Create one or accept an invitation."
-            actionLabel="Create Organization"
+            description="Create an organization for your team, or accept an invitation from an existing one."
+            actionLabel="Create organization"
             onAction={() => setModalOpen(true)}
           />
         ) : (
@@ -155,7 +155,7 @@ export default function Organizations() {
       {modalOpen && (
         <div className="org-modal-overlay" onClick={() => setModalOpen(false)}>
           <div className="org-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Create Organization</h2>
+            <h2>Create organization</h2>
             <form onSubmit={handleCreate}>
               <div className="org-modal-field">
                 <label>Organization name</label>
@@ -187,7 +187,7 @@ export default function Organizations() {
                   className="dashboard-button dashboard-button--primary"
                   disabled={creating || !form.name.trim()}
                 >
-                  {creating ? "Creating..." : "Create Organization"}
+                  {creating ? "Creating..." : "Create organization"}
                 </button>
               </div>
             </form>

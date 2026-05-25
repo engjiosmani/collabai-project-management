@@ -98,6 +98,11 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
             workspace,
         ):
             raise PermissionDenied('Only org admins or workspace admins can update workspaces.')
+        if (
+            serializer.validated_data.get('is_active') is False
+            and not user_is_org_admin(self.request.user, organization)
+        ):
+            raise PermissionDenied('Only organization admins can archive workspaces.')
         serializer.save()
 
     def perform_destroy(self, instance):

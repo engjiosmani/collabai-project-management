@@ -38,6 +38,16 @@ def _is_org_admin(user, organization_id):
         user=user,
         role=OrganizationMember.ORG_ADMIN,
     ).exists()
+
+
+def _user_has_org_admin_role(organization, user_id):
+    return OrganizationMember.objects.filter(
+        organization=organization,
+        user_id=user_id,
+        role=OrganizationMember.ORG_ADMIN,
+    ).exists()
+
+
 def _is_workspace_admin_or_org_admin(user, workspace_id, organization_id):
     if getattr(user, 'is_superuser', False):
         return True
@@ -54,6 +64,13 @@ def _has_other_org_admin(organization, user_id):
     return OrganizationMember.objects.filter(
         organization=organization,
         role=OrganizationMember.ORG_ADMIN,
+    ).exclude(user_id=user_id).exists()
+
+
+def _has_other_workspace_admin(workspace, user_id):
+    return TeamMember.objects.filter(
+        workspace=workspace,
+        role=TeamMember.WORKSPACE_ADMIN,
     ).exclude(user_id=user_id).exists()
 # ── Organization ViewSet ──────────────────────────────────────────────────────
 @extend_schema_view(
@@ -493,6 +510,15 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         if request.method in ('PUT', 'PATCH'):
+            if (
+                'is_active' in request.data
+                and request.data.get('is_active') is False
+                and not _is_org_admin(request.user, organization.pk)
+            ):
+                return Response(
+                    {'detail': 'Only organization admins can archive workspaces.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             partial = request.method == 'PATCH'
             serializer = WorkspaceInOrgSerializer(workspace, data=request.data, partial=partial)
             serializer.is_valid(raise_exception=True)
@@ -553,7 +579,11 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             is_active=True,
         )
         if request.method == 'GET':
-            qs = TeamMember.objects.filter(workspace=workspace).select_related('user', 'job_role')
+            qs = TeamMember.objects.filter(workspace=workspace).select_related(
+                'user',
+                'job_role',
+                'workspace',
+            )
             return Response(TeamMemberInOrgSerializer(qs, many=True).data)
         # POST
         if not _is_workspace_admin_or_org_admin(request.user, workspace.pk, organization.pk):
@@ -575,6 +605,16 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 {'detail': 'User must be an organization member before being added to a workspace.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if _user_has_org_admin_role(organization, user_id):
+            return Response(
+                {
+                    'detail': (
+                        'Organization admins already inherit admin access to every workspace '
+                        'and do not need a direct workspace role.'
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         member, created = TeamMember.objects.get_or_create(
             workspace=workspace,
             user_id=user_id,
@@ -585,7 +625,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 {'detail': 'User is already a member of this workspace.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        member = TeamMember.objects.select_related('user', 'job_role').get(pk=member.pk)
+        member = TeamMember.objects.select_related('user', 'job_role', 'workspace').get(pk=member.pk)
         return Response(TeamMemberInOrgSerializer(member).data, status=status.HTTP_201_CREATED)
     @extend_schema(
         methods=['patch'],
@@ -629,7 +669,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             )
         member = (
             TeamMember.objects.filter(workspace=workspace, user_id=user_id)
-            .select_related('user', 'job_role')
+            .select_related('user', 'job_role', 'workspace')
             .first()
         )
         if member is None:
@@ -638,10 +678,29 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             serializer = WorkspaceMemberRoleUpdateSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             new_role = serializer.validated_data['role']
+            if _user_has_org_admin_role(organization, member.user_id):
+                return Response(
+                    {
+                        'detail': (
+                            'Organization admins already inherit admin access to every workspace '
+                            'and should be managed from the organization members page.'
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if not can_workspace_admin_assign_role(request.user, workspace, new_role):
                 return Response(
                     {'detail': 'Workspace admins can only assign manager or member roles.'},
                     status=status.HTTP_403_FORBIDDEN,
+                )
+            if (
+                member.role == TeamMember.WORKSPACE_ADMIN
+                and new_role != TeamMember.WORKSPACE_ADMIN
+                and not _has_other_workspace_admin(workspace, member.user_id)
+            ):
+                return Response(
+                    {'detail': 'A workspace must always have at least one workspace admin.'},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             old_role = member.role
             member.role = new_role
@@ -663,6 +722,19 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             member.refresh_from_db()
             return Response(TeamMemberInOrgSerializer(member).data)
         # DELETE
+        if member.user_id == request.user.pk:
+            return Response(
+                {'detail': 'You cannot remove yourself from the workspace.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if (
+            member.role == TeamMember.WORKSPACE_ADMIN
+            and not _has_other_workspace_admin(workspace, member.user_id)
+        ):
+            return Response(
+                {'detail': 'A workspace must always have at least one workspace admin.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 # ── OrganizationListForAuthenticatedView (kept for existing tests) ─────────────
@@ -719,13 +791,15 @@ class AcceptInviteView(APIView):
             user=request.user,
             defaults={'role': org_role},
         )
-        # If invite.txt targeted a specific workspace, also add there
-        if invite.workspace:
+        if org_role == OrganizationMember.ORG_ADMIN and member.role != OrganizationMember.ORG_ADMIN:
+            member.role = OrganizationMember.ORG_ADMIN
+            member.save(update_fields=['role', 'updated_at'])
+        # Workspace-scoped invites create direct workspace roles; org admins inherit access.
+        if invite.workspace and member.role != OrganizationMember.ORG_ADMIN:
             ws_role_map = {
                 OrganizationInvite.WORKSPACE_ADMIN: TeamMember.WORKSPACE_ADMIN,
                 OrganizationInvite.MANAGER: TeamMember.MANAGER,
                 OrganizationInvite.MEMBER: TeamMember.MEMBER,
-                OrganizationInvite.ORG_ADMIN: TeamMember.MEMBER,
             }
             TeamMember.objects.get_or_create(
                 workspace=invite.workspace,

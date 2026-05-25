@@ -35,23 +35,35 @@ const ORG_ROLES = [
   { value: "member", label: "Member" },
   { value: "org_admin", label: "Organization Admin" },
 ];
+const INVITE_ROLES = [
+  { value: "member", label: "Organization Member" },
+  { value: "org_admin", label: "Organization Admin" },
+  { value: "workspace_admin", label: "Workspace Admin" },
+  { value: "manager", label: "Workspace Manager" },
+];
+const INVITE_ROLE_HELP = {
+  member: "Members can be added to a workspace now or later.",
+  org_admin: "Organization admins automatically have access to every workspace.",
+  workspace_admin: "Workspace admins manage one selected workspace.",
+  manager: "Workspace managers can create and manage projects and tasks in one selected workspace.",
+};
 
 export default function OrganizationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
+  const { user, refreshProfile } = useContext(AuthContext);
   const { refreshOrganizations } = useOrganization();
   const [org, setOrg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState("workspaces");
   const [members, setMembers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", role: "member" });
+  const [inviteForm, setInviteForm] = useState({ email: "", role: "member", workspace_id: "" });
   const [settingsForm, setSettingsForm] = useState({ name: "", description: "" });
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -71,19 +83,18 @@ export default function OrganizationDetail() {
 
   const visibleTabs = useMemo(() => {
     const tabs = [
-      ["overview", "Overview"],
-      ["members", "Members"],
-      ["workspaces", "Workspaces"],
+      ["workspaces", `Workspaces (${workspaces.length})`],
+      ["members", `Members (${members.length})`],
     ];
     if (isAdmin) {
-      tabs.push(["requests", `Requests (${invites.length})`]);
+      tabs.push(["requests", `Invitations (${invites.length})`]);
       tabs.push(["settings", "Settings"]);
     }
     return tabs;
-  }, [isAdmin, invites.length]);
+  }, [isAdmin, invites.length, members.length, workspaces.length]);
 
   useEffect(() => {
-    if (!visibleTabs.some(([v]) => v === tab)) setTab("overview");
+    if (!visibleTabs.some(([v]) => v === tab)) setTab("workspaces");
   }, [tab, visibleTabs]);
 
   const loadOrg = useCallback(async () => {
@@ -131,14 +142,16 @@ export default function OrganizationDetail() {
   const handleInvite = async (e) => {
     e.preventDefault();
     if (!inviteForm.email.trim()) return;
+    if (["workspace_admin", "manager"].includes(inviteForm.role) && !inviteForm.workspace_id) return;
     setInviting(true);
     clear();
     try {
       await inviteOrganizationMember(id, {
         email: inviteForm.email.trim(),
         role: inviteForm.role,
+        workspace_id: inviteForm.workspace_id ? Number(inviteForm.workspace_id) : null,
       });
-      setInviteForm({ email: "", role: "member" });
+      setInviteForm({ email: "", role: "member", workspace_id: "" });
       const newInvites = await getOrganizationInvites(id);
       setInvites(newInvites);
       setSuccess("Invitation sent.");
@@ -204,9 +217,9 @@ export default function OrganizationDetail() {
       setWorkspaces((prev) => prev.filter((w) => w.id !== wsId));
       setDeleteWorkspaceId(null);
       setDeleteWorkspaceName("");
-      setSuccess("Workspace deleted.");
+      setSuccess("Workspace archived.");
     } catch (err) {
-      setError(getApiErrorMessage(err, "Failed to delete workspace."));
+      setError(getApiErrorMessage(err, "Failed to archive workspace."));
     }
   };
 
@@ -229,6 +242,7 @@ export default function OrganizationDetail() {
       if (workspaceModal === "create") {
         await createWorkspace(id, workspaceForm);
         setSuccess("Workspace created.");
+        await refreshProfile?.();
       } else {
         await updateWorkspace(id, workspaceModal.id, workspaceForm);
         setSuccess("Workspace updated.");
@@ -306,30 +320,6 @@ export default function OrganizationDetail() {
           ))}
         </div>
 
-        {tab === "overview" && (
-          <div className="orgs-overview-grid">
-            <section className="orgs-overview-card">
-              <h3>Members</h3>
-              <p className="orgs-overview-stat">{org?.member_count ?? members.length}</p>
-              <p className="orgs-overview-hint">Total members in this organization</p>
-            </section>
-            <section className="orgs-overview-card">
-              <h3>Workspaces</h3>
-              <p className="orgs-overview-stat">{workspaces.length}</p>
-              <p className="orgs-overview-hint">Workspaces across this organization</p>
-            </section>
-            <section className="orgs-overview-card">
-              <h3>Your role</h3>
-              <p className="orgs-overview-stat orgs-overview-stat--role">
-                {currentMember ? ROLE_LABELS[currentMember.role] || currentMember.role : "Member"}
-              </p>
-              <p className="orgs-overview-hint">
-                {isAdmin ? "You can manage members, settings, and workspaces" : "View organization content and collaborate"}
-              </p>
-            </section>
-          </div>
-        )}
-
         {tab === "members" && (
           <>
             <RoleGate requiredRole="org_admin">
@@ -345,21 +335,56 @@ export default function OrganizationDetail() {
                   <select
                     className="org-invite-select"
                     value={inviteForm.role}
-                    onChange={(e) => setInviteForm((p) => ({ ...p, role: e.target.value }))}
+                    onChange={(e) => {
+                      const role = e.target.value;
+                      setInviteForm((p) => ({
+                        ...p,
+                        role,
+                        workspace_id: role === "org_admin" ? "" : p.workspace_id,
+                      }));
+                    }}
                   >
-                    {ORG_ROLES.map((r) => (
+                    {INVITE_ROLES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
-                  <button className="dashboard-button dashboard-button--primary" type="submit" disabled={inviting}>
+                  {inviteForm.role !== "org_admin" && (
+                    <select
+                      className="org-invite-select"
+                      value={inviteForm.workspace_id}
+                      onChange={(e) => setInviteForm((p) => ({ ...p, workspace_id: e.target.value }))}
+                      required={["workspace_admin", "manager"].includes(inviteForm.role)}
+                    >
+                      <option value="">
+                        {inviteForm.role === "member" ? "Organization only" : "Select workspace"}
+                      </option>
+                      {workspaces.map((ws) => (
+                        <option key={ws.id} value={ws.id}>{ws.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    className="dashboard-button dashboard-button--primary"
+                    type="submit"
+                    disabled={
+                      inviting ||
+                      !inviteForm.email.trim() ||
+                      (["workspace_admin", "manager"].includes(inviteForm.role) && !inviteForm.workspace_id)
+                    }
+                  >
                     {inviting ? "Inviting..." : "Invite"}
                   </button>
                 </form>
+                <p className="org-empty-hint" style={{ margin: "8px 0 0", color: "#64748b", fontSize: "13px" }}>
+                  {["workspace_admin", "manager"].includes(inviteForm.role) && workspaces.length === 0
+                    ? "Create a workspace before inviting someone to a workspace role."
+                    : INVITE_ROLE_HELP[inviteForm.role]}
+                </p>
               </section>
             </RoleGate>
 
             <section className="org-detail-section">
-              <h3 className="org-detail-section-title">Members ({members.length})</h3>
+              <h3 className="org-detail-section-title">Members</h3>
               {members.length === 0 ? (
                 <p className="org-empty-message">No members yet.</p>
               ) : (
@@ -402,16 +427,21 @@ export default function OrganizationDetail() {
 
         {tab === "requests" && isAdmin && (
           <section className="org-detail-section">
-            <h3 className="org-detail-section-title">Pending Requests ({invites.length})</h3>
+            <h3 className="org-detail-section-title">Pending invitations</h3>
             {invites.length === 0 ? (
-              <p className="org-empty-message">No pending invitation requests.</p>
+              <p className="org-empty-message">No pending invitations.</p>
             ) : (
               <div className="org-invite-list">
                 {invites.map((invite) => (
                   <div key={invite.id} className="org-invite-item">
                     <div>
                       <div className="org-invite-email">{invite.email}</div>
-                      <p className="org-invite-meta">Role: {invite.role} &middot; Expires: {invite.expires_at ? new Date(invite.expires_at).toLocaleString() : "Not specified"}</p>
+                      <p className="org-invite-meta">
+                        Role: {ROLE_LABELS[invite.role] || invite.role}
+                        {invite.workspace ? ` · ${invite.workspace_name || `Workspace #${invite.workspace}`}` : ""}
+                        {" · "}
+                        Expires: {invite.expires_at ? new Date(invite.expires_at).toLocaleString() : "Not specified"}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -431,7 +461,7 @@ export default function OrganizationDetail() {
         {tab === "workspaces" && (
           <section className="org-detail-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
-              <h3 className="org-detail-section-title" style={{ margin: 0 }}>Workspaces ({workspaces.length})</h3>
+              <h3 className="org-detail-section-title" style={{ margin: 0 }}>Workspaces</h3>
               {isAdmin && (
                 <button
                   type="button"
@@ -444,7 +474,14 @@ export default function OrganizationDetail() {
               )}
             </div>
             {workspaces.length === 0 ? (
-              <p className="org-empty-message">No workspaces yet.</p>
+              <div className="org-empty-state">
+                <p className="org-empty-message">No workspaces yet.</p>
+                <p className="org-empty-hint" style={{ margin: "4px 0 0", color: "#64748b", fontSize: "14px" }}>
+                  {isAdmin
+                    ? "Create a workspace before adding workspace roles, projects, and tasks."
+                    : "Workspaces will appear here when an organization admin creates one."}
+                </p>
+              </div>
             ) : (
               <div className="org-workspace-list">
                 {workspaces.map((ws) => (
@@ -483,7 +520,7 @@ export default function OrganizationDetail() {
                               style={{ padding: "8px 14px", fontSize: "13px" }}
                               onClick={() => { setDeleteWorkspaceId(ws.id); setDeleteWorkspaceName(ws.name); }}
                             >
-                              Delete
+                              Archive
                             </button>
                           </>
                         )}
@@ -582,9 +619,9 @@ export default function OrganizationDetail() {
       {deleteWorkspaceId && (
         <div className="org-modal-overlay" onClick={() => { setDeleteWorkspaceId(null); setDeleteWorkspaceName(""); }}>
           <div className="org-modal" onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ color: "#dc2626" }}>Delete Workspace</h2>
+            <h2 style={{ color: "#dc2626" }}>Archive Workspace</h2>
             <p className="org-delete-warning">
-              This will delete <strong>{deleteWorkspaceName}</strong> and affect its projects and tasks. This action cannot be undone.
+              This will hide <strong>{deleteWorkspaceName}</strong> from active workspace lists and stop new work from being added there.
             </p>
             <div className="org-modal-actions">
               <button
@@ -599,7 +636,7 @@ export default function OrganizationDetail() {
                 className="dashboard-button dashboard-button--danger"
                 onClick={() => handleDeleteWorkspace(deleteWorkspaceId)}
               >
-                Delete Workspace
+                Archive Workspace
               </button>
             </div>
           </div>
@@ -636,8 +673,11 @@ export default function OrganizationDetail() {
                   onChange={(e) => setWorkspaceForm((p) => ({ ...p, is_active: e.target.checked }))}
                   style={{ width: "18px", height: "18px" }}
                 />
-                <label htmlFor="ws-is-active" style={{ margin: 0, fontWeight: 600 }}>Active</label>
+                <label htmlFor="ws-is-active" style={{ margin: 0, fontWeight: 600 }}>Workspace is active</label>
               </div>
+              <p className="org-empty-hint" style={{ marginTop: "-8px", color: "#64748b", fontSize: "13px" }}>
+                Inactive workspaces are hidden from normal work views.
+              </p>
               <div className="org-modal-actions">
                 <button
                   type="button"

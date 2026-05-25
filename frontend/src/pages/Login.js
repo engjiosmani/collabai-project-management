@@ -120,22 +120,21 @@ const styles = {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background:
-            "linear-gradient(to right, #eef2ff, #f8fafc)",
-        fontFamily: "Arial",
+        background: "#f6f8fb",
+        fontFamily: "Inter, Arial, sans-serif",
     },
 
     card: {
         width: "400px",
         backgroundColor: "white",
-        padding: "40px",
-        borderRadius: "16px",
-        boxShadow:
-            "0 8px 30px rgba(0,0,0,0.08)",
+        padding: "32px",
+        border: "1px solid #e2e8f0",
+        borderRadius: "12px",
+        boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
     },
 
     title: {
-        fontSize: "32px",
+        fontSize: "26px",
         marginBottom: "10px",
         color: "#111827",
     },
@@ -150,7 +149,7 @@ const styles = {
         width: "100%",
         padding: "14px",
         marginBottom: "18px",
-        borderRadius: "10px",
+        borderRadius: "8px",
         border: "1px solid #d1d5db",
         fontSize: "15px",
         boxSizing: "border-box",
@@ -170,7 +169,7 @@ const styles = {
         backgroundColor: "#4f46e5",
         color: "white",
         border: "none",
-        borderRadius: "10px",
+        borderRadius: "8px",
         fontSize: "16px",
         fontWeight: "bold",
         cursor: "pointer",

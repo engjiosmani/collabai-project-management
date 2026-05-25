@@ -4,7 +4,7 @@
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f6f8fb;
   color: #0f172a;
 }
 
@@ -14,7 +14,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+  background: #0f172a;
   color: #e2e8f0;
   flex-shrink: 0;
   overflow: hidden;
@@ -95,7 +95,7 @@
 
 .ai-chat--widget .ai-footer {
   padding-top: 4px;
-  background: linear-gradient(to top, #f1f5f9 80%, transparent);
+  background: #f1f5f9;
 }
 
 .ai-chat--widget .ai-composer {
@@ -153,7 +153,7 @@
   min-width: 0;
   max-width: 220px;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 8px 10px;
   font-size: 0.9rem;
   background: #fff;
@@ -162,7 +162,7 @@
 .ai-icon-btn {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #e2e8f0;
   background: #fff;
   cursor: pointer;
@@ -174,7 +174,7 @@
   flex-shrink: 0;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 8px;
   display: flex;
@@ -209,7 +209,7 @@
   flex-shrink: 0;
   background: #fffbeb;
   border: 1px solid #fcd34d;
-  border-radius: 14px;
+  border-radius: 8px;
   padding: 14px 16px;
   margin-bottom: 12px;
   color: #92400e;
@@ -291,17 +291,17 @@
   border: 1px solid #c7d2fe;
   background: #eef2ff;
   color: #3730a3;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px 14px;
   font-size: 0.9rem;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.12s, box-shadow 0.12s;
+  transition: border-color 0.12s, background 0.12s;
 }
 
 .ai-example-chip:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(79, 70, 229, 0.12);
+  border-color: #a5b4fc;
+  background: #f8faff;
 }
 
 .ai-bubble {
@@ -344,7 +344,7 @@
 }
 
 .ai-bubble-body {
-  border-radius: 16px;
+  border-radius: 10px;
   padding: 12px 14px;
   line-height: 1.5;
   min-width: 0;
@@ -360,7 +360,7 @@
   background: #fff;
   border: 1px solid #e2e8f0;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .ai-bubble-text {
@@ -457,7 +457,7 @@
 .ai-footer {
   flex-shrink: 0;
   padding-top: 8px;
-  background: linear-gradient(to top, #f1f5f9 70%, transparent);
+  background: #f6f8fb;
 }
 
 .ai-composer {
@@ -466,8 +466,8 @@
   padding: 10px 12px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .ai-composer-input {
@@ -482,11 +482,11 @@
 
 .ai-btn {
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 12px 18px;
   font-weight: 600;
   cursor: pointer;
-  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  background: #4f46e5;
   color: #fff;
 }
 
@@ -514,12 +514,12 @@
 }
 
 .ai-btn--stop {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  box-shadow: 0 4px 16px rgba(220, 38, 38, 0.35);
+  background: #dc2626;
+  box-shadow: none;
 }
 
 .ai-btn--stop:hover:not(:disabled) {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: #b91c1c;
 }
 
 .ai-stop-icon {
@@ -656,7 +656,7 @@
   flex: 1;
   padding: 10px 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #fff;
   color: #475569;
   font-size: 0.9rem;
@@ -707,7 +707,7 @@
   box-sizing: border-box;
   padding: 12px;
   border: 1px solid #cbd5e1;
-  border-radius: 10px;
+  border-radius: 8px;
   font-family: inherit;
   font-size: 0.9rem;
   line-height: 1.5;
@@ -720,7 +720,7 @@
   padding: 12px;
   background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .ai-analyze-result-title {

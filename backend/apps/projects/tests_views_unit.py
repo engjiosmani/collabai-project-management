@@ -103,8 +103,10 @@ class ProjectViewSetUnitTests(SimpleTestCase):
     @patch("apps.projects.views.api.ProjectMember.objects.get_or_create")
     @patch("apps.projects.views.api.User.objects.get")
     @patch("apps.projects.views.api.AddProjectMemberSerializer")
+    @patch("apps.projects.views.api.user_can_manage_project", return_value=True)
     def test_members_post_adds_new_project_member(
         self,
+        _can_manage,
         add_serializer_cls,
         user_get,
         get_or_create,
@@ -116,7 +118,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member = SimpleNamespace(project=project, user=user)
 
         view.get_object = MagicMock(return_value=project)
-        request = SimpleNamespace(method="POST", data={"user_id": 2})
+        request = SimpleNamespace(method="POST", data={"user_id": 2}, user=SimpleNamespace(id=1))
 
         serializer = MagicMock()
         serializer.validated_data = {"user_id": 2}
@@ -142,8 +144,10 @@ class ProjectViewSetUnitTests(SimpleTestCase):
     @patch("apps.projects.views.api.ProjectMember.objects.get_or_create")
     @patch("apps.projects.views.api.User.objects.get")
     @patch("apps.projects.views.api.AddProjectMemberSerializer")
+    @patch("apps.projects.views.api.user_can_manage_project", return_value=True)
     def test_members_post_existing_project_member_returns_200(
         self,
+        _can_manage,
         add_serializer_cls,
         user_get,
         get_or_create,
@@ -155,7 +159,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member = SimpleNamespace(project=project, user=user)
 
         view.get_object = MagicMock(return_value=project)
-        request = SimpleNamespace(method="POST", data={"user_id": 2})
+        request = SimpleNamespace(method="POST", data={"user_id": 2}, user=SimpleNamespace(id=1))
 
         serializer = MagicMock()
         serializer.validated_data = {"user_id": 2}
@@ -174,7 +178,8 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         self.assertEqual(response.data, {"user": 2})
 
     @patch("apps.projects.views.api.ProjectMember.objects.filter")
-    def test_remove_member_returns_404_when_member_not_found(self, member_filter):
+    @patch("apps.projects.views.api.user_can_manage_project", return_value=True)
+    def test_remove_member_returns_404_when_member_not_found(self, _can_manage, member_filter):
         view = ProjectViewSet()
         project = SimpleNamespace(id=1)
         view.get_object = MagicMock(return_value=project)
@@ -184,7 +189,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member_filter.return_value = qs
 
         response = view.remove_member(
-            SimpleNamespace(method="DELETE"),
+            SimpleNamespace(method="DELETE", user=SimpleNamespace(id=1)),
             pk=1,
             user_id=99,
         )
@@ -194,7 +199,8 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member_filter.assert_called_once_with(project=project, user_id=99)
 
     @patch("apps.projects.views.api.ProjectMember.objects.filter")
-    def test_remove_member_returns_204_when_member_deleted(self, member_filter):
+    @patch("apps.projects.views.api.user_can_manage_project", return_value=True)
+    def test_remove_member_returns_204_when_member_deleted(self, _can_manage, member_filter):
         view = ProjectViewSet()
         project = SimpleNamespace(id=1)
         view.get_object = MagicMock(return_value=project)
@@ -204,7 +210,7 @@ class ProjectViewSetUnitTests(SimpleTestCase):
         member_filter.return_value = qs
 
         response = view.remove_member(
-            SimpleNamespace(method="DELETE"),
+            SimpleNamespace(method="DELETE", user=SimpleNamespace(id=1)),
             pk=1,
             user_id=99,
         )

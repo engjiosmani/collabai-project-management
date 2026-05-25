@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import SettingsSection from "./SettingsSection";
 
 const ROLE_LABELS = {
-  org_admin: "Org admin",
-  admin: "Org admin",
-  workspace_admin: "Workspace admin",
+  org_admin: "Organization Admin",
+  admin: "Organization Admin",
+  workspace_admin: "Workspace Admin",
   manager: "Manager",
   member: "Member",
 };

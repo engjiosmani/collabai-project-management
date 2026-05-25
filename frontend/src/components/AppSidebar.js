@@ -102,6 +102,73 @@ function HamburgerIcon() {
   );
 }
 
+function NavIcon({ type }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true,
+  };
+
+  const icons = {
+    dashboard: (
+      <svg {...common}>
+        <path d="M3 13h8V3H3z" />
+        <path d="M13 21h8V11h-8z" />
+        <path d="M13 3h8v6h-8z" />
+        <path d="M3 21h8v-6H3z" />
+      </svg>
+    ),
+    organizations: (
+      <svg {...common}>
+        <path d="M3 21h18" />
+        <path d="M5 21V7l7-4 7 4v14" />
+        <path d="M9 21v-7h6v7" />
+      </svg>
+    ),
+    projects: (
+      <svg {...common}>
+        <path d="M4 7h16" />
+        <path d="M4 12h16" />
+        <path d="M4 17h10" />
+        <path d="M7 4v16" />
+      </svg>
+    ),
+    tasks: (
+      <svg {...common}>
+        <path d="M9 11l2 2 4-5" />
+        <path d="M5 4h14v16H5z" />
+      </svg>
+    ),
+    invitations: (
+      <svg {...common}>
+        <path d="M4 6h16v12H4z" />
+        <path d="m4 7 8 6 8-6" />
+      </svg>
+    ),
+    ai: (
+      <svg {...common}>
+        <path d="M12 3v3" />
+        <path d="M12 18v3" />
+        <path d="M4.9 4.9 7 7" />
+        <path d="m17 17 2.1 2.1" />
+        <path d="M3 12h3" />
+        <path d="M18 12h3" />
+        <path d="M7 17l-2.1 2.1" />
+        <path d="m19.1 4.9-2.1 2.1" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+  };
+
+  return <span className="dashboard-nav-icon">{icons[type]}</span>;
+}
+
 export default function AppSidebar({ onNavigateSection }) {
   const { logout } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -151,7 +218,14 @@ export default function AppSidebar({ onNavigateSection }) {
 
   const linkStyle = { textDecoration: "none", display: "block" };
 
-  const renderSectionLink = (section, label, dataCy, disabled) => {
+  const renderNavContent = (icon, label) => (
+    <>
+      <NavIcon type={icon} />
+      <span className="dashboard-nav-label">{label}</span>
+    </>
+  );
+
+  const renderSectionLink = (section, label, dataCy, disabled, icon) => {
     const isRoutingSection = section === "tasks";
     const className = navClass(isRoutingSection ? isTasks : false, disabled);
 
@@ -162,7 +236,7 @@ export default function AppSidebar({ onNavigateSection }) {
           data-cy={dataCy}
           title="Create or join an organization first."
         >
-          {label}
+          {renderNavContent(icon, label)}
         </span>
       );
     }
@@ -175,7 +249,7 @@ export default function AppSidebar({ onNavigateSection }) {
           type="button"
           onClick={() => onNavigateSection(section)}
         >
-          {label}
+          {renderNavContent(icon, label)}
         </button>
       );
     }
@@ -188,7 +262,7 @@ export default function AppSidebar({ onNavigateSection }) {
         state={isRoutingSection ? undefined : { scrollTo: section }}
         style={linkStyle}
       >
-        {label}
+        {renderNavContent(icon, label)}
       </Link>
     );
   };
@@ -233,7 +307,7 @@ export default function AppSidebar({ onNavigateSection }) {
                   <div className="dashboard-brand-mark">C</div>
                   <div>
                     <h1 className="dashboard-brand-title">CollabAI</h1>
-                    <p className="dashboard-brand-subtitle">Project intelligence hub</p>
+                    <p className="dashboard-brand-subtitle">Project management</p>
                   </div>
                 </div>
                 <NotificationBell />
@@ -267,7 +341,7 @@ export default function AppSidebar({ onNavigateSection }) {
                   to="/dashboard"
                   style={linkStyle}
                 >
-                  Overview
+                  {renderNavContent("dashboard", "Dashboard")}
                 </Link>
 
                 <Link
@@ -275,7 +349,7 @@ export default function AppSidebar({ onNavigateSection }) {
                   to="/organizations"
                   style={linkStyle}
                 >
-                  Organizations
+                  {renderNavContent("organizations", "Organizations")}
                 </Link>
 
                 {hasNoOrg ? (
@@ -284,7 +358,7 @@ export default function AppSidebar({ onNavigateSection }) {
                     data-cy="dashboard-nav-projects"
                     title="Create or join an organization first."
                   >
-                    Projects
+                    {renderNavContent("projects", "Projects")}
                   </span>
                 ) : (
                   <Link
@@ -293,21 +367,19 @@ export default function AppSidebar({ onNavigateSection }) {
                     to="/projects"
                     style={linkStyle}
                   >
-                    Projects
+                    {renderNavContent("projects", "Projects")}
                   </Link>
                 )}
 
-                {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks", hasNoOrg)}
+                {renderSectionLink("tasks", "Tasks", "dashboard-nav-tasks", hasNoOrg, "tasks")}
 
                 <Link
                   className={navClass(isInvitations)}
                   to="/invitations"
                   style={linkStyle}
                 >
-                  Invitations
+                  {renderNavContent("invitations", "Invitations")}
                 </Link>
-
-                {renderSectionLink("activity", "Activity", "dashboard-nav-activity")}
 
                 <Link
                   className={navClass(isAI)}
@@ -315,7 +387,7 @@ export default function AppSidebar({ onNavigateSection }) {
                   to="/ai"
                   style={linkStyle}
                 >
-                  AI Assistant
+                  {renderNavContent("ai", "AI Assistant")}
                 </Link>
               </nav>
             </>
@@ -345,9 +417,9 @@ export default function AppSidebar({ onNavigateSection }) {
 
 const styles = {
   orgSwitcher: {
-    margin: "14px 0",
-    padding: "10px",
-    borderRadius: "12px",
+    margin: "12px 0",
+    padding: "8px",
+    borderRadius: "8px",
     background: "rgba(255, 255, 255, 0.06)",
   },
   orgLabel: {
@@ -362,8 +434,8 @@ const styles = {
   orgSelect: {
     width: "100%",
     border: "1px solid rgba(148, 163, 184, 0.35)",
-    borderRadius: "10px",
-    padding: "9px 10px",
+    borderRadius: "8px",
+    padding: "8px 9px",
     background: "#111827",
     color: "#ffffff",
     fontSize: "13px",

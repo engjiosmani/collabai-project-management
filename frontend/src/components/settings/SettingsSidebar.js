@@ -3,7 +3,7 @@ import RoleGate from "../RoleGate";
 const ITEMS = [
   { id: "password", label: "Password" },
   { id: "memberships", label: "Memberships" },
-  { id: "organization", label: "Organization Settings", requiredRole: "org_admin" },
+  { id: "organization", label: "Organization", requiredRole: "org_admin" },
 ];
 
 export default function SettingsSidebar({ activeSection, onSelect }) {

@@ -189,6 +189,35 @@ export const AuthProvider = ({ children }) => {
         [orgRoles, workspaceRoles]
     );
 
+    const getWorkspaceRole = useCallback(
+        (orgId, workspaceId) =>
+            normalizeRole(workspaceRoles?.[orgId]?.[workspaceId]) ||
+            normalizeRole(workspaceRoles?.[String(orgId)]?.[String(workspaceId)]),
+        [workspaceRoles]
+    );
+
+    const isManagerOrAdminOfWorkspace = useCallback(
+        (orgId, workspaceId) => {
+            if (["admin", "org_admin"].includes(normalizeRole(orgRoles[orgId] || orgRoles[String(orgId)]))) {
+                return true;
+            }
+            const wsRole = getWorkspaceRole(orgId, workspaceId);
+            return (roleRank[wsRole] || 0) >= roleRank.manager;
+        },
+        [getWorkspaceRole, orgRoles]
+    );
+
+    const isWorkspaceAdminOrAdminOfWorkspace = useCallback(
+        (orgId, workspaceId) => {
+            if (["admin", "org_admin"].includes(normalizeRole(orgRoles[orgId] || orgRoles[String(orgId)]))) {
+                return true;
+            }
+            const wsRole = getWorkspaceRole(orgId, workspaceId);
+            return (roleRank[wsRole] || 0) >= roleRank.workspace_admin;
+        },
+        [getWorkspaceRole, orgRoles]
+    );
+
     const isOrgAdmin = useCallback(
         () => role === "org_admin" || role === "admin",
         [role]
@@ -217,6 +246,9 @@ export const AuthProvider = ({ children }) => {
                 isAdminOfOrg,
                 isManagerOrAdminOfOrg,
                 isWorkspaceAdminOrAdminOfOrg,
+                getWorkspaceRole,
+                isManagerOrAdminOfWorkspace,
+                isWorkspaceAdminOrAdminOfWorkspace,
                 isOrgAdmin,
                 isWorkspaceAdminOrAbove,
                 isManagerOrAbove,

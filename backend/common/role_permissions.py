@@ -13,6 +13,9 @@ def _resolve_workspace(obj):
     ws = getattr(obj, 'workspace', None)
     if ws is not None:
         return ws
+    project = getattr(obj, 'project', None)
+    if project is not None:
+        return getattr(project, 'workspace', None)
     return None
 
 
@@ -90,6 +93,35 @@ def user_is_manager_or_above(user, organization, workspace=None) -> bool:
     return _user_has_workspace_role(user, workspace, allowed_roles)
 
 
+def user_can_manage_workspace_content(user, workspace, *, allow_manager=True) -> bool:
+    """Return True when a user can manage projects/tasks inside one workspace."""
+    if workspace is None:
+        return False
+    if user_is_org_admin(user, workspace.organization):
+        return True
+
+    from apps.workspaces.models import TeamMember
+
+    roles = [TeamMember.WORKSPACE_ADMIN]
+    if allow_manager:
+        roles.append(TeamMember.MANAGER)
+    return _user_has_workspace_role(user, workspace, tuple(roles))
+
+
+def user_can_manage_project(user, project, *, allow_manager=True) -> bool:
+    if not project:
+        return False
+    if user_is_org_admin(user, project.organization):
+        return True
+    if getattr(project, 'workspace', None) is None:
+        return user_is_manager_or_above(user, project.organization)
+    return user_can_manage_workspace_content(
+        user,
+        getattr(project, 'workspace', None),
+        allow_manager=allow_manager,
+    )
+
+
 def user_has_project_access(user, project) -> bool:
     """Return True when the user can see a project.
 
@@ -100,7 +132,7 @@ def user_has_project_access(user, project) -> bool:
         return False
     if getattr(user, 'is_superuser', False):
         return True
-    if user_is_manager_or_above(user, project.organization):
+    if user_can_manage_project(user, project):
         return True
     return project.members.filter(user=user).exists()
 
@@ -119,17 +151,20 @@ def project_visibility_q(user, organization_ids):
             role=OrganizationMember.ORG_ADMIN,
         ).values_list('organization_id', flat=True)
     )
-    elevated_org_ids.update(
+
+    elevated_workspace_ids = set(
         TeamMember.objects.filter(
             user=user,
             workspace__organization_id__in=organization_ids,
             role__in=(TeamMember.WORKSPACE_ADMIN, TeamMember.MANAGER),
-        ).values_list('workspace__organization_id', flat=True)
+        ).values_list('workspace_id', flat=True)
     )
 
     q = Q(members__user=user)
     if elevated_org_ids:
         q |= Q(organization_id__in=elevated_org_ids)
+    if elevated_workspace_ids:
+        q |= Q(workspace_id__in=elevated_workspace_ids)
     return Q(organization_id__in=organization_ids) & q
 
 
@@ -159,7 +194,7 @@ def user_can_update_task(user, task) -> bool:
         return False
     if getattr(user, 'is_superuser', False):
         return True
-    if user_is_manager_or_above(user, task.project.organization):
+    if user_can_manage_project(user, task.project):
         return True
     return (
         task.assigned_to_id == user.id
@@ -172,6 +207,10 @@ def user_can_update_task(user, task) -> bool:
 
 def user_can_assign_task(user, organization) -> bool:
     return user_is_manager_or_above(user, organization)
+
+
+def user_can_assign_task_in_project(user, project) -> bool:
+    return user_can_manage_project(user, project)
 
 
 def can_workspace_admin_assign_role(request_user, workspace, target_role) -> bool:
@@ -221,6 +260,8 @@ class IsWorkspaceAdmin(BasePermission):
         from apps.workspaces.models import TeamMember
         workspace = _resolve_workspace(obj)
         if workspace is not None:
+            if user_is_org_admin(request.user, workspace.organization):
+                return True
             return _user_has_workspace_role(
                 request.user, workspace, (TeamMember.WORKSPACE_ADMIN,)
             )
@@ -246,6 +287,8 @@ class IsManagerOrAbove(BasePermission):
         from apps.workspaces.models import TeamMember
         workspace = _resolve_workspace(obj)
         if workspace is not None:
+            if user_is_org_admin(request.user, workspace.organization):
+                return True
             return _user_has_workspace_role(
                 request.user,
                 workspace,

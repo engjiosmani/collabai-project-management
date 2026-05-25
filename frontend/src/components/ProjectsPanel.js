@@ -17,12 +17,21 @@ const SORT_OPTIONS = [
     { value: "-due_date", label: "Due date ↓" },
 ];
 
+function projectDateSummary(project) {
+    if (project.start_date && project.due_date) {
+        return `Start: ${project.start_date} - Due: ${project.due_date}`;
+    }
+    if (project.start_date) return `Start: ${project.start_date}`;
+    if (project.due_date) return `Due: ${project.due_date}`;
+    return "Unscheduled";
+}
+
 export default function ProjectsPanel({
     onSelectProject,
     selectedProjectId,
     layout = "dashboard",
 }) {
-    const { isAdminOfOrg, isManagerOrAdminOfOrg } = useContext(AuthContext);
+    const { isAdminOfOrg, isManagerOrAdminOfWorkspace } = useContext(AuthContext);
     const isPageLayout = layout === "page";
 
     const [projects, setProjects] = useState([]);
@@ -198,6 +207,12 @@ export default function ProjectsPanel({
     };
 
     const hasMore = Boolean(nextPageUrl);
+    const canCreateProject = organizations.some((org) => {
+        if (isAdminOfOrg(org.id)) return true;
+        return Object.keys(org.my_workspace_roles || {}).some((workspaceId) =>
+            isManagerOrAdminOfWorkspace(org.id, workspaceId)
+        );
+    });
 
     // ── Dashboard layout (compact, project selector only) ────────────────────
 
@@ -206,11 +221,11 @@ export default function ProjectsPanel({
             <section
                 className="dashboard-panel dashboard-panel--wide projects-panel"
                 data-cy="dashboard-projects"
-                aria-label="Your projects"
+                aria-label="Projects"
             >
                 <div className="dashboard-panel-header">
                     <div>
-                        <h3 className="dashboard-panel-title">Your projects</h3>
+                        <h3 className="dashboard-panel-title">Projects</h3>
                         <p className="dashboard-panel-subtitle">
                             Select a project to filter tasks.
                         </p>
@@ -239,7 +254,7 @@ export default function ProjectsPanel({
                         compact
                         icon="P"
                         title="No projects yet"
-                        description="Create a project to start organizing tasks and team activity."
+                        description="Projects will appear here when they are created in a workspace you can access."
                     />
                 )}
                 {!loading && projects.length > 0 && (
@@ -374,14 +389,16 @@ export default function ProjectsPanel({
                         </select>
                     </div>
 
-                    <button
-                        type="button"
-                        className="dashboard-button dashboard-button--primary"
-                        onClick={() => setShowCreate(true)}
-                        data-cy="create-project-btn"
-                    >
-                        + New Project
-                    </button>
+                    {canCreateProject && (
+                        <button
+                            type="button"
+                            className="dashboard-button dashboard-button--primary"
+                            onClick={() => setShowCreate(true)}
+                            data-cy="create-project-btn"
+                        >
+                            + New Project
+                        </button>
+                    )}
                 </div>
 
                 {/* Result count */}
@@ -431,12 +448,16 @@ export default function ProjectsPanel({
                         description={
                             search || orgFilter
                                 ? "Try a different search term or clear the active filters."
-                                : "Create your first project to group tasks, members, dates, and delivery context."
+                                : canCreateProject
+                                ? "Create your first project to group tasks, members, dates, and delivery context."
+                                : "Projects will appear here after an admin or manager creates one in a workspace you can access."
                         }
                         actionLabel={
                             search || orgFilter
                                 ? "Clear filters"
-                                : "Create your first project"
+                                : canCreateProject
+                                ? "Create your first project"
+                                : undefined
                         }
                         actionClassName={
                             search || orgFilter
@@ -461,8 +482,9 @@ export default function ProjectsPanel({
                     <div className="pp-grid">
                         {projects.map((project) => {
                             const organizationId = project.organization?.id ?? project.organization;
-                            const canEdit = isManagerOrAdminOfOrg(
-                                organizationId
+                            const canEdit = isManagerOrAdminOfWorkspace(
+                                organizationId,
+                                project.workspace
                             );
                             const canDelete = isAdminOfOrg(organizationId);
 
@@ -515,20 +537,9 @@ export default function ProjectsPanel({
                                             : "No description"}
                                     </p>
 
-                                    {(project.start_date || project.due_date) && (
-                                        <p className="projects-panel-card-dates">
-                                            {project.start_date
-                                                ? `Start: ${project.start_date}`
-                                                : ""}
-                                            {project.start_date &&
-                                            project.due_date
-                                                ? " · "
-                                                : ""}
-                                            {project.due_date
-                                                ? `Due: ${project.due_date}`
-                                                : ""}
-                                        </p>
-                                    )}
+                                    <p className="projects-panel-card-dates">
+                                        {projectDateSummary(project)}
+                                    </p>
 
                                     {project.member_count !== undefined && (
                                         <p className="pp-member-count">

@@ -117,6 +117,8 @@ export default function ProfileForm({ profile, onSave, onAvatarUpload }) {
           <label htmlFor="phone_number">Phone number</label>
           <input
             id="phone_number"
+            type="tel"
+            placeholder="+383 44 123 456"
             className={fieldClassName(errors.phone_number)}
             {...register("phone_number", profileValidation.phone_number)}
           />

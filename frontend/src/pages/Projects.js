@@ -37,9 +37,9 @@ function Projects() {
             <main className="ai-main projects-main">
                 <header className="ai-topbar">
                     <div>
-                        <h2 className="ai-heading">Your projects</h2>
+                        <h2 className="ai-heading">Projects</h2>
                         <p className="projects-page-lead">
-                            Browse your projects and open tasks on the Kanban board.
+                            Browse accessible projects and open their tasks on the board.
                         </p>
                     </div>
                 </header>

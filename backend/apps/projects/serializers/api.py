@@ -4,7 +4,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.organizations.models import Organization
-from apps.workspaces.models import Workspace
+from apps.workspaces.models import TeamMember, Workspace
 from common.tenant_access import user_can_access_organization
 
 from ..models import Project, ProjectMember
@@ -48,6 +48,13 @@ class AddProjectMemberSerializer(serializers.Serializer):
         if project is not None and not user_can_access_organization(user, project.organization):
             raise serializers.ValidationError(
                 'User must be a member of this project organization.'
+            )
+        if project is not None and project.workspace_id and not TeamMember.objects.filter(
+            workspace_id=project.workspace_id,
+            user=user,
+        ).exists():
+            raise serializers.ValidationError(
+                'User must be a member of this project workspace.'
             )
         return value
 
@@ -93,8 +100,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             if self.instance is None:
                 raise serializers.ValidationError('Workspace is required for project creation.')
             return value
+
         org = self.initial_data.get('organization') or getattr(self.instance, 'organization_id', None)
-        if org and value.organization_id != int(org) if not isinstance(org, int) else value.organization_id != org:
+        org_id = int(org) if org not in (None, '') else None
+        if org_id and value.organization_id != org_id:
             raise serializers.ValidationError('Workspace must belong to the selected organization.')
         return value
 

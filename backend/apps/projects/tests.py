@@ -100,6 +100,7 @@ class ProjectCRUDAPITest(APITestCase):
 
         self.project = Project.objects.create(
             organization=self.org,
+            workspace=self.workspace,
             name='Seed Project',
         )
 
@@ -139,6 +140,7 @@ class ProjectCRUDAPITest(APITestCase):
             '/api/v1/projects/',
             {
                 'organization': self.org.pk,
+                'workspace': self.workspace.pk,
                 'name': 'New API Project',
                 'description': 'd',
                 'is_active': True,
@@ -164,7 +166,7 @@ class ProjectCRUDAPITest(APITestCase):
     def test_duplicate_name_per_organization_returns_400(self):
         res = self.client.post(
             '/api/v1/projects/',
-            {'organization': self.org.pk, 'name': 'Seed Project'},
+            {'organization': self.org.pk, 'workspace': self.workspace.pk, 'name': 'Seed Project'},
             format='json',
             **_jwt_header(self.member),
         )
@@ -177,6 +179,7 @@ class ProjectCRUDAPITest(APITestCase):
             '/api/v1/projects/',
             {
                 'organization': self.org.pk,
+                'workspace': self.workspace.pk,
                 'name': 'Past Start Project',
                 'start_date': yesterday.isoformat(),
             },
@@ -194,6 +197,7 @@ class ProjectCRUDAPITest(APITestCase):
             '/api/v1/projects/',
             {
                 'organization': self.org.pk,
+                'workspace': self.workspace.pk,
                 'name': 'Past Due Project',
                 'due_date': yesterday.isoformat(),
             },
@@ -211,6 +215,7 @@ class ProjectCRUDAPITest(APITestCase):
             '/api/v1/projects/',
             {
                 'organization': self.org.pk,
+                'workspace': self.workspace.pk,
                 'name': 'Invalid Date Range Project',
                 'start_date': (today + timedelta(days=3)).isoformat(),
                 'due_date': (today + timedelta(days=1)).isoformat(),
@@ -225,15 +230,15 @@ class ProjectCRUDAPITest(APITestCase):
     def test_outsider_cannot_create_in_organization(self):
         res = self.client.post(
             '/api/v1/projects/',
-            {'organization': self.org.pk, 'name': 'Hack'},
+            {'organization': self.org.pk, 'workspace': self.workspace.pk, 'name': 'Hack'},
             format='json',
             **_jwt_header(self.outsider),
         )
         self.assertEqual(res.status_code, 400)
 
     def test_list_supports_pagination_filter_search_ordering(self):
-        Project.objects.create(organization=self.org, name='Alpha Search', is_active=True)
-        Project.objects.create(organization=self.org, name='Zulu Search', is_active=False)
+        Project.objects.create(organization=self.org, workspace=self.workspace, name='Alpha Search', is_active=True)
+        Project.objects.create(organization=self.org, workspace=self.workspace, name='Zulu Search', is_active=False)
 
         res = self.client.get(
             '/api/v1/projects/?is_active=true&search=search&ordering=name&page_size=1',
@@ -335,8 +340,9 @@ class ProjectListCacheTest(APITestCase):
             user=self.other,
             role=OrganizationMember.MEMBER,
         )
+        self.workspace = Workspace.objects.create(organization=self.org, name='Cache Workspace')
 
-        Project.objects.create(organization=self.org, name='Seed Cached Project')
+        Project.objects.create(organization=self.org, workspace=self.workspace, name='Seed Cached Project')
 
     def _list(self, user):
         return self.client.get('/api/v1/projects/', **_jwt_header(user))
@@ -359,7 +365,7 @@ class ProjectListCacheTest(APITestCase):
         self._list(self.member)
         res = self.client.post(
             '/api/v1/projects/',
-            {'organization': self.org.pk, 'name': 'Brand New Project'},
+            {'organization': self.org.pk, 'workspace': self.workspace.pk, 'name': 'Brand New Project'},
             format='json',
             **_jwt_header(self.member),
         )
@@ -370,7 +376,7 @@ class ProjectListCacheTest(APITestCase):
         self.assertIn('Brand New Project', names)
 
     def test_update_invalidates_cache(self):
-        target = Project.objects.create(organization=self.org, name='Original Name')
+        target = Project.objects.create(organization=self.org, workspace=self.workspace, name='Original Name')
         self._list(self.member)
 
         res = self.client.patch(
@@ -387,7 +393,7 @@ class ProjectListCacheTest(APITestCase):
         self.assertNotIn('Original Name', names)
 
     def test_delete_invalidates_cache(self):
-        target = Project.objects.create(organization=self.org, name='To Delete')
+        target = Project.objects.create(organization=self.org, workspace=self.workspace, name='To Delete')
         self._list(self.member)
 
         res = self.client.delete(f'/api/v1/projects/{target.pk}/', **_jwt_header(self.member))

@@ -7,12 +7,12 @@ export default function OrganizationSettingsSection() {
     <SettingsSection
       eyebrow="Admin"
       title="Organization Settings"
-      description="Organization administration is available to users with org admin permission."
+      description="Organization administration is available to organization admins."
     >
       <div className="settings-empty-state">
         <p className="settings-empty-title">Manage organization details</p>
         <p className="settings-empty-text">
-          Use the organization console for members, workspaces, invitations, and workspace settings.
+          Manage members, workspaces, invitations, and organization settings from the organization page.
         </p>
         <Link className="dashboard-button dashboard-button--primary settings-inline-link" to="/organizations">
           Open organizations

@@ -104,7 +104,11 @@ class TaskCRUDAPITest(APITestCase):
             user=self.assignee,
             role=TeamMember.MEMBER,
         )
-        self.project = Project.objects.create(organization=self.org, name='Task API Project')
+        self.project = Project.objects.create(
+            organization=self.org,
+            workspace=self.workspace,
+            name='Task API Project',
+        )
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         self.task = Task.objects.create(
@@ -406,7 +410,7 @@ class TaskPermissionsAPITest(APITestCase):
             user=self.user,
             role=TeamMember.MANAGER,
         )
-        self.project = Project.objects.create(organization=self.org, name='TP')
+        self.project = Project.objects.create(organization=self.org, workspace=self.workspace, name='TP')
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.task = Task.objects.create(project=self.project, title='T', status=self.status)
 
@@ -456,7 +460,11 @@ class TaskListCacheTest(APITestCase):
             user=self.member,
             role=TeamMember.MANAGER,
         )
-        self.project = Project.objects.create(organization=self.org, name='Cache Project')
+        self.project = Project.objects.create(
+            organization=self.org,
+            workspace=self.workspace,
+            name='Cache Project',
+        )
         self.status, _ = TaskStatus.objects.get_or_create(name='Open')
         self.priority = TaskPriority.objects.create(name='P1', level=1)
         Task.objects.create(

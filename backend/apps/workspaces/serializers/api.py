@@ -2,7 +2,7 @@ from django.db import IntegrityError
 from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from common.tenant_access import user_can_access_organization
 
 from ..models import JobRole, TeamMember, Workspace
@@ -86,11 +86,20 @@ class WorkspaceSerializer(serializers.ModelSerializer):
 
         request = self.context.get('request')
         if request and getattr(request, 'user', None) and request.user.is_authenticated:
-            TeamMember.objects.get_or_create(
-                workspace=workspace,
-                user=request.user,
-                defaults={'role': TeamMember.WORKSPACE_ADMIN}
-            )
+            organization = getattr(workspace, 'organization', None) or validated_data.get('organization')
+            is_org_admin = False
+            if organization is not None:
+                is_org_admin = OrganizationMember.objects.filter(
+                    organization=organization,
+                    user=request.user,
+                    role=OrganizationMember.ORG_ADMIN,
+                ).exists()
+            if not is_org_admin:
+                TeamMember.objects.get_or_create(
+                    workspace=workspace,
+                    user=request.user,
+                    defaults={'role': TeamMember.WORKSPACE_ADMIN}
+                )
 
         return workspace
 

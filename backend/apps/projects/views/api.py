@@ -2,12 +2,13 @@ from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from common.cache import CachedListMixin, NAMESPACE_PROJECTS
 from common.permissions import IsOrganizationMember
 from common.tenant_access import organization_ids_for_request
-from common.role_permissions import IsAdmin, IsManagerOrAdmin, project_visibility_q
+from common.role_permissions import IsAdmin, IsManagerOrAdmin, project_visibility_q, user_can_manage_project
 from common.tenant_viewset import TenantScopedViewSet
 
 from ..filters import ProjectFilter
@@ -61,6 +62,18 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
             return [IsManagerOrAdmin()]
         return super().get_permissions()
 
+    def perform_create(self, serializer):
+        workspace = serializer.validated_data.get('workspace')
+        if workspace is None:
+            raise PermissionDenied('Workspace is required to create a project.')
+        probe = Project(
+            organization=serializer.validated_data['organization'],
+            workspace=workspace,
+        )
+        if not user_can_manage_project(self.request.user, probe):
+            raise PermissionDenied('You must be a workspace manager or admin to create projects.')
+        serializer.save()
+
     # ── Project Members ──────────────────────────────────────────────────────
 
     @extend_schema(
@@ -80,6 +93,8 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
             )
 
         # POST — add member
+        if not user_can_manage_project(request.user, project):
+            raise PermissionDenied('You must be a workspace manager or admin to manage project members.')
         serializer = AddProjectMemberSerializer(data=request.data, context={'project': project})
         serializer.is_valid(raise_exception=True)
         user_id = serializer.validated_data['user_id']
@@ -111,6 +126,8 @@ class ProjectViewSet(CachedListMixin, TenantScopedViewSet):
     )
     def remove_member(self, request, pk=None, user_id=None):
         project = self.get_object()
+        if not user_can_manage_project(request.user, project):
+            raise PermissionDenied('You must be a workspace manager or admin to manage project members.')
         deleted, _ = ProjectMember.objects.filter(
             project=project, user_id=user_id
         ).delete()
