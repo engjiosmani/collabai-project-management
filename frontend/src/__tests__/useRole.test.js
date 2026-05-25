@@ -37,6 +37,43 @@ describe("useRole", () => {
     });
   });
 
+  it("promotes active organization members with workspace manager roles", async () => {
+    const { result } = renderHook(() => useRole(), {
+      wrapper: wrapperWithProviders(
+        {
+          role: "member",
+          orgRoles: { 5: "member" },
+          workspaceRoles: { 5: { 12: "manager" } },
+        },
+        { activeOrganization: { id: 5 } }
+      ),
+    });
+
+    await waitFor(async () => {
+      expect(result.current.role).toBe("manager");
+    });
+    expect(result.current.isManagerOrAbove()).toBe(true);
+  });
+
+  it("promotes active organization members with workspace admin roles", async () => {
+    const { result } = renderHook(() => useRole(), {
+      wrapper: wrapperWithProviders(
+        {
+          role: "member",
+          orgRoles: { 5: "member" },
+          workspaceRoles: { 5: { 12: "workspace_admin" } },
+        },
+        { activeOrganization: { id: 5 } }
+      ),
+    });
+
+    await waitFor(async () => {
+      expect(result.current.role).toBe("workspace_admin");
+    });
+    expect(result.current.isWorkspaceAdminOrAbove()).toBe(true);
+    expect(result.current.isManagerOrAbove()).toBe(true);
+  });
+
   it("falls back to auth.role when OrganizationContext has no provider value", async () => {
     const { result } = renderHook(() => useRole(), {
       wrapper: ({ children }) => (

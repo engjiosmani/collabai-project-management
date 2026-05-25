@@ -7,22 +7,6 @@ from common.models import BaseModel
 class Organization(BaseModel):
     name = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True)
-    owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='owned_organizations',
-    )
-    is_deleted = models.BooleanField(default=False)
-    deleted_at = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='deleted_organizations',
-    )
 
     def __str__(self):
         return self.name

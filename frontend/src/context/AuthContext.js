@@ -13,6 +13,20 @@ const normalizeRole = (role) => {
     return role;
 };
 
+const roleRank = {
+    member: 1,
+    manager: 2,
+    workspace_admin: 3,
+    org_admin: 4,
+};
+
+const hasWorkspaceRoleAtLeast = (rolesByWorkspace, minimumRole) => {
+    const minimumRank = roleRank[minimumRole] || 0;
+    return Object.values(rolesByWorkspace || {}).some(
+        (workspaceRole) => (roleRank[normalizeRole(workspaceRole)] || 0) >= minimumRank
+    );
+};
+
 const extractApiErrorMessage = (data, fallback) => {
     if (!data) return fallback;
     if (typeof data === "string") return data;
@@ -25,6 +39,7 @@ const extractApiErrorMessage = (data, fallback) => {
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [orgRoles, setOrgRoles] = useState({});
+    const [workspaceRoles, setWorkspaceRoles] = useState({});
     const [role, setRole] = useState(null);
     const [orgRole, setOrgRole] = useState(null);
     const [loadingMemberships, setLoadingMemberships] = useState(Boolean(localStorage.getItem("access")));
@@ -56,10 +71,14 @@ export const AuthProvider = ({ children }) => {
                 : orgsRes.data.results ?? [];
 
             const rolesMap = {};
+            const workspaceRolesMap = {};
             orgs.forEach((org) => {
-                if (org.id && org.my_role) rolesMap[org.id] = org.my_role;
+                if (!org.id) return;
+                if (org.my_role) rolesMap[org.id] = org.my_role;
+                workspaceRolesMap[org.id] = org.my_workspace_roles || {};
             });
             setOrgRoles(rolesMap);
+            setWorkspaceRoles(workspaceRolesMap);
 
             // Sync current role for the first org
             const firstOrgId = orgs[0]?.id;
@@ -99,6 +118,7 @@ export const AuthProvider = ({ children }) => {
             setAccessToken(null);
             setUser(null);
             setOrgRoles({});
+            setWorkspaceRoles({});
             setRole(null);
             setOrgRole(null);
             setLoadingMemberships(false);
@@ -144,6 +164,7 @@ export const AuthProvider = ({ children }) => {
         setAccessToken(null);
         setUser(null);
         setOrgRoles({});
+        setWorkspaceRoles({});
         setRole(null);
         setOrgRole(null);
         setLoadingMemberships(false);
@@ -155,8 +176,17 @@ export const AuthProvider = ({ children }) => {
     );
 
     const isManagerOrAdminOfOrg = useCallback(
-        (orgId) => ["admin", "org_admin", "manager"].includes(orgRoles[orgId]),
-        [orgRoles]
+        (orgId) =>
+            ["admin", "org_admin"].includes(orgRoles[orgId]) ||
+            hasWorkspaceRoleAtLeast(workspaceRoles[orgId], "manager"),
+        [orgRoles, workspaceRoles]
+    );
+
+    const isWorkspaceAdminOrAdminOfOrg = useCallback(
+        (orgId) =>
+            ["admin", "org_admin"].includes(orgRoles[orgId]) ||
+            hasWorkspaceRoleAtLeast(workspaceRoles[orgId], "workspace_admin"),
+        [orgRoles, workspaceRoles]
     );
 
     const isOrgAdmin = useCallback(
@@ -182,15 +212,18 @@ export const AuthProvider = ({ children }) => {
                 role,
                 orgRole,
                 orgRoles,
+                workspaceRoles,
                 loadingMemberships,
                 isAdminOfOrg,
                 isManagerOrAdminOfOrg,
+                isWorkspaceAdminOrAdminOfOrg,
                 isOrgAdmin,
                 isWorkspaceAdminOrAbove,
                 isManagerOrAbove,
                 login,
                 logout,
                 refreshProfile: loadUserProfile,
+                loadMemberships: loadUserProfile,
             }}
         >
             {children}

@@ -12,8 +12,7 @@ class OrganizationSerializer(serializers.ModelSerializer):
     project_count = serializers.IntegerField(read_only=True, default=0)
     member_count = serializers.IntegerField(read_only=True, default=0)
     my_role = serializers.SerializerMethodField()
-    owner_id = serializers.IntegerField(read_only=True)
-    is_owner = serializers.SerializerMethodField()
+    my_workspace_roles = serializers.SerializerMethodField()
     class Meta:
         model = Organization
         fields = (
@@ -23,12 +22,18 @@ class OrganizationSerializer(serializers.ModelSerializer):
             'project_count',
             'member_count',
             'my_role',
-            'owner_id',
-            'is_owner',
+            'my_workspace_roles',
             'created_at',
             'updated_at',
         )
-        read_only_fields = ('project_count', 'member_count', 'my_role', 'owner_id', 'is_owner', 'created_at', 'updated_at')
+        read_only_fields = (
+            'project_count',
+            'member_count',
+            'my_role',
+            'my_workspace_roles',
+            'created_at',
+            'updated_at',
+        )
     def get_my_role(self, obj) -> str | None:
         request = self.context.get('request')
         if not request:
@@ -41,14 +46,21 @@ class OrganizationSerializer(serializers.ModelSerializer):
         ).first()
         return member.role if member else None
 
-    def get_is_owner(self, obj) -> bool:
+    def get_my_workspace_roles(self, obj) -> dict[str, str]:
         request = self.context.get('request')
         if not request:
-            return False
+            return {}
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:
-            return False
-        return obj.owner_id == user.pk
+            return {}
+        return {
+            str(workspace_id): role
+            for workspace_id, role in TeamMember.objects.filter(
+                workspace__organization=obj,
+                user=user,
+                workspace__is_active=True,
+            ).values_list('workspace_id', 'role')
+        }
 
     def validate_name(self, value: str):
         text = (value or '').strip()

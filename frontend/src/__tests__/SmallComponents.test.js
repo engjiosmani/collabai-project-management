@@ -43,6 +43,23 @@ describe("small UI components", () => {
     });
   });
 
+  it("RoleGate allows workspace managers from centralized workspace roles", async () => {
+    renderRoleGate(
+      {
+        role: "member",
+        orgRoles: { 5: "member" },
+        workspaceRoles: { 5: { 20: "manager" } },
+        loadingMemberships: false,
+      },
+      { activeOrganization: { id: 5 } },
+      { requiredRole: "manager" }
+    );
+
+    await waitFor(async () => {
+      expect(screen.getByTestId("role-gated-content")).toBeInTheDocument();
+    });
+  });
+
   it("RoleGate renders nothing when role requirement is not met", async () => {
     renderRoleGate(
       { role: "member", orgRoles: { 5: "member" }, loadingMemberships: false },

@@ -1,5 +1,4 @@
 from django.db.models import Count, QuerySet
-from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema, extend_schema_view
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -15,7 +14,6 @@ from common.role_permissions import (
 )
 from common.tenant_access import organization_ids_for_request, organizations_queryset_for_user
 from apps.audit_logs.services import write_audit_log
-from apps.organizations.models import Organization
 
 from ..filters import WorkspaceFilter
 from ..models import JobRole, TeamMember, Workspace
@@ -103,17 +101,10 @@ class WorkspaceViewSet(CachedListMixin, viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
-        is_owner = Organization.objects.filter(
-            pk=instance.organization_id,
-            owner=self.request.user,
-            is_deleted=False,
-        ).exists()
-        if not (is_owner or user_is_org_admin(self.request.user, instance.organization)):
-            raise PermissionDenied('Only the organization owner or an organization admin can delete workspaces.')
+        if not user_is_org_admin(self.request.user, instance.organization):
+            raise PermissionDenied('Only organization admins can delete workspaces.')
         instance.is_active = False
-        instance.deleted_at = timezone.now()
-        instance.deleted_by = self.request.user
-        instance.save(update_fields=['is_active', 'deleted_at', 'deleted_by', 'updated_at'])
+        instance.save(update_fields=['is_active', 'updated_at'])
         write_audit_log(
             self.request.user,
             'WORKSPACE_SOFT_DELETED',

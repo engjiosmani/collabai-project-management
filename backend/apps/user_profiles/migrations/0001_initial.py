@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('workspaces', '0001_initial'),
+        ('organizations', '0003_alter_organizationmember_role_organizationinvite'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -24,9 +24,8 @@ class Migration(migrations.Migration):
                 ('bio', models.TextField(blank=True)),
                 ('phone_number', models.CharField(blank=True, max_length=30)),
                 ('avatar', models.ImageField(blank=True, null=True, upload_to='avatars/')),
-                ('role', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='profiles', to='workspaces.role')),
+                ('organization', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='profiles', to='organizations.organization')),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='profile', to=settings.AUTH_USER_MODEL)),
-                ('workspace', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='profiles', to='workspaces.workspace')),
             ],
             options={
                 'abstract': False,

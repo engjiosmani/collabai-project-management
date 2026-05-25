@@ -30,14 +30,6 @@ from ..serializers import (
     WorkspaceMemberRoleUpdateSerializer,
 )
 # ── Permission helpers ────────────────────────────────────────────────────────
-def _is_org_owner(user, organization_id):
-    if getattr(user, 'is_superuser', False):
-        return True
-    return Organization.objects.filter(
-        pk=organization_id,
-        owner=user,
-        is_deleted=False,
-    ).exists()
 def _is_org_admin(user, organization_id):
     if getattr(user, 'is_superuser', False):
         return True
@@ -85,7 +77,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             return Organization.objects.none()
         org_ids = organizations_queryset_for_user(self.request.user).values_list('pk', flat=True)
         return (
-            Organization.objects.filter(pk__in=org_ids, is_deleted=False)
+            Organization.objects.filter(pk__in=org_ids)
             .annotate(
                 project_count=Count('projects', distinct=True),
                 member_count=Count('members', distinct=True),
@@ -93,7 +85,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             .order_by('name')
         )
     def perform_create(self, serializer):
-        organization = serializer.save(owner=self.request.user)
+        organization = serializer.save()
         OrganizationMember.objects.get_or_create(
             organization=organization,
             user=self.request.user,
@@ -104,12 +96,9 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             raise PermissionDenied('Only organization admins can update this organization.')
         serializer.save()
     def perform_destroy(self, instance):
-        if not _is_org_owner(self.request.user, instance.pk):
-            raise PermissionDenied('Only the organization owner can delete this organization.')
-        instance.is_deleted = True
-        instance.deleted_at = timezone.now()
-        instance.deleted_by = self.request.user
-        instance.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by', 'updated_at'])
+        if not _is_org_admin(self.request.user, instance.pk):
+            raise PermissionDenied('Only organization admins can delete this organization.')
+        instance.delete()
         write_audit_log(
             self.request.user,
             'ORGANIZATION_SOFT_DELETED',
@@ -517,16 +506,14 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
                 .first()
             )
             return Response(WorkspaceInOrgSerializer(workspace).data)
-        # DELETE — org owner or org_admin
-        if not (_is_org_owner(request.user, organization.pk) or _is_org_admin(request.user, organization.pk)):
+        # DELETE — org_admin only
+        if not _is_org_admin(request.user, organization.pk):
             return Response(
-                {'detail': 'Only the organization owner or an organization admin can delete workspaces.'},
+                {'detail': 'Only organization admins can delete workspaces.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         workspace.is_active = False
-        workspace.deleted_at = timezone.now()
-        workspace.deleted_by = request.user
-        workspace.save(update_fields=['is_active', 'deleted_at', 'deleted_by', 'updated_at'])
+        workspace.save(update_fields=['is_active', 'updated_at'])
         write_audit_log(
             request.user,
             'WORKSPACE_SOFT_DELETED',

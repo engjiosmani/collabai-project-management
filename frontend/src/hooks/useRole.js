@@ -14,22 +14,41 @@ const roleRank = {
     org_admin: 4,
 };
 
+const highestRole = (roles) =>
+    roles
+        .map(normalizeRole)
+        .filter(Boolean)
+        .sort((left, right) => (roleRank[right] || 0) - (roleRank[left] || 0))[0] || null;
+
 export function useRole() {
     const auth = useContext(AuthContext);
     const organizationContext = useOrganization();
     const activeOrganization = organizationContext?.activeOrganization;
     const activeOrganizationId = activeOrganization?.id || localStorage.getItem("active_organization_id");
-    const scopedRole = normalizeRole(
+    const activeWorkspaceId = localStorage.getItem("active_workspace_id");
+    const orgRole = normalizeRole(
         activeOrganizationId ? auth?.orgRoles?.[activeOrganizationId] : auth?.role
     );
-    const role = scopedRole || normalizeRole(auth?.role);
+    const workspaceRolesForOrg =
+        (activeOrganizationId && auth?.workspaceRoles?.[activeOrganizationId]) || {};
+    const workspaceRole = normalizeRole(
+        activeWorkspaceId ? workspaceRolesForOrg?.[activeWorkspaceId] : null
+    );
+    const bestWorkspaceRole = highestRole(Object.values(workspaceRolesForOrg));
+    const role = highestRole([
+        orgRole,
+        workspaceRole,
+        bestWorkspaceRole,
+        normalizeRole(auth?.role),
+    ]);
     const rank = roleRank[role] || 0;
 
     return {
         role,
         user: auth?.user || null,
-        orgRole: role,
-        workspaceRole: auth?.workspaceRole || null,
+        orgRole,
+        workspaceRole,
+        workspaceRoles: workspaceRolesForOrg,
         loadingMemberships: !!auth?.loadingMemberships,
         isOrgAdmin: () => role === "org_admin",
         isWorkspaceAdminOrAbove: () => rank >= roleRank.workspace_admin,

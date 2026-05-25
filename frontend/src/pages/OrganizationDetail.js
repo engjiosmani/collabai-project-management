@@ -68,7 +68,6 @@ export default function OrganizationDetail() {
     (m) => String(m.user_id) === String(user?.id)
   );
   const isAdmin = currentMember?.role === "org_admin";
-  const isOwner = org?.is_owner === true || String(org?.owner_id) === String(user?.id);
 
   const visibleTabs = useMemo(() => {
     const tabs = [
@@ -433,7 +432,7 @@ export default function OrganizationDetail() {
           <section className="org-detail-section">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
               <h3 className="org-detail-section-title" style={{ margin: 0 }}>Workspaces ({workspaces.length})</h3>
-              {(isOwner || isAdmin) && (
+              {isAdmin && (
                 <button
                   type="button"
                   className="dashboard-button dashboard-button--primary"
@@ -468,7 +467,7 @@ export default function OrganizationDetail() {
                         >
                           Open
                         </Link>
-                        {(isOwner || isAdmin) && (
+                        {isAdmin && (
                           <>
                             <button
                               type="button"
@@ -524,21 +523,19 @@ export default function OrganizationDetail() {
               </form>
             </section>
 
-            {isOwner && (
-              <section className="org-detail-section org-detail-section--danger">
-                <h3 className="org-detail-section-title" style={{ color: "#dc2626" }}>Danger Zone</h3>
-                <p className="org-danger-text">
-                  This will delete the organization and affect its workspaces, projects, tasks, members, and invitations.
-                </p>
-                <button
-                  className="dashboard-button dashboard-button--danger"
-                  type="button"
-                  onClick={() => { clear(); setDeleteConfirm("init"); }}
-                >
-                  Delete this organization
-                </button>
-              </section>
-            )}
+            <section className="org-detail-section org-detail-section--danger">
+              <h3 className="org-detail-section-title" style={{ color: "#dc2626" }}>Danger Zone</h3>
+              <p className="org-danger-text">
+                This will delete the organization and affect its workspaces, projects, tasks, members, and invitations.
+              </p>
+              <button
+                className="dashboard-button dashboard-button--danger"
+                type="button"
+                onClick={() => { clear(); setDeleteConfirm("init"); }}
+              >
+                Delete this organization
+              </button>
+            </section>
           </>
         )}
       </main>
