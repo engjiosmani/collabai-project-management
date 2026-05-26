@@ -34,20 +34,17 @@ def comment_notification(sender, instance, created, **kwargs):
     if task_owner is None:
         return
 
-    # mos i dergo email vetes
     if instance.author == task_owner:
         return
 
     message = f"New comment on task: {instance.task.title}"
 
-    # notification ne databaze
     Notification.objects.create(
         user=task_owner,
         title="New Comment",
         message=message
     )
 
-    # async email me celery
     send_notification_email.delay(
         task_owner.email,
         "New Comment",

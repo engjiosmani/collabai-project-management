@@ -18,5 +18,5 @@ class TenantQuerySet(models.QuerySet):
         return self.none()
 
     def for_workspaces(self, workspace_ids):
-        """Deprecated: maps to organization ids when workspace_ids are actually org ids."""
+        """Compatibility wrapper for older workspace-scoped call sites."""
         return self.for_organizations(workspace_ids)

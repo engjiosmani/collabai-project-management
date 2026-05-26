@@ -29,7 +29,7 @@ from ..serializers import (
     WorkspaceInOrgSerializer,
     WorkspaceMemberRoleUpdateSerializer,
 )
-# ── Permission helpers ────────────────────────────────────────────────────────
+# Permission helpers
 def _is_org_admin(user, organization_id):
     if getattr(user, 'is_superuser', False):
         return True
@@ -72,7 +72,7 @@ def _has_other_workspace_admin(workspace, user_id):
         workspace=workspace,
         role=TeamMember.WORKSPACE_ADMIN,
     ).exclude(user_id=user_id).exists()
-# ── Organization ViewSet ──────────────────────────────────────────────────────
+# Organization viewset
 @extend_schema_view(
     list=extend_schema(tags=['Organizations'], summary='List my organizations'),
     retrieve=extend_schema(tags=['Organizations'], summary='Retrieve organization'),
@@ -229,7 +229,7 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
         ).delete()
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    # ── Job-role shortcut (kept for backward compat) ──────────────────────────
+    # Job-role shortcut kept for clients that still call the older route.
     @extend_schema(
         tags=['Organizations'],
         summary='Set a member job role (org_admin only)',
@@ -737,12 +737,12 @@ class OrganizationViewSet(CachedListMixin, viewsets.ModelViewSet):
             )
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-# ── OrganizationListForAuthenticatedView (kept for existing tests) ─────────────
+# Organization list view used by existing API tests.
 class OrganizationListForAuthenticatedView(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = OrganizationSerializer
     queryset = Organization.objects.all()
-# ── Accept Invite ─────────────────────────────────────────────────────────────
+# Invite acceptance
 class AcceptInviteView(APIView):
     permission_classes = [IsAuthenticated]
     @extend_schema(

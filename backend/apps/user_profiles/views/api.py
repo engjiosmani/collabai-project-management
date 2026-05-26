@@ -17,7 +17,8 @@ from ..serializers import (
     UserSerializer,
 )
 User = get_user_model()
-# ── Existing UserViewSet (unchanged) ─────────────────────────────────────────
+
+
 @extend_schema_view(
     list=extend_schema(tags=['Users'], summary='List users'),
     retrieve=extend_schema(tags=['Users'], summary='Retrieve user'),
@@ -68,7 +69,7 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
             UserSerializer(request.user, context={'request': request}).data,
             status=status.HTTP_200_OK,
         )
-# ── AUTH-03 profile views ─────────────────────────────────────────────────────
+
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     @extend_schema(

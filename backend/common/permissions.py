@@ -76,7 +76,7 @@ class IsOrganizationMember(BasePermission):
         return user_can_access_organization(user, organization)
 
 
-# backward compatibility
+# Compatibility alias for older workspace-scoped imports.
 IsWorkspaceTeamMember = IsOrganizationMember
 
 

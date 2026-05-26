@@ -21,7 +21,7 @@ def migrate_org_member_roles_backward(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('organizations', '0004_alter_organizationmember_role'),  # adjust to your last migration
+        ('organizations', '0004_alter_organizationmember_role'),
     ]
 
     operations = [

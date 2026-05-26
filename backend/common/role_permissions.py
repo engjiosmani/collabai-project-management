@@ -316,6 +316,6 @@ class IsMember(BasePermission):
         return user_can_access_organization(user, organization)
 
 
-# Backward-compatibility aliases
+# Compatibility aliases for older role names.
 IsAdmin = IsOrgAdmin
 IsManagerOrAdmin = IsManagerOrAbove

@@ -7,10 +7,8 @@ from apps.projects.models import Project
 from apps.user_profiles.models import Profile
 from apps.workspaces.models import JobRole
 
-from .base_service import BaseService
 
-
-class RegisterService(BaseService):
+class RegisterService:
     @transaction.atomic
     def register_user(self, *, email: str, password: str, phone_number: str = ''):
         User = get_user_model()

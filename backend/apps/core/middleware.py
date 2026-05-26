@@ -12,7 +12,7 @@ class TenantMiddleware:
         request.invalid_requested_organization_id = False
         request.active_organization_id = None
         request.active_organization = None
-        # Legacy attribute kept empty so old code paths fail fast if still referenced
+        # Workspace scoping was replaced by organization scoping.
         request.workspace_ids = []
         request.workspace = None
 

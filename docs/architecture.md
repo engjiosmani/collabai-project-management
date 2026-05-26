@@ -45,7 +45,7 @@ flowchart TB
 
 1. **HTTP/HTTPS & REST** — Endpoints live under `/api/v1/…`; HTTPS is enforced in production via reverse proxy (e.g. nginx).
 2. **DRF** — Validation in serializers; business logic in services; permissions in `common.permissions` or the owning app.
-3. **OOP** — Extend `common.models.BaseModel`, use `apps.core.views.BaseAPIView` for custom views where appropriate, inherit services from `BaseService`.
+3. **OOP** — Extend `common.models.BaseModel` for ORM entities; keep view logic in DRF view classes and cohesive domain rules in service classes.
 4. **Frontend** — Use `REACT_APP_*` in `.env`; do not commit `.env`; route HTTP calls through `src/api/api.js`.
 
 ## Done checklist per story

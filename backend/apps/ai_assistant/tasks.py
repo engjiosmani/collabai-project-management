@@ -57,5 +57,3 @@ def reindex_organization(organization_id: int) -> int:
     logger.info('Reindexed organization %s (%s documents)', organization_id, count)
     return count
 
-
-reindex_workspace = reindex_organization

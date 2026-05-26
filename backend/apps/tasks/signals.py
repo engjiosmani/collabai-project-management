@@ -22,7 +22,6 @@ def task_notifications(sender, instance, created, **kwargs):
 
         message = f"You were assigned a new task: {instance.title}"
 
-        # krijo notification ne databaze
         Notification.objects.create(
             user=instance.assigned_to,
             organization=instance.project.organization,
@@ -30,7 +29,6 @@ def task_notifications(sender, instance, created, **kwargs):
             message=message
         )
 
-        # dergo email async me celery
         send_notification_email.delay(
             instance.assigned_to.email,
             "Task Assignment",

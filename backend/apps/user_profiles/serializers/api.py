@@ -5,7 +5,8 @@ from apps.organizations.models import Organization, OrganizationMember
 from common.tenant_access import user_can_access_organization
 from ..models import Profile
 User = get_user_model()
-# ── Existing serializers (unchanged) ─────────────────────────────────────────
+
+
 class ProfileSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source='organization.name', read_only=True, allow_null=True)
     class Meta:
@@ -85,7 +86,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         instance.save()
         profile.save()
         return instance
-# ── AUTH-03 new serializers ───────────────────────────────────────────────────
+
 class ProfileDetailSerializer(serializers.ModelSerializer):
     """Used for GET /api/v1/profile/ and PATCH /api/v1/profile/"""
     bio = serializers.CharField(required=False, allow_blank=True, default='')

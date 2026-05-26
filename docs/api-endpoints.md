@@ -116,7 +116,7 @@ All paths require `Authorization: Bearer <access_token>` unless noted.
 
 **Errors:** `400` validation, `503` missing/invalid `GROQ_API_KEY` or LLM failure
 
-### RAG chatbot (workspace Q&A)
+### RAG chatbot (organization Q&A)
 
 | Item | Value |
 |------|--------|
@@ -128,7 +128,7 @@ All paths require `Authorization: Bearer <access_token>` unless noted.
 
 ```json
 {
-  "workspace_id": 1,
+  "organization_id": 1,
   "question": "What is the status of JWT auth?",
   "top_k": 5,
   "task_id": null
@@ -143,15 +143,15 @@ All paths require `Authorization: Bearer <access_token>` unless noted.
 |--------|----------|
 | `POST` | `/api/v1/ai/search/` |
 
-Body: `workspace_id`, `query`, optional `top_k`.
+Body: `organization_id`, `query`, optional `top_k`.
 
-### Reindex workspace vectors
+### Reindex organization vectors
 
 | Method | Full URL |
 |--------|----------|
 | `POST` | `/api/v1/ai/reindex/` |
 
-Body: `workspace_id`. **Success:** `202 Accepted` with Celery `task_id`.
+Body: `organization_id`. **Success:** `202 Accepted` with Celery `task_id`.
 
 ### AI request history
 

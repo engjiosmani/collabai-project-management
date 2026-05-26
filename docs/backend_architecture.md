@@ -33,8 +33,8 @@ Each domain app (`apps.<name>`) keeps code grouped by responsibility:
 |-----------------|----------------|
 | `models.py`, `models/` | ORM models extending `common.models.BaseModel` |
 | `serializers/` | Validation and API representation (no heavy business logic). `serializers/__init__.py` re-exports public serializers for stable imports. |
-| `views/` | DRF endpoints; prefer `generics.*` or `BaseAPIView` for custom handlers. `views/__init__.py` re-exports public views for stable imports. |
-| `services/` | Business logic (e.g. `RegisterService`) subclasses `BaseService` |
+| `views/` | DRF endpoints; prefer `APIView`, `generics.*`, or `ModelViewSet` depending on the endpoint shape. `views/__init__.py` re-exports public views for stable imports. |
+| `services/` | Business logic and cohesive domain operations, e.g. `RegisterService` |
 | `permissions/` | Re-export from `common.permissions` or app-specific permission classes |
 | `mixins/` | Shared behaviour composed into views |
 
@@ -44,8 +44,8 @@ Each domain app (`apps.<name>`) keeps code grouped by responsibility:
 
 | Principle | How it applies |
 |-----------|----------------|
-| **Inheritance** | Models extend `BaseModel`; services extend `BaseService`; permissions subclass `BasePermission`. |
-| **Abstraction** | `BaseAPIView`, `BaseService`, shared serializers define common contracts. |
+| **Inheritance** | Models extend `BaseModel`; permissions subclass `BasePermission`; views subclass DRF view classes. |
+| **Abstraction** | Shared serializers, services, permissions, pagination, and tenant helpers define common contracts. |
 | **Encapsulation** | User creation and similar rules live in **services** (e.g. `RegisterService.register_user`). |
 | **Polymorphism** | Override methods in subclasses (permissions, services, serializers). |
 
@@ -122,8 +122,6 @@ flowchart LR
 3. Document every public endpoint with `@extend_schema` (Spectacular).
 4. Keep app API modules under each domain app, not in global `views/` or `serializers/` folders.
 5. Keep API tests in each app’s `tests.py` or under `tests/api/` as the repo grows.
-
-`apps.core.views.BaseAPIView` and `apps.core.mixins.BaseMixin` are intentionally minimal: subclass them when you add custom endpoints that share behaviour (avoid copying boilerplate across apps).
 
 Use `common.pagination.StandardPagination` as the global default (`REST_FRAMEWORK`); override `pagination_class = None` on views that must not paginate if needed.
 
