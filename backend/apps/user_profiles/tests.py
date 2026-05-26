@@ -1,5 +1,3 @@
-import unittest
-
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APITestCase
@@ -25,18 +23,21 @@ class ProfileModelTest(TestCase):
         self.assertEqual(profile.organization, org)
 
 
-@unittest.skip('Workspace-scoped user/profile API pending migration to organization-centric model.')
 class UserProfileApiTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='u1@example.com', email='u1@example.com', password='x')
         self.other = User.objects.create_user(username='u2@example.com', email='u2@example.com', password='x')
         self.third = User.objects.create_user(username='u3@example.com', email='u3@example.com', password='x')
         self.org = Organization.objects.create(name='Users Org')
+        self.other_org = Organization.objects.create(name='Other Org')
         self.ws = Workspace.objects.create(name='Users WS', organization=self.org)
+        OrganizationMember.objects.create(organization=self.org, user=self.user, role=OrganizationMember.MEMBER)
+        OrganizationMember.objects.create(organization=self.org, user=self.other, role=OrganizationMember.MEMBER)
+        OrganizationMember.objects.create(organization=self.other_org, user=self.third, role=OrganizationMember.MEMBER)
         TeamMember.objects.create(workspace=self.ws, user=self.user, role=TeamMember.MEMBER)
         TeamMember.objects.create(workspace=self.ws, user=self.other, role=TeamMember.MEMBER)
 
-    def test_workspace_scoped_user_listing(self):
+    def test_organization_scoped_user_listing(self):
         res = self.client.get('/api/v1/users/?search=u2@example.com', **_jwt_header(self.user))
         self.assertEqual(res.status_code, 200)
         emails = [item['email'] for item in res.data.get('results', res.data)]
@@ -56,10 +57,10 @@ class UserProfileApiTest(APITestCase):
         self.assertEqual(patch_res.status_code, 200, patch_res.data)
         self.assertEqual(patch_res.data['first_name'], 'Updated')
 
-    def test_me_role_requires_workspace(self):
+    def test_me_rejects_inaccessible_organization(self):
         res = self.client.patch(
             '/api/v1/users/me/',
-            {'organization': None},
+            {'organization': self.other_org.pk},
             format='json',
             **_jwt_header(self.user),
         )

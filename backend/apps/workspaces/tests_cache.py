@@ -1,5 +1,3 @@
-import unittest
-
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import TestCase, override_settings
@@ -7,7 +5,7 @@ from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.organizations.models import Organization
+from apps.organizations.models import Organization, OrganizationMember
 from apps.workspaces.models import TeamMember, Workspace
 from django.core.cache import cache
 
@@ -25,7 +23,6 @@ def _jwt_header(user):
         'LOCATION': 'workspaces-cache-tests',
     },
 })
-@unittest.skip('Workspace REST API removed from product; org-centric routes used instead.')
 class WorkspaceListCacheTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -36,7 +33,16 @@ class WorkspaceListCacheTests(TestCase):
         )
         self.org = Organization.objects.create(name='WS Cache Org')
         self.workspace = Workspace.objects.create(name='Cached WS', organization=self.org)
-        TeamMember.objects.create(workspace=self.workspace, user=self.user, role=TeamMember.MEMBER)
+        OrganizationMember.objects.create(
+            organization=self.org,
+            user=self.user,
+            role=OrganizationMember.MEMBER,
+        )
+        TeamMember.objects.create(
+            workspace=self.workspace,
+            user=self.user,
+            role=TeamMember.WORKSPACE_ADMIN,
+        )
         self.client = APIClient()
         self.client.credentials(**_jwt_header(self.user))
 
@@ -65,6 +71,12 @@ class WorkspaceListCacheTests(TestCase):
             username='wsother@example.com',
             email='wsother@example.com',
             password='StrongPass123!',
+        )
+        other_org = Organization.objects.create(name='Other WS Cache Org')
+        OrganizationMember.objects.create(
+            organization=other_org,
+            user=other,
+            role=OrganizationMember.MEMBER,
         )
         self.client.get('/api/v1/workspaces/')
         APIClient().get('/api/v1/workspaces/', **_jwt_header(other))
