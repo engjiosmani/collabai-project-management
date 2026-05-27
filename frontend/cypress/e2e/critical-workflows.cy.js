@@ -1,6 +1,11 @@
 describe("Critical workflows", () => {
   const email = "user@example.com";
   const password = "password123";
+  const futureDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 7);
+    return date.toISOString().slice(0, 10);
+  };
 
   const stubDashboardSummary = () => {
     cy.intercept("GET", "**/api/v1/dashboard/summary/", {
@@ -148,12 +153,14 @@ describe("Critical workflows", () => {
   it("creates a task from the kanban board", () => {
     stubDashboardSummary();
     stubBoard();
+    const dueDate = futureDate();
 
     cy.intercept("POST", "**/api/v1/tasks/", (req) => {
       expect(req.body).to.include({
         title: "Write E2E tests",
         description: "Cover the critical dashboard flow",
         project: 1,
+        due_date: dueDate,
       });
 
       req.reply({
@@ -163,7 +170,7 @@ describe("Critical workflows", () => {
           title: "Write E2E tests",
           description: "Cover the critical dashboard flow",
           status: 1,
-          due_date: "2026-05-24",
+          due_date: dueDate,
           project: 1,
         },
       });
@@ -190,7 +197,7 @@ describe("Critical workflows", () => {
     cy.get('[data-cy="task-title"]').type("Write E2E tests");
     cy.get('[data-cy="task-description"]').type("Cover the critical dashboard flow");
     cy.get('[data-cy="task-status"]').select("To Do");
-    cy.get('[data-cy="task-due-date"]').type("2026-05-26");
+    cy.get('[data-cy="task-due-date"]').type(dueDate);
     cy.get('[data-cy="task-project"]').select("Website Refresh");
     cy.get('[data-cy="task-save"]').click();
 
