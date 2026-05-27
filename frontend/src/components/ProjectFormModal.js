@@ -244,14 +244,19 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
         setFieldErrors({});
 
         const dateErrors = validateProjectDates(form);
-        if (Object.keys(dateErrors).length > 0) {
-            setFieldErrors(dateErrors);
-            return;
+        const nextFieldErrors = { ...dateErrors };
+        if (!form.name.trim()) {
+            nextFieldErrors.name = "Please enter a project name.";
         }
-        if (!isEdit && !isWorkspaceContext && !isManagerOrAdminOfWorkspace(form.organization, form.workspace)) {
-            setFieldErrors({
-                workspace: "You must be a workspace manager or admin to create projects here.",
-            });
+        if (!isEdit && !isWorkspaceContext && !form.organization) {
+            nextFieldErrors.organization = "Please select an organization for this project.";
+        } else if (!isEdit && !isWorkspaceContext && !form.workspace) {
+            nextFieldErrors.workspace = "Please select a workspace for this project.";
+        } else if (!isEdit && !isWorkspaceContext && !isManagerOrAdminOfWorkspace(form.organization, form.workspace)) {
+            nextFieldErrors.workspace = "You must be a workspace manager or admin to create projects here.";
+        }
+        if (Object.keys(nextFieldErrors).length > 0) {
+            setFieldErrors(nextFieldErrors);
             return;
         }
 
@@ -365,7 +370,6 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                             className={`pm-input${fieldErrors.name ? " pm-input--error" : ""}`}
                             value={form.name}
                             onChange={handleChange}
-                            required
                             maxLength={150}
                             placeholder="e.g. Website Redesign"
                         />
@@ -407,7 +411,6 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                                     className={`pm-select${fieldErrors.organization ? " pm-input--error" : ""}`}
                                     value={form.organization}
                                     onChange={handleChange}
-                                    required
                                     disabled={isEdit}
                                 >
                                     <option value="">— Select organization —</option>
@@ -460,7 +463,6 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                                             className={`pm-select${fieldErrors.workspace ? " pm-input--error" : ""}`}
                                             value={form.workspace}
                                             onChange={handleChange}
-                                            required
                                             disabled={!form.organization || workspaces.length === 0}
                                         >
                                             <option value="">
@@ -641,7 +643,7 @@ export default function ProjectFormModal({ open, project, onClose, onSaved, cont
                         <button
                             type="submit"
                             className="dashboard-button dashboard-button--primary"
-                            disabled={saving || !form.name.trim() || !form.organization || (!isEdit && !form.workspace)}
+                            disabled={saving}
                         >
                             {saving
                                 ? isEdit
