@@ -1,16 +1,19 @@
-# CollabAI — Architecture overview
+# CollabAI Architecture Overview
 
-This document ties CollabAI layers together and points contributors to technical references.
+This document connects the main CollabAI layers and points contributors to the detailed technical references.
 
 ## Detailed docs
 
 | Layer | Document |
 |-------|----------|
-| Backend (DRF, OOP, middleware, permissions) | [backend_architecture.md](./backend_architecture.md) |
-| Models / API (as needed) | [database-models.md](./database-models.md), [api-endpoints.md](./api-endpoints.md) |
-| AI / LLM (#16) | [ai-module.md](./ai-module.md) |
-| Caching / Redis (#17) | [caching.md](./caching.md) |
-| Issue wording (paths, no ambiguity) | [api-endpoints.md](./api-endpoints.md) |
+| Backend architecture | [backend_architecture.md](./backend_architecture.md) |
+| API endpoints | [api-endpoints.md](./api-endpoints.md) |
+| Database models | [database-models.md](./database-models.md) |
+| Local setup | [setup.md](./setup.md) |
+| Security | [security.md](./security.md) |
+| AI / LLM module | [ai-module.md](./ai-module.md) |
+| Caching / Redis | [caching.md](./caching.md) |
+| Course checklist | [requirements-checklist.md](./requirements-checklist.md) |
 
 ## High-level view
 
@@ -19,38 +22,64 @@ flowchart TB
     subgraph client["Client"]
         FE[React SPA]
     end
-    subgraph api["SPA internals"]
+
+    subgraph spa["SPA internals"]
         RT[React Router]
-        CTX[AuthContext]
+        CTX[React Context]
         AX[Axios API client]
         FE --> RT
         FE --> CTX
-        FE --> AX   
+        FE --> AX
     end
-    subgraph backend["Django backend"]
-        MW[Middleware logging + CORS]
-        V[DRF Views]
-        S[Services]
+
+    subgraph backend["Django REST backend"]
+        MW[Logging + JWT + tenant middleware]
+        V[DRF views/viewsets]
         SER[Serializers]
-        M[Models]
-        AX -->|HTTPS REST /api/v1| MW
+        S[Services]
+        M[ORM models]
+        C[(Redis / LocMem cache)]
+        Q[Celery tasks]
+        DB[(PostgreSQL)]
+
+        AX -->|HTTP/HTTPS REST /api/v1| MW
         MW --> V
         V --> SER
-        SER --> S
+        V --> S
         S --> M
+        S --> C
+        S --> Q
+        M --> DB
     end
 ```
 
-## Backlog guidelines
+## Runtime responsibilities
 
-1. **HTTP/HTTPS & REST** — Endpoints live under `/api/v1/…`; HTTPS is enforced in production via reverse proxy (e.g. nginx).
-2. **DRF** — Validation in serializers; business logic in services; permissions in `common.permissions` or the owning app.
-3. **OOP** — Extend `common.models.BaseModel` for ORM entities; keep view logic in DRF view classes and cohesive domain rules in service classes.
-4. **Frontend** — Use `REACT_APP_*` in `.env`; do not commit `.env`; route HTTP calls through `src/api/api.js`.
+| Layer | Responsibility |
+|-------|----------------|
+| React frontend | Routes, forms, dashboards, AI UI, auth state, organization context. |
+| Axios API client | Adds JWT token and `X-Organization-ID`, refreshes expired tokens, normalizes API errors. |
+| Django middleware | Request logging, JWT enforcement, CORS, and active-tenant selection. |
+| DRF views/viewsets | HTTP orchestration, permissions, status codes, serializers, and service calls. |
+| Services/tasks | Business logic, AI calls, RAG indexing, email/reset jobs, and async work. |
+| ORM models | Persistent domain state and relationships. |
+| Redis | API response caching, Celery broker/backend, and optional RAG vector store. |
+| PostgreSQL | Primary relational database. |
 
-## Done checklist per story
+## Development rules
 
-- [ ] Code matches `architecture.md` / `backend_architecture.md`
-- [ ] Automated tests pass (`backend`: `python manage.py test`; `frontend`: `npm test` when applicable)
-- [ ] New endpoints appear in Swagger (`/api/docs/`)
-- [ ] `.env.example` updated when new variables are introduced
+1. Product API endpoints live under `/api/v1/`.
+2. Swagger UI is available at `/api/docs/`; OpenAPI schema is available at `/api/schema/`.
+3. Frontend HTTP calls should go through `frontend/src/api/`.
+4. Shared backend behavior belongs in `backend/common/`.
+5. New model changes require migrations.
+6. New or changed endpoints should be covered by tests and visible in Swagger.
+
+## Done checklist per feature
+
+- Code matches the patterns in this document and `backend_architecture.md`.
+- Backend tests pass when backend behavior changes.
+- Frontend tests pass when UI behavior changes.
+- New endpoints appear in Swagger.
+- `backend/.env.example` or `frontend/.env.example` is updated when new environment variables are introduced.
+- Docs are updated when routes, models, architecture, or setup steps change.

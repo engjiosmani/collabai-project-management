@@ -1,234 +1,154 @@
-#  Database Models – CollabAI
+# CollabAI Database Models
 
-## Overview
+This document describes the current database model layer used by CollabAI. The backend uses Django ORM models, PostgreSQL for normal runtime, and migrations in each app.
 
-This document describes the foundational database models implemented for the CollabAI backend.
+## Design Principles
 
-The models follow:
+| Principle | Implementation |
+|-----------|----------------|
+| OOP | Domain entities are Python classes that inherit from `common.models.BaseModel`. |
+| ORM | All persistence goes through Django ORM models and querysets. |
+| Multi-tenancy | Most product data is scoped through `Organization`; workspaces sit inside organizations. |
+| RBAC | Roles are stored on `OrganizationMember` and `TeamMember`, not in separate Role/Permission tables. |
+| Data integrity | Foreign keys, unique constraints, and indexes protect relationships and common lookups. |
 
-* Object-Oriented Programming (OOP)
-* Django ORM best practices
-* Multi-tenancy architecture
-* Role-Based Access Control (RBAC)
+## Shared Base Model
 
----
+`common.models.BaseModel` is an abstract model used by project-owned models.
 
-## Core Models
+Fields:
 
-### BaseModel (Abstract)
+- `created_at`
+- `updated_at`
 
-All models inherit from `BaseModel`, which provides:
+## Current Project Models
 
-* `created_at`
-* `updated_at`
+The project currently has 24 app-level models.
 
----
+| App | Model | Purpose |
+|-----|-------|---------|
+| `organizations` | `Organization` | Tenant/company root. |
+| `organizations` | `OrganizationMember` | User membership in an organization, including organization-level role. |
+| `organizations` | `OrganizationInvite` | Email invitation into an organization, optionally tied to a workspace. |
+| `workspaces` | `Workspace` | Working area inside an organization. |
+| `workspaces` | `JobRole` | Functional discipline used for task assignment and AI task categorization. |
+| `workspaces` | `TeamMember` | User membership and role inside a workspace. |
+| `projects` | `Project` | Project owned by an organization and optionally linked to a workspace. |
+| `projects` | `ProjectMember` | Explicit user access to a project. |
+| `projects` | `Subscription` | One-to-one subscription/plan data for an organization. |
+| `projects` | `Integration` | External integration configuration scoped to an organization. |
+| `tasks` | `TaskStatus` | Task status catalog, such as To Do, In Progress, Done. |
+| `tasks` | `TaskPriority` | Task priority catalog with numeric level. |
+| `tasks` | `Label` | Organization-scoped task label. |
+| `tasks` | `Task` | Project task with status, priority, assignee, and due date. |
+| `tasks` | `TaskLabel` | Many-to-many join between tasks and labels. |
+| `tasks` | `Attachment` | File attachment for a task. |
+| `comments` | `Comment` | Comment on a task. |
+| `comments` | `ActivityLog` | Activity timeline entry for task/project actions. |
+| `notifications` | `Notification` | User notification, scoped to organization when available. |
+| `ai_assistant` | `AIRequest` | Stored record of AI/chat/text-analysis/RAG requests. |
+| `ai_assistant` | `CacheEntity` | Indexed/cacheable entity metadata for AI/RAG features. |
+| `audit_logs` | `AuditLog` | Administrative audit entry for notable actions. |
+| `user_profiles` | `Profile` | One-to-one extension of Django's built-in `User`. |
+| `user_profiles` | `PasswordResetToken` | Password reset token state and expiry. |
 
-### Organization
+## Relationship Overview
 
-Represents a company (tenant).
+```mermaid
+erDiagram
+    Organization ||--o{ OrganizationMember : has
+    Organization ||--o{ OrganizationInvite : sends
+    Organization ||--o{ Workspace : owns
+    Organization ||--o{ Project : owns
+    Organization ||--o{ Label : owns
+    Organization ||--o{ Notification : scopes
+    Organization ||--o{ AIRequest : scopes
+    Organization ||--o{ AuditLog : scopes
 
-* One Organization → Many Workspaces
+    Workspace ||--o{ TeamMember : has
+    Workspace ||--o{ Project : contains
+    JobRole ||--o{ TeamMember : assigned_to
+    JobRole ||--o{ OrganizationMember : assigned_to
 
----
+    Project ||--o{ ProjectMember : has
+    Project ||--o{ Task : contains
+    TaskStatus ||--o{ Task : classifies
+    TaskPriority ||--o{ Task : ranks
+    Task ||--o{ Comment : has
+    Task ||--o{ ActivityLog : records
+    Task ||--o{ Attachment : has
+    Task ||--o{ TaskLabel : has
+    Label ||--o{ TaskLabel : used_by
+```
 
-### Workspace
+## Multi-Tenancy
 
-Represents a working environment inside an organization.
+The tenant boundary is the organization.
 
-* Belongs to Organization
-* Has multiple Roles
-* Used for multi-tenancy
+- `Organization` represents a company/tenant.
+- `Workspace` belongs to an organization.
+- `Project` belongs to an organization and can belong to a workspace.
+- `Label`, `Notification`, `AIRequest`, `AuditLog`, `Subscription`, and `Integration` are organization-scoped.
+- Tenant helpers in `common.tenant_access`, `common.tenant_queryset`, and `common.tenant_viewset` restrict data to organizations the user can access.
+- `apps.core.middleware.TenantMiddleware` reads `X-Organization-ID` or `organization_id` and attaches active tenant context to the request.
 
----
+## RBAC Model
 
-### Role
+RBAC is implemented with membership rows:
 
-Defines user roles inside a workspace.
+| Scope | Model | Roles |
+|-------|-------|-------|
+| Organization | `OrganizationMember` | `org_admin`, `member` |
+| Workspace | `TeamMember` | `workspace_admin`, `manager`, `member` |
+| Invite flow | `OrganizationInvite` | `org_admin`, `workspace_admin`, `manager`, `member` |
 
-* Belongs to Workspace
-* Has many Permissions (Many-to-Many)
+Permission checks live in `common.role_permissions` and are used by viewsets and object-level operations.
 
----
-
-### Permission
-
-Defines allowed actions.
+## Indexes and Constraints
 
 Examples:
 
-* `create_task`
-* `update_project`
-* `delete_user`
+- Unique organization names.
+- Unique organization membership per `(organization, user)`.
+- Unique workspace names per organization.
+- Unique team membership per `(workspace, user)`.
+- Unique project names per organization.
+- Unique label names per organization.
+- Unique task-label pair per `(task, label)`.
+- Indexed project lookups by `(organization, name)`.
+- Indexed task lookups by `(project, status)` and `assigned_to`.
 
----
+## Migrations
 
-### Profile
+Each domain app owns its migrations under `backend/apps/<app>/migrations/`.
 
-Extends the default Django User.
+Current migration count: 44 app migration files.
 
-* One-to-one with User
-* Can belong to Workspace
-* Can have a Role
+Run migrations with:
 
----
+```bash
+cd backend
+python manage.py migrate
+```
 
-## 🔗 Model Relationships
+Check pending model changes with:
 
-Organization
-└── Workspace
-  ├── Role
-  │  └── Permissions (M2M)
-  └── Profile
-    └── User (1-1)
+```bash
+cd backend
+python manage.py makemigrations --check --dry-run
+```
 
----
+## Tests
 
-##  Design Decisions
+Model behavior, API behavior, cache behavior, role enforcement, and serializer/view units are covered across the app test files:
 
-### OOP
+- `backend/apps/*/tests.py`
+- `backend/apps/*/tests_*.py`
+- `backend/common/tests*.py`
 
-* Shared fields handled via `BaseModel`
+Run all backend tests with:
 
-### Multi-Tenancy
-
-* Implemented via Organization → Workspace hierarchy
-
-### RBAC
-
-* Implemented via Role + Permission
-
----
-
-##  Testing
-
-* Model creation tested
-* Relationships verified
-* All tests pass successfully
-
----
-
-##  Migration Status
-
-* Initial migrations created
-* Applied successfully
-* No system errors detected
-
-
----
-
-# DB-02 Production Models
-
-## Overview
-
-The database architecture was expanded to support a production-ready project management system.
-
-Additional production models were introduced to support:
-- Project management
-- Task management
-- Team collaboration
-- Notifications
-- AI integration
-- Audit logging
-- Workspace memberships
-- Integrations and subscriptions
-
----
-
-## Production Models
-
-### Projects
-- Project
-- ProjectMember
-- Subscription
-- Integration
-
-### Tasks
-- Task
-- TaskStatus
-- TaskPriority
-- Label
-- TaskLabel
-- Attachment
-
-### Collaboration
-- Comment
-- ActivityLog
-- Notification
-
-### AI Features
-- AIRequest
-- CacheEntity
-
-### Workspace Management
-- TeamMember
-- OrganizationInvite
-
-### Audit System
-- AuditLog
-
----
-
-## Database Features
-
-### Indexes
-
-Indexes were added for:
-- Project filtering
-- Task queries
-- Notifications
-- Activity logs
-- Audit logs
-
-### Constraints
-
-Unique constraints implemented for:
-- Workspace project names
-- Team memberships
-- Task labels
-- Organization invites
-- Integrations
-
----
-
-## Extended Relationships
-
-Workspace
-├── Projects
-│   ├── Tasks
-│   │   ├── Comments
-│   │   ├── Attachments
-│   │   ├── ActivityLogs
-│   │   └── Labels
-│   ├── Members
-│   └── Integrations
-├── TeamMembers
-├── OrganizationInvites
-└── Subscription
-
-User
-├── Notifications
-├── AIRequests
-├── Comments
-└── AuditLogs
-
----
-
-## Architecture Notes
-
-- All models inherit from `BaseModel`
-- Django ORM relationships are normalized
-- Multi-tenancy is implemented through Workspace architecture
-- RBAC is implemented through Role and Permission
-- Database indexing improves query performance
-- Constraints enforce data integrity
-
----
-
-## Testing & Migration Status
-
-- All migrations generated successfully
-- Migrations apply cleanly
-- System checks pass without errors
-- Unit tests verify relationships and constraints
-- Django admin integration completed
+```bash
+cd backend
+python manage.py test
+```

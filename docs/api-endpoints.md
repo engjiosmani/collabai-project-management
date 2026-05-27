@@ -1,250 +1,208 @@
-# API endpoints
+# CollabAI API Endpoints
 
-**Canonical rule:** all product REST endpoints use prefix **`/api/v1`**. Document tooling lives at **`/api/docs/`** and **`/api/schema/`** (no version segment). Issue descriptions must copy paths from this file to avoid drift.
+All product endpoints use the `/api/v1/` prefix. Documentation tooling is outside the versioned API.
 
-Base URL (development): `http://127.0.0.1:8000/api/v1`
+| Item | URL |
+|------|-----|
+| Development API base | `http://127.0.0.1:8000/api/v1` |
+| Swagger UI | `http://127.0.0.1:8000/api/docs/` |
+| OpenAPI schema | `http://127.0.0.1:8000/api/schema/` |
 
-Swagger UI: `http://127.0.0.1:8000/api/docs/`  
-OpenAPI schema: `http://127.0.0.1:8000/api/schema/`
+Authentication uses JWT Bearer tokens:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Tenant-scoped requests can select the active organization with:
+
+```http
+X-Organization-ID: <organization-id>
+```
 
 ## Authentication
 
-### Register user
+| Method | Path | Purpose | Auth |
+|--------|------|---------|------|
+| `POST` | `/api/v1/auth/register` | Register a user | Public |
+| `POST` | `/api/v1/auth/login` | Login and receive JWT tokens | Public |
+| `POST` | `/api/v1/auth/refresh` | Refresh access token | Public |
+| `POST` | `/api/v1/auth/logout` | Blacklist refresh token | JWT |
+| `POST` | `/api/v1/auth/forgot-password` | Request password reset email | Public |
+| `POST` | `/api/v1/auth/reset-password` | Reset password with token | Public |
 
-| Item | Value |
-|------|--------|
-| Story | AUTH-01 |
-| Method | `POST` |
-| Path | `/auth/register` |
-| Full URL | `/api/v1/auth/register` |
+## Core and Operations
 
-### Login (JWT)
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/health/` | Health check for database, cache, vector store, and LLM configuration |
+| `GET` | `/api/v1/metrics/` | Admin-only platform metrics |
+| `GET` | `/api/v1/dashboard/summary/` | Tenant-scoped dashboard summary |
+| `GET` | `/api/schema/` | OpenAPI schema |
+| `GET` | `/api/docs/` | Swagger UI |
 
-| Item | Value |
-|------|--------|
-| Story | AUTH-02 |
-| Method | `POST` |
-| Path | `/auth/login` |
-| Full URL | `/api/v1/auth/login` |
+## Organizations and Invitations
 
-### Refresh token (JWT)
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/organizations/` | List organizations visible to current user |
+| `POST` | `/api/v1/organizations/` | Create organization |
+| `GET` | `/api/v1/organizations/{id}/` | Retrieve organization |
+| `PUT` | `/api/v1/organizations/{id}/` | Replace organization |
+| `PATCH` | `/api/v1/organizations/{id}/` | Update organization |
+| `DELETE` | `/api/v1/organizations/{id}/` | Delete organization |
+| `GET` | `/api/v1/organizations/{id}/members/` | List organization members |
+| `GET` | `/api/v1/organizations/{id}/members/{user_id}/` | Retrieve organization member |
+| `PATCH` | `/api/v1/organizations/{id}/members/{user_id}/` | Update member role |
+| `DELETE` | `/api/v1/organizations/{id}/members/{user_id}/` | Remove member |
+| `PATCH` | `/api/v1/organizations/{id}/members/{member_id}/job-role/` | Set organization member job role |
+| `POST` | `/api/v1/organizations/{id}/invite/` | Invite user to organization/workspace |
+| `GET` | `/api/v1/organizations/{id}/invites/` | List organization invites |
+| `DELETE` | `/api/v1/organizations/{id}/invites/{invite_id}/` | Revoke invite |
+| `GET` | `/api/v1/invites/my/` | List invites for current user |
+| `POST` | `/api/v1/invites/{token}/accept/` | Accept invite token |
 
-| Item | Value |
-|------|--------|
-| Story | AUTH-02 |
-| Method | `POST` |
-| Path | `/auth/refresh` |
-| Full URL | `/api/v1/auth/refresh` |
+## Workspaces and Job Roles
 
-### Logout (JWT)
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/workspaces/` | List accessible workspaces |
+| `POST` | `/api/v1/workspaces/` | Create workspace |
+| `GET` | `/api/v1/workspaces/{id}/` | Retrieve workspace |
+| `PUT` | `/api/v1/workspaces/{id}/` | Replace workspace |
+| `PATCH` | `/api/v1/workspaces/{id}/` | Update workspace |
+| `DELETE` | `/api/v1/workspaces/{id}/` | Delete workspace |
+| `GET` | `/api/v1/workspaces/{id}/members/` | List workspace members |
+| `PATCH` | `/api/v1/workspaces/{id}/members/{member_id}/job-role/` | Set workspace member job role |
+| `GET` | `/api/v1/job-roles/` | List job roles |
+| `GET` | `/api/v1/job-roles/{id}/` | Retrieve job role |
+| `GET` | `/api/v1/organizations/{id}/workspaces/` | List workspaces inside organization |
+| `POST` | `/api/v1/organizations/{id}/workspaces/` | Create workspace inside organization |
+| `GET` | `/api/v1/organizations/{id}/workspaces/{ws_id}/` | Retrieve organization workspace |
+| `PUT` | `/api/v1/organizations/{id}/workspaces/{ws_id}/` | Replace organization workspace |
+| `PATCH` | `/api/v1/organizations/{id}/workspaces/{ws_id}/` | Update organization workspace |
+| `DELETE` | `/api/v1/organizations/{id}/workspaces/{ws_id}/` | Delete organization workspace |
+| `GET` | `/api/v1/organizations/{id}/workspaces/{ws_id}/members/` | List workspace members |
+| `POST` | `/api/v1/organizations/{id}/workspaces/{ws_id}/members/` | Add workspace member |
+| `PATCH` | `/api/v1/organizations/{id}/workspaces/{ws_id}/members/{user_id}/` | Update workspace member role |
+| `DELETE` | `/api/v1/organizations/{id}/workspaces/{ws_id}/members/{user_id}/` | Remove workspace member |
 
-| Item | Value |
-|------|--------|
-| Story | AUTH-02 |
-| Method | `POST` |
-| Path | `/auth/logout` |
-| Full URL | `/api/v1/auth/logout` |
+## Projects
 
-**Request body (JSON)**
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/projects/` | List visible projects |
+| `POST` | `/api/v1/projects/` | Create project |
+| `GET` | `/api/v1/projects/{id}/` | Retrieve project |
+| `PUT` | `/api/v1/projects/{id}/` | Replace project |
+| `PATCH` | `/api/v1/projects/{id}/` | Update project |
+| `DELETE` | `/api/v1/projects/{id}/` | Delete project |
+| `GET` | `/api/v1/projects/{id}/members/` | List project members |
+| `POST` | `/api/v1/projects/{id}/members/` | Add project member |
+| `GET` | `/api/v1/projects/{id}/members/{user_id}/` | Retrieve project member |
+| `DELETE` | `/api/v1/projects/{id}/members/{user_id}/` | Remove project member |
 
-```json
-{
-  "email": "user@example.com",
-  "password": "StrongPass123!"
-}
+## Tasks
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/tasks/` | List visible tasks |
+| `POST` | `/api/v1/tasks/` | Create task |
+| `GET` | `/api/v1/tasks/{id}/` | Retrieve task |
+| `PUT` | `/api/v1/tasks/{id}/` | Replace task |
+| `PATCH` | `/api/v1/tasks/{id}/` | Update task |
+| `DELETE` | `/api/v1/tasks/{id}/` | Delete task |
+| `GET` | `/api/v1/task-statuses/` | List task status catalog |
+| `GET` | `/api/v1/task-priorities/` | List task priority catalog |
+| `GET` | `/api/v1/tasks/{id}/attachments/` | List task attachments |
+| `POST` | `/api/v1/tasks/{id}/attachments/` | Upload attachment |
+| `DELETE` | `/api/v1/tasks/{id}/attachments/{attachment_id}/` | Delete attachment |
+| `GET` | `/api/v1/tasks/{id}/attachments/{attachment_id}/download/` | Download attachment |
+
+## Comments and Activity
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/comments/` | List comments |
+| `POST` | `/api/v1/comments/` | Create comment |
+| `GET` | `/api/v1/comments/{id}/` | Retrieve comment |
+| `PUT` | `/api/v1/comments/{id}/` | Replace comment |
+| `PATCH` | `/api/v1/comments/{id}/` | Update comment |
+| `DELETE` | `/api/v1/comments/{id}/` | Delete comment |
+| `GET` | `/api/v1/activity-logs/` | List activity logs |
+| `GET` | `/api/v1/activity-logs/{id}/` | Retrieve activity log |
+
+## Notifications
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/notifications/` | List notifications |
+| `POST` | `/api/v1/notifications/` | Create notification |
+| `GET` | `/api/v1/notifications/{id}/` | Retrieve notification |
+| `PUT` | `/api/v1/notifications/{id}/` | Replace notification |
+| `PATCH` | `/api/v1/notifications/{id}/` | Update notification |
+| `DELETE` | `/api/v1/notifications/{id}/` | Delete notification |
+| `POST` | `/api/v1/notifications/{id}/mark_read/` | Mark one notification read |
+| `POST` | `/api/v1/notifications/mark_all_read/` | Mark all notifications read |
+
+## Users and Profile
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/users/` | List users |
+| `GET` | `/api/v1/users/{id}/` | Retrieve user |
+| `GET` | `/api/v1/users/me/` | Retrieve current user |
+| `PATCH` | `/api/v1/users/me/` | Update current user |
+| `GET` | `/api/v1/profile/` | Retrieve profile |
+| `PUT` | `/api/v1/profile/` | Replace profile |
+| `PATCH` | `/api/v1/profile/` | Update profile |
+| `POST` | `/api/v1/profile/change-password/` | Change password |
+| `GET` | `/api/v1/profile/memberships/` | List current user's organization/workspace memberships |
+
+## AI Assistant
+
+The AI assistant currently uses Groq as the external LLM provider.
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/v1/ai/chatbot/` | General chatbot response |
+| `POST` | `/api/v1/ai/analyze/` | Text analysis: summary, action items, sentiment |
+| `POST` | `/api/v1/ai/search/` | Semantic search without LLM answer generation |
+| `POST` | `/api/v1/ai/query/` | RAG question answering with organization context |
+| `POST` | `/api/v1/ai/reindex/` | Queue organization reindex background job |
+| `GET` | `/api/v1/ai/history/` | List recent AI request history |
+
+## Audit
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/api/v1/audit/` | List audit logs |
+| `GET` | `/api/v1/audit/{id}/` | Retrieve audit log |
+
+## Search, filtering, ordering, and pagination
+
+The API enables DRF's `SearchFilter`, `OrderingFilter`, and `django-filter` globally. Common query parameters:
+
+| Parameter | Purpose |
+|-----------|---------|
+| `search` | Full-text-like search across configured `search_fields`. |
+| `ordering` | Sort by configured `ordering_fields`; prefix with `-` for descending. |
+| `page` | Page number. |
+| `page_size` | Page size, limited by `common.pagination.StandardPagination`. |
+
+Examples:
+
+```http
+GET /api/v1/tasks/?search=frontend&status=in_progress&priority=high&ordering=-due_date
+GET /api/v1/projects/?organization=1&workspace=2&search=api
+GET /api/v1/notifications/?is_read=false&ordering=-created_at
 ```
 
-**Success:** `201 Created`
+## Regenerating the schema
 
-Response body includes `id` and `email`. Password is write-only and never returned.
+After route or serializer changes, regenerate the schema:
 
-**Validation errors:** `400 Bad Request`
-
-Typical payload shape:
-
-```json
-{
-  "email": ["A user with this email already exists."]
-}
+```bash
+cd backend
+python manage.py spectacular --file schema.yml
 ```
-
-or
-
-```json
-{
-  "password": ["Password must contain at least one uppercase letter."]
-}
-```
-
-Password rules combine Django validators plus extra complexity checks (mixed case, digit, special character).
-
-## AI / LLM module
-
-Story: **#16** — external LLM (Groq) via `apps.ai_assistant`. See [ai-module.md](./ai-module.md).
-
-All paths require `Authorization: Bearer <access_token>` unless noted.
-
-### Text analysis
-
-| Item | Value |
-|------|--------|
-| Method | `POST` |
-| Full URL | `/api/v1/ai/analyze/` |
-| Swagger tag | `AI / Text analysis` |
-
-**Request body**
-
-```json
-{
-  "text": "Meeting notes or any plain text (max 16000 chars).",
-  "mode": "summary",
-  "task_id": null
-}
-```
-
-`mode`: `summary` | `action_items` | `sentiment`
-
-**Success:** `200 OK`
-
-```json
-{
-  "mode": "summary",
-  "result": "… LLM output …",
-  "request_id": 42
-}
-```
-
-**Errors:** `400` validation, `503` missing/invalid `GROQ_API_KEY` or LLM failure
-
-### RAG chatbot (organization Q&A)
-
-| Item | Value |
-|------|--------|
-| Method | `POST` |
-| Full URL | `/api/v1/ai/query/` |
-| Swagger tag | `AI / RAG` |
-
-**Request body**
-
-```json
-{
-  "organization_id": 1,
-  "question": "What is the status of JWT auth?",
-  "top_k": 5,
-  "task_id": null
-}
-```
-
-**Success:** `200 OK` — `answer`, `sources`, `request_id`
-
-### Semantic search (no LLM)
-
-| Method | Full URL |
-|--------|----------|
-| `POST` | `/api/v1/ai/search/` |
-
-Body: `organization_id`, `query`, optional `top_k`.
-
-### Reindex organization vectors
-
-| Method | Full URL |
-|--------|----------|
-| `POST` | `/api/v1/ai/reindex/` |
-
-Body: `organization_id`. **Success:** `202 Accepted` with Celery `task_id`.
-
-### AI request history
-
-| Method | Full URL |
-|--------|----------|
-| `GET` | `/api/v1/ai/history/` |
-
-Returns last 50 `AIRequest` rows for the authenticated user.
-
-
-## Verified endpoints (extracted from OpenAPI schema on 2026-05-20)
-
-Summary: regenerate this section from the current OpenAPI schema after backend route changes.
-
-checklist of the documented REST operations (path — method — tag — summary when available).
-
-- GET `/api/schema/` — schema
-- GET `/api/v1/activity-logs/` — Activity logs — List activity logs
-- GET `/api/v1/activity-logs/{id}/` — Activity logs — Retrieve activity log
-- POST `/api/v1/ai/analyze/` — AI / Text analysis
-- POST `/api/v1/ai/chatbot/` — AI / ChatBot
-- GET `/api/v1/ai/history/` — AI / RAG
-- POST `/api/v1/ai/query/` — AI / RAG
-- POST `/api/v1/ai/reindex/` — AI / RAG
-- POST `/api/v1/ai/search/` — AI / RAG
-- GET `/api/v1/audit/` — Audit logs — List audit logs
-- GET `/api/v1/audit/{id}/` — Audit logs — Retrieve audit log
-- POST `/api/v1/auth/login` — Authentication
-- POST `/api/v1/auth/logout` — Authentication
-- POST `/api/v1/auth/refresh` — Authentication
-- POST `/api/v1/auth/register` — Authentication
-- GET `/api/v1/comments/` — Comments — List comments
-- POST `/api/v1/comments/` — Comments — Create comment
-- GET `/api/v1/comments/{id}/` — Comments — Retrieve comment
-- PUT `/api/v1/comments/{id}/` — Comments — Update comment
-- PATCH `/api/v1/comments/{id}/` — Comments — Partially update comment
-- DELETE `/api/v1/comments/{id}/` — Comments — Delete comment
-- GET `/api/v1/dashboard/summary/` — Dashboard
-- GET `/api/v1/health/` — Operations
-- GET `/api/v1/invites/` — Invites — List workspace invites
-- POST `/api/v1/invites/` — Invites — Create workspace invite
-- GET `/api/v1/invites/{id}/` — Invites — Retrieve workspace invite
-- PUT `/api/v1/invites/{id}/` — Invites — Update workspace invite
-- PATCH `/api/v1/invites/{id}/` — Invites — Partially update workspace invite
-- DELETE `/api/v1/invites/{id}/` — Invites — Delete workspace invite
-- POST `/api/v1/invites/{id}/accept/` — Invites — Accept a workspace invite
-- GET `/api/v1/job-roles/` — Job roles — List job roles for task assignment
-- GET `/api/v1/job-roles/{id}/` — Job roles — Retrieve job role
-- GET `/api/v1/metrics/` — Operations
-- GET `/api/v1/notifications/` — Notifications — List notifications
-- POST `/api/v1/notifications/` — Notifications — Create notification
-- GET `/api/v1/notifications/{id}/` — Notifications — Retrieve notification
-- PUT `/api/v1/notifications/{id}/` — Notifications — Update notification
-- PATCH `/api/v1/notifications/{id}/` — Notifications — Partially update notification
-- DELETE `/api/v1/notifications/{id}/` — Notifications — Delete notification
-- POST `/api/v1/notifications/{id}/mark_read/` — Notifications — Mark notification as read
-- POST `/api/v1/notifications/mark_all_read/` — Notifications — Mark all notifications as read
-- GET `/api/v1/organizations/` — Organizations — List organizations
-- POST `/api/v1/organizations/` — Organizations — Create organization
-- GET `/api/v1/organizations/{id}/` — Organizations — Retrieve organization
-- PUT `/api/v1/organizations/{id}/` — Organizations — Update organization
-- PATCH `/api/v1/organizations/{id}/` — Organizations — Partially update organization
-- DELETE `/api/v1/organizations/{id}/` — Organizations — Delete organization
-- GET `/api/v1/organizations/{id}/members/` — Organizations — List organization members
-- PATCH `/api/v1/organizations/{id}/members/{member_id}/job-role/` — Organizations — Set a member job role
-- GET `/api/v1/permissions/` — Permissions — List permissions
-- POST `/api/v1/permissions/` — Permissions — Create permission
-- GET `/api/v1/permissions/{id}/` — Permissions — Retrieve permission
-- PUT `/api/v1/permissions/{id}/` — Permissions — Update permission
-- PATCH `/api/v1/permissions/{id}/` — Permissions — Partially update permission
-- DELETE `/api/v1/permissions/{id}/` — Permissions — Delete permission
-- GET `/api/v1/projects/` — Projects — List projects
-- POST `/api/v1/projects/` — Projects — Create project
-- GET `/api/v1/projects/{id}/` — Projects — Retrieve project
-- PUT `/api/v1/projects/{id}/` — Projects — Update project
-- PATCH `/api/v1/projects/{id}/` — Projects — Partially update project
-- DELETE `/api/v1/projects/{id}/` — Projects — Delete project
-- GET `/api/v1/roles/` — Roles — List roles
-- POST `/api/v1/roles/` — Roles — Create role
-- GET `/api/v1/roles/{id}/` — Roles — Retrieve role
-- PUT `/api/v1/roles/{id}/` — Roles — Update role
-- PATCH `/api/v1/roles/{id}/` — Roles — Partially update role
-- DELETE `/api/v1/roles/{id}/` — Roles — Delete role
-- GET `/api/v1/task-statuses/` — Task statuses — List task statuses
-- GET `/api/v1/tasks/` — Tasks — List tasks
-- POST `/api/v1/tasks/` — Tasks — Create task
-- GET `/api/v1/tasks/{id}/` — Tasks — Retrieve task
-- PUT `/api/v1/tasks/{id}/` — Tasks — Update task
-- PATCH `/api/v1/tasks/{id}/` — Tasks — Partially update task
-- DELETE `/api/v1/tasks/{id}/` — Tasks — Delete task
-- GET `/api/v1/users/` — Users — List users
-- GET `/api/v1/users/{id}/` — Users — Retrieve user
-- GET `/api/v1/users/me/` — Users — Get or update the current user
-- PATCH `/api/v1/users/me/` — Users — Get or update the current user
-
-

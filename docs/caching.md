@@ -25,7 +25,7 @@ flowchart TB
     BUMP --> REDIS
 ```
 
-**Versioned keys:** each namespace (`projects`, `tasks`, `workspaces`, …) has a version counter. On data changes, `bump_version` invalidates all list keys for that namespace without scanning Redis.
+**Versioned keys:** each namespace (`projects`, `tasks`, `workspaces`, etc.) has a version counter. On data changes, `bump_version` invalidates all list keys for that namespace without scanning Redis.
 
 ## Cached endpoints
 

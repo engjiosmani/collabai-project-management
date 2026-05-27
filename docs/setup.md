@@ -1,74 +1,91 @@
-# CollabAI — Local setup
+# CollabAI Local Setup
 
 ## Prerequisites
 
 - Python 3.12+
 - Node.js 20+
 - PostgreSQL
-- Redis Stack (cache, Celery broker, optional vector search for RAG)
+- Redis Stack for caching, Celery broker/backend, and optional vector search for RAG
 
 ## Backend
 
 ```bash
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate
+# Windows:
+.venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env
-```
-
-The backend uses PostgreSQL for local development and tests. Do not use SQLite
-database files. After pulling changes, each developer should install
-requirements and run migrations against PostgreSQL:
-
-```bash
-pip install -r requirements.txt
-python manage.py migrate
 ```
 
 Edit `backend/.env`:
 
 | Variable | Purpose |
 |----------|---------|
-| `GROQ_API_KEY` | LLM API key from [console.groq.com](https://console.groq.com) (chatbot, text analysis) |
-| `GROQ_MODEL` | Default model (e.g. `llama-3.1-8b-instant`) |
-| `DB_HOST` | PostgreSQL host (default `localhost`) |
-| `DB_PORT` | PostgreSQL port (default `5432`) |
-| `DB_NAME` | PostgreSQL database name (default `collabai_db`) |
-| `DB_USER` | PostgreSQL user (default `postgres`) |
-| `DB_PASSWORD` | PostgreSQL password (default `12345678` in local `DEBUG=True`) |
-| `SECRET_KEY` | Required for every backend start, including local development. Generate one with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
-| `REDIS_URL` | **Required for production caching** — list/dashboard cache + vector store |
-| `CACHE_DEFAULT_TIMEOUT` | List/dashboard TTL in seconds (default `300`) |
-| `CELERY_BROKER_URL` | Background jobs, including AI reindex tasks |
+| `SECRET_KEY` | Required for every backend start. Generate one with Django's `get_random_secret_key`. |
+| `DEBUG` | `True` locally; `False` in production. |
+| `ALLOWED_HOSTS` | Comma-separated host allowlist. |
+| `DB_HOST` | PostgreSQL host. |
+| `DB_PORT` | PostgreSQL port. |
+| `DB_NAME` | PostgreSQL database name. |
+| `DB_USER` | PostgreSQL user. |
+| `DB_PASSWORD` | PostgreSQL password. |
+| `REDIS_URL` | Redis cache URL, for example `redis://127.0.0.1:6379/0`. |
+| `CACHE_DEFAULT_TIMEOUT` | Cache TTL in seconds. |
+| `CELERY_BROKER_URL` | Celery broker URL, usually Redis. |
+| `CELERY_RESULT_BACKEND` | Celery result backend URL. |
+| `CELERY_TASK_ALWAYS_EAGER` | Use `true` for simple local debugging; use `false` with a worker for real async behavior. |
+| `GROQ_API_KEY` | LLM API key for chatbot, text analysis, and RAG answers. |
+| `GROQ_MODEL` | LLM model name. |
+| `RAG_EMBEDDING_MODEL` | Embedding model used for semantic search/RAG. |
+| `FRONTEND_URL` | Frontend URL used in links such as password reset. |
 
-Verify Groq connectivity:
-
-```bash
-python manage.py check_groq
-```
-
-Verify Redis (required for caching demo / requirement #17):
-
-```bash
-python manage.py check_redis
-```
-
-Start Redis Stack locally, then set `REDIS_URL=redis://127.0.0.1:6379/0` in `backend/.env`.
-
-**Windows (slow login / `check_redis` fails):** Hyper-V may reserve port **6379**, so Docker cannot publish it and Django waits ~10–15s per request on cache/throttle timeouts. Either:
-
-- Comment out `REDIS_URL` in `backend/.env` (uses fast in-memory cache for local dev), or
-- Use a free host port, e.g. in project root `.env`: `REDIS_PUBLISH_PORT=16379`, then in `backend/.env`: `REDIS_URL=redis://127.0.0.1:16379/0`, and run `docker compose up redis -d --force-recreate`.
-
-Run migrations and server:
+Run migrations and start the server:
 
 ```bash
 python manage.py migrate
 python manage.py runserver
 ```
 
-Swagger: `http://127.0.0.1:8000/api/docs/`
+Swagger UI:
+
+```text
+http://127.0.0.1:8000/api/docs/
+```
+
+OpenAPI schema:
+
+```text
+http://127.0.0.1:8000/api/schema/
+```
+
+## Backend checks
+
+Verify Django configuration:
+
+```bash
+python manage.py check
+```
+
+Verify Groq configuration:
+
+```bash
+python manage.py check_groq
+```
+
+Verify Redis:
+
+```bash
+python manage.py check_redis
+```
+
+If Redis is not running locally, remove or comment out `REDIS_URL` for development. Django will use LocMem cache, but Redis should be used for the course caching demo.
+
+On Windows, Hyper-V can reserve port `6379`. If Docker cannot publish Redis on that port, use another host port such as `16379` and set:
+
+```text
+REDIS_URL=redis://127.0.0.1:16379/0
+```
 
 ## Frontend
 
@@ -78,18 +95,63 @@ npm install
 cp .env.example .env
 ```
 
-Set `REACT_APP_API_URL=http://127.0.0.1:8000/api/v1` in `frontend/.env`, then:
+Set the API URL in `frontend/.env`:
+
+```text
+REACT_APP_API_URL=http://127.0.0.1:8000/api/v1
+```
+
+Start the frontend:
 
 ```bash
 npm start
 ```
 
-## Optional: Celery worker
+## Docker Compose
+
+From the repository root:
+
+```bash
+docker compose up --build
+```
+
+The compose stack includes PostgreSQL, Redis Stack, Django backend, and React frontend.
+
+## Optional Celery worker
+
+Use this when `CELERY_TASK_ALWAYS_EAGER=false`:
 
 ```bash
 cd backend
 celery -A config worker -l info
+```
+
+Optional beat process:
+
+```bash
+cd backend
 celery -A config beat -l info
 ```
 
-Set `CELERY_TASK_ALWAYS_EAGER=false` in `.env` when running workers for real async behavior.
+## Tests
+
+Backend:
+
+```bash
+cd backend
+python manage.py test
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm test -- --watchAll=false
+```
+
+Cypress E2E:
+
+```bash
+cd frontend
+npm run e2e:ci
+```
